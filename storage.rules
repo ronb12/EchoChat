@@ -1,0 +1,40 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Chat files
+    match /chats/{chatId}/files/{fileName} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.participants;
+    }
+    
+    // Voice messages
+    match /chats/{chatId}/voice/{fileName} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.participants;
+    }
+    
+    // User avatars
+    match /users/{userId}/avatar/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Group avatars
+    match /groups/{groupId}/avatar/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        request.auth.uid in firestore.get(/databases/(default)/documents/groups/$(groupId)).data.members;
+    }
+    
+    // Profile pictures
+    match /users/{userId}/profile/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Temporary files (for processing)
+    match /temp/{userId}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
