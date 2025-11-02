@@ -85,3 +85,14 @@ jspm_packages/
 
 # TernJS port file
 .tern-port
+
+# Note: Some files may show as corrupted due to filesystem issues
+# See MISSING_FILES.md for details
+# These are NOT ignored - they need to be fixed and added:
+# - src/components/GroupChatModal.jsx
+# - src/components/MediaGallery.jsx  
+# - src/components/MessageSearch.jsx
+# - src/components/RealtimeDemo.jsx
+# - src/components/VoiceRecorder.jsx
+# - src/services/authService.js
+# - src/services/firebaseConfig.js
