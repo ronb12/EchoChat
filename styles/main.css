@@ -94,6 +94,8 @@
 html {
   font-size: 16px;
   scroll-behavior: smooth;
+  /* iOS Safari viewport fix */
+  height: -webkit-fill-available;
 }
 
 body {
@@ -105,6 +107,14 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* iOS Safari viewport fix */
+  min-height: -webkit-fill-available;
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for modern browsers */
+  /* Prevent iOS Safari bounce scrolling */
+  overscroll-behavior: none;
+  /* Prevent text size adjust on iOS */
+  -webkit-text-size-adjust: 100%;
 }
 
 /* Loading Screen */
@@ -162,7 +172,10 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh; /* iOS Safari dynamic viewport height */
   background-color: var(--background-color);
+  /* Ensure full viewport coverage on iOS */
+  min-height: -webkit-fill-available;
 }
 
 /* Header */
@@ -645,6 +658,8 @@ body {
 .sidebar-footer {
   padding: var(--spacing-lg);
   border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 .new-chat-btn,
@@ -862,12 +877,72 @@ body {
   cursor: pointer;
   padding: var(--spacing-sm);
   border-radius: var(--radius-md);
-  transition: var(--transition-fast);
+  transition: all 0.2s ease;
   font-size: var(--font-size-lg);
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
 }
 
 .action-btn:hover {
   background-color: var(--border-color);
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+.action-btn svg {
+  transition: all 0.2s ease;
+}
+
+/* Call and video icons with colors */
+.action-btn-call svg {
+  color: #4caf50;
+}
+
+.action-btn-video svg {
+  color: #0084ff;
+}
+
+.action-btn-more svg {
+  color: #666;
+}
+
+[data-theme="dark"] .action-btn-more svg {
+  color: #aaa;
+}
+
+/* More menu item styling */
+.more-menu-item {
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-color);
+  transition: background 0.2s ease;
+}
+
+.more-menu-item:hover {
+  background-color: var(--border-color);
+}
+
+.more-menu-item:first-child {
+  border-top: none;
+}
+
+.more-menu-item:not(:first-child) {
+  border-top: 1px solid var(--border-color);
 }
 
 /* Messages Container */
@@ -1615,6 +1690,7 @@ body {
   align-items: center;
   justify-content: center;
   color: #54656f;
+  opacity: 0.85;
 }
 
 [data-theme="dark"] .input-action-btn {
@@ -1623,6 +1699,8 @@ body {
 
 .input-action-btn:hover {
   background-color: rgba(0, 0, 0, 0.05);
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 [data-theme="dark"] .input-action-btn:hover {
@@ -1660,6 +1738,10 @@ body {
   padding: 6px 8px;
   line-height: 20px;
   overflow-y: auto;
+  /* iOS Safari fixes */
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
 }
 
 #message-input::placeholder {
@@ -1679,17 +1761,13 @@ body {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  color: #54656f;
+  color: #0084ff;
   transition: var(--transition-fast);
 }
 
-[data-theme="dark"] .send-btn {
-  color: #8696a0;
-}
-
 .send-btn:hover {
-  color: var(--accent-color);
-  opacity: 0.8;
+  color: #0052cc;
+  opacity: 1;
 }
 
 .send-btn:disabled {
@@ -2166,6 +2244,10 @@ body {
   font-family: inherit;
   font-size: var(--font-size-base);
   transition: var(--transition-fast);
+  /* iOS Safari input fixes */
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: var(--radius-md);
 }
 
 .form-group input:focus,
@@ -2178,29 +2260,407 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  /* Ensure app container fits viewport */
+  html, body {
+    height: 100%;
+    height: 100dvh;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    /* iOS Safari specific fixes */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+  
+  .app-container {
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    /* Prevent iOS Safari address bar issues */
+    min-height: -webkit-fill-available;
+  }
+  
   .app-header {
     padding: var(--spacing-md);
+    position: relative;
+    z-index: calc(var(--z-fixed) + 2);
+    flex-shrink: 0;
   }
   
   .menu-toggle {
     display: flex;
   }
   
+  /* Mobile: Sidebar shows chat list by default (like WhatsApp) */
   .sidebar {
     position: fixed;
     top: 0;
     left: 0;
-    height: 100%;
-    z-index: var(--z-modal);
-    transform: translateX(-100%);
+    width: 100%;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile browsers */
+    max-height: 100vh;
+    max-height: 100dvh;
+    z-index: var(--z-fixed);
+    background: var(--background-color);
+    transform: translateX(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    overflow: hidden; /* Prevent sidebar from scrolling, let nav scroll instead */
+    will-change: transform;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
   }
   
+  /* Hide sidebar when a chat is selected (showing chat view instead) */
+  .sidebar.hidden {
+    transform: translateX(-100%) !important;
+  }
+  
+  /* Ensure sidebar shows when open class is present */
   .sidebar.open {
-    transform: translateX(0);
+    transform: translateX(0) !important;
+  }
+  
+  /* Ensure sidebar is visible when no chat is selected on mobile */
+  .sidebar:not(.hidden) {
+    transform: translateX(0) !important;
+  }
+  
+  /* Sidebar header - compact on mobile */
+  .sidebar .sidebar-header {
+    flex-shrink: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    min-height: 44px;
+    max-height: 44px;
+  }
+  
+  /* Sidebar nav - scrollable on mobile, takes remaining space but respects footer */
+  .sidebar .sidebar-nav {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: calc(100vh - 44px - 60px) !important; /* Viewport - header - footer (with padding) */
+    max-height: calc(100dvh - 44px - 60px) !important; /* Dynamic viewport height */
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    box-sizing: border-box !important;
+  }
+  
+  /* Reduce nav section spacing on mobile */
+  .sidebar .nav-section {
+    margin-bottom: var(--spacing-xs);
+  }
+  
+  .sidebar .nav-section h3 {
+    margin-bottom: var(--spacing-xs);
+    font-size: 0.75rem;
+    padding: 0 var(--spacing-xs);
+  }
+  
+  /* Sidebar footer - ensure button is visible on mobile, positioned at bottom */
+  .sidebar .sidebar-footer {
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    height: 60px !important;
+    min-height: 60px !important;
+    max-height: 60px !important;
+    padding: 8px 16px !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    background: var(--background-color);
+    border-top: 1px solid var(--border-color);
+    z-index: 10;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* New Chat button - compact on mobile */
+  .sidebar .new-chat-btn {
+    margin: 0 !important;
+    padding: 10px 16px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    font-size: 0.8125rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    border-radius: var(--radius-lg) !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: var(--spacing-sm) !important;
+    background: var(--gradient-accent) !important;
+    color: white !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: relative !important;
+    z-index: 100 !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    border: none !important;
+  }
+  
+  /* Show chat area when it has an active chat - full screen */
+  .chat-area.has-chat,
+  .chat-area[data-has-chat="true"] {
+    display: flex !important;
+    flex-direction: column;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    z-index: calc(var(--z-fixed) + 1) !important;
+    background: var(--background-color) !important;
+    transform: translateX(0) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    will-change: transform;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    border: none !important;
+  }
+  
+  /* Ensure chat-interface takes full height on mobile */
+  .chat-area.has-chat .chat-interface,
+  .chat-area[data-has-chat="true"] .chat-interface {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+    flex: 1 !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+  
+  /* Chat header should not grow - compact on mobile, keep horizontal like WhatsApp */
+  .chat-area.has-chat .chat-header,
+  .chat-area[data-has-chat="true"] .chat-header {
+    flex-shrink: 0 !important;
+    position: relative;
+    z-index: 10;
+    min-height: 44px !important;
+    max-height: 52px;
+    padding: 4px 12px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+  
+  /* Ensure chat info stays horizontal */
+  .chat-area.has-chat .chat-header .chat-info,
+  .chat-area[data-has-chat="true"] .chat-header .chat-info {
+    flex-direction: row !important;
+    text-align: left !important;
+    align-items: center !important;
+  }
+  
+  /* Ensure chat actions stay horizontal and right-aligned */
+  .chat-area.has-chat .chat-header .chat-actions,
+  .chat-area[data-has-chat="true"] .chat-header .chat-actions {
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+  }
+  
+  /* Make messages container scrollable and flexible */
+  .chat-area.has-chat .messages-container,
+  .chat-area[data-has-chat="true"] .messages-container {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+    -webkit-overflow-scrolling: touch;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 8px 12px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+  
+  /* Ensure messages-list doesn't overflow */
+  .chat-area.has-chat .messages-list,
+  .chat-area[data-has-chat="true"] .messages-list {
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: var(--spacing-xs);
+    padding-bottom: var(--spacing-sm);
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  /* Empty state should fit within messages container and be scrollable - compact */
+  .chat-area.has-chat .empty-state,
+  .chat-area[data-has-chat="true"] .empty-state {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    padding: 20px 12px 12px 12px !important;
+    box-sizing: border-box !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    position: relative !important;
+    gap: 0 !important;
+  }
+  
+  /* Reduce empty state icon size on mobile */
+  .chat-area.has-chat .empty-state-icon,
+  .chat-area[data-has-chat="true"] .empty-state-icon {
+    font-size: 56px !important;
+    margin-bottom: 16px !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+  }
+  
+  .chat-area.has-chat .empty-state h3,
+  .chat-area[data-has-chat="true"] .empty-state h3 {
+    font-size: 17px !important;
+    margin-bottom: 12px !important;
+    margin-top: 0 !important;
+    padding: 0 !important;
+    font-weight: 600;
+    line-height: 1.4 !important;
+  }
+  
+  .chat-area.has-chat .empty-state p,
+  .chat-area[data-has-chat="true"] .empty-state p {
+    font-size: 14px !important;
+    margin-bottom: 24px !important;
+    margin-top: 0 !important;
+    padding: 0 8px !important;
+    line-height: 1.5 !important;
+  }
+  
+  /* Position button higher up to fit in viewport */
+  .chat-area.has-chat .empty-state button,
+  .chat-area[data-has-chat="true"] .empty-state button {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 12px 24px !important;
+    font-size: 15px !important;
+    min-height: 44px;
+  }
+  
+  /* Hide chat area when no chat is selected (show sidebar instead) */
+  .chat-area[data-has-chat="false"] {
+    display: none !important;
+  }
+  
+  /* Also hide if it doesn't have the has-chat class and no data-has-chat attribute */
+  .chat-area:not(.has-chat):not([data-has-chat]) {
+    display: none !important;
+  }
+  
+  /* Ensure main-content doesn't interfere on mobile */
+  .main-content {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  /* Sidebar backdrop overlay on mobile - only show when manually toggled open */
+  .sidebar-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: calc(var(--z-fixed) - 1);
+    animation: fadeIn 0.2s ease-in;
+    display: block;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   
   .chat-header {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    position: relative;
+    top: 0;
+    flex-shrink: 0;
+    background: var(--background-color);
+    z-index: 10;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    min-height: 56px;
+  }
+  
+  /* Ensure chat header doesn't grow on mobile */
+  .chat-area.has-chat .chat-header,
+  .chat-area[data-has-chat="true"] .chat-header {
+    flex-shrink: 0;
+    flex-grow: 0;
+  }
+  
+  /* Mobile back button */
+  .back-button.mobile-only {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 8px 12px;
+    margin-right: 8px;
+    cursor: pointer;
+    font-size: 24px;
+    min-width: 44px;
+    min-height: 44px;
+    color: var(--text-color);
+    transition: opacity 0.2s;
+  }
+  
+  .back-button.mobile-only:hover {
+    opacity: 0.7;
+  }
+  
+  /* Hide header logo text on mobile to save space */
+  .app-header .app-logo .app-title h1 {
+    display: none;
+  }
+  
+  .app-header .connection-status {
+    display: none;
+  }
+  
+  /* Compact header on mobile */
+  .app-header {
+    padding: var(--spacing-sm) var(--spacing-md);
+    min-height: 56px;
   }
   
   .chat-actions {
@@ -2210,14 +2670,86 @@ body {
   .action-btn {
     padding: var(--spacing-xs);
     font-size: var(--font-size-base);
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .action-btn svg {
+    width: 22px;
+    height: 22px;
+    opacity: 0.9;
+  }
+  
+  .action-btn:hover svg,
+  .action-btn:active svg {
+    opacity: 1;
+  }
+  
+  /* Call and video icons with colors on mobile */
+  .action-btn-call svg {
+    color: #4caf50;
+  }
+  
+  .action-btn-video svg {
+    color: #0084ff;
+  }
+  
+  /* Mobile chat area - full screen when active */
+  .chat-area {
+    width: 100% !important;
+    flex: 1;
+  }
+  
+  /* Messages container padding */
+  .messages-container {
+    padding: var(--spacing-sm);
+  }
+  
+  /* Mobile input sticky at bottom */
+  .chat-area.has-chat .message-input-container,
+  .chat-area[data-has-chat="true"] .message-input-container {
+    position: relative;
+    bottom: auto;
+    flex-shrink: 0;
+    flex-grow: 0;
+    background: var(--background-color);
+    border-top: 1px solid var(--border-color);
+    z-index: 10;
+    padding: 8px 12px !important;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+  }
+  
+  /* Also apply to regular message-input-container for fallback */
+  .message-input-container {
+    position: sticky;
+    bottom: 0;
+    background: var(--background-color);
+    border-top: 1px solid var(--border-color);
+    z-index: 5;
+    padding: 8px 12px !important;
+    flex-shrink: 0;
+  }
+  
+  /* Make message input larger on mobile */
+  .chat-area.has-chat #message-input,
+  .chat-area[data-has-chat="true"] #message-input {
+    min-height: 36px !important;
+    padding: 8px 12px !important;
+    font-size: 16px !important;
+    line-height: 1.4 !important;
+  }
+  
+  .chat-area.has-chat .message-input-wrapper,
+  .chat-area[data-has-chat="true"] .message-input-wrapper {
+    min-height: 44px !important;
+    padding: 6px 10px !important;
   }
   
   .message {
     max-width: 85%;
-  }
-  
-  .message-input-container {
-    padding: var(--spacing-md);
   }
   
   .welcome-actions {
@@ -2331,18 +2863,22 @@ body {
     font-size: var(--font-size-lg);
   }
   
+  /* Keep chat header horizontal like WhatsApp/Telegram */
   .chat-header {
-    flex-direction: column;
-    gap: var(--spacing-sm);
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
   }
   
   .chat-info {
-    flex-direction: column;
-    text-align: center;
+    flex-direction: row !important;
+    text-align: left !important;
+    align-items: center !important;
   }
   
   .chat-actions {
-    justify-content: center;
+    flex-direction: row !important;
+    justify-content: flex-end !important;
   }
   
   .message {
@@ -3425,18 +3961,27 @@ body {
 .empty-state-icon {
   font-size: 64px;
   margin-bottom: 1rem;
+  margin-top: 0;
+  padding: 0;
+  line-height: 1;
   opacity: 0.5;
 }
 
 .empty-state h3 {
   font-size: 1.25rem;
   margin-bottom: 0.5rem;
+  margin-top: 0;
+  padding: 0;
+  line-height: 1.4;
   color: var(--text-color);
 }
 
 .empty-state p {
   font-size: 0.9rem;
   margin-bottom: 1.5rem;
+  margin-top: 0;
+  padding: 0;
+  line-height: 1.5;
   color: var(--text-secondary);
 }
 
@@ -3500,7 +4045,7 @@ body {
 
 .emoji-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   gap: 4px;
   max-height: 200px;
   overflow-y: auto;

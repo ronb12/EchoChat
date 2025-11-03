@@ -8,10 +8,11 @@ class ChatService {
     this.userIdToPresence = new Map();
     this.userIdToChats = new Map();
     this.notificationListeners = new Set();
-    
+    this.scheduledMessages = new Map();
+
     // Load messages from localStorage on init
     this.loadMessagesFromStorage();
-    
+
     // Listen for storage changes (for cross-tab communication)
     window.addEventListener('storage', (e) => {
       if (e.key === 'echochat_messages') {
@@ -19,6 +20,9 @@ class ChatService {
         this.notifyAllSubscribers();
       }
     });
+
+    // Start scheduled messages checker
+    this.startScheduledMessageChecker();
   }
 
   loadMessagesFromStorage() {
@@ -37,7 +41,7 @@ class ChatService {
     try {
       const data = Object.fromEntries(this.chatIdToMessages);
       localStorage.setItem('echochat_messages', JSON.stringify(data));
-      
+
       // Trigger storage event for other tabs
       window.dispatchEvent(new StorageEvent('storage', {
         key: 'echochat_messages',
@@ -73,40 +77,66 @@ class ChatService {
     return unsubscribe;
   }
 
-  // Send a message
+  // Send a message with validation
   async sendMessage(chatId, message) {
+    // Input validation
+    if (!chatId || !message || !message.senderId) {
+      throw new Error('Invalid message data');
+    }
+
+    // Validate message length
+    const maxLength = 4000;
+    if (message.text && message.text.length > maxLength) {
+      throw new Error(`Message too long. Maximum ${maxLength} characters.`);
+    }
+
+    // Validate file size (10MB limit)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    if (message.fileSize && message.fileSize > maxFileSize) {
+      throw new Error(`File too large. Maximum ${(maxFileSize / 1024 / 1024).toFixed(0)}MB.`);
+    }
+
+    // Rate limiting check (basic)
+    const lastMessageTime = this.lastMessageTimes?.get(message.senderId) || 0;
+    const rateLimitMs = 100; // 100ms between messages
+    if (Date.now() - lastMessageTime < rateLimitMs) {
+      throw new Error('Please wait before sending another message');
+    }
+    this.lastMessageTimes = this.lastMessageTimes || new Map();
+    this.lastMessageTimes.set(message.senderId, Date.now());
+
     const messages = this.chatIdToMessages.get(chatId) || [];
     const newMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      text: message.text,
+      text: message.text || '',
       senderId: message.senderId,
       senderName: message.senderName,
       timestamp: Date.now(),
-      deliveredAt: Date.now(), // Message delivered immediately
-      readAt: null, // Will be set when read
-      reactions: {}, // { emoji: [userId1, userId2, ...] }
+      deliveredAt: Date.now(),
+      readAt: null,
+      reactions: {},
       edited: false,
       editedAt: null,
       deleted: false,
       deletedAt: null,
       deletedForEveryone: false,
-      ...message // Allow additional fields like image, file, etc.
+      ...message
     };
-    
+
     messages.push(newMessage);
     this.chatIdToMessages.set(chatId, messages);
-    
+
     // Save to localStorage for persistence across tabs
     this.saveMessagesToStorage();
-    
+
     // Notify all subscribers
     this.notifyMessageSubscribers(chatId);
-    
+
     return newMessage;
   }
 
   // Mark message as read
-  markMessageAsRead(chatId, messageId, userId) {
+  markMessageAsRead(chatId, messageId) {
     const messages = this.chatIdToMessages.get(chatId) || [];
     const message = messages.find(m => m.id === messageId);
     if (message && !message.readAt) {
@@ -121,8 +151,8 @@ class ChatService {
     const messages = this.chatIdToMessages.get(chatId) || [];
     const message = messages.find(m => m.id === messageId);
     if (message) {
-      if (!message.reactions) message.reactions = {};
-      if (!message.reactions[emoji]) message.reactions[emoji] = [];
+      if (!message.reactions) {message.reactions = {};}
+      if (!message.reactions[emoji]) {message.reactions[emoji] = [];}
       if (!message.reactions[emoji].includes(userId)) {
         message.reactions[emoji].push(userId);
       }
@@ -172,6 +202,7 @@ class ChatService {
         message.text = 'This message was deleted';
         message.image = null;
         message.file = null;
+        message.audio = null;
       } else {
         // Delete for self only - mark as deleted
         message.deleted = true;
@@ -182,6 +213,60 @@ class ChatService {
       return message;
     }
     return null;
+  }
+
+  // Set disappearing message timer
+  setDisappearingTimer(chatId, messageId, seconds) {
+    const messages = this.chatIdToMessages.get(chatId) || [];
+    const message = messages.find(m => m.id === messageId);
+    if (message) {
+      message.disappearing = true;
+      message.disappearsAt = Date.now() + (seconds * 1000);
+
+      // Set timer to auto-delete
+      setTimeout(() => {
+        const currentMessages = this.chatIdToMessages.get(chatId) || [];
+        const msg = currentMessages.find(m => m.id === messageId);
+        if (msg) {
+          msg.deleted = true;
+          msg.deletedForEveryone = true;
+          msg.deletedAt = Date.now();
+          msg.text = 'This message disappeared';
+          this.saveMessagesToStorage();
+          this.notifyMessageSubscribers(chatId);
+        }
+      }, seconds * 1000);
+
+      this.saveMessagesToStorage();
+      this.notifyMessageSubscribers(chatId);
+      return message;
+    }
+    return null;
+  }
+
+  // Check and delete expired disappearing messages
+  checkDisappearingMessages(chatId) {
+    const messages = this.chatIdToMessages.get(chatId) || [];
+    const now = Date.now();
+    let updated = false;
+
+    messages.forEach(message => {
+      if (message.disappearing && message.disappearsAt && now >= message.disappearsAt) {
+        message.deleted = true;
+        message.deletedForEveryone = true;
+        message.deletedAt = now;
+        message.text = 'This message disappeared';
+        message.image = null;
+        message.file = null;
+        message.audio = null;
+        updated = true;
+      }
+    });
+
+    if (updated) {
+      this.saveMessagesToStorage();
+      this.notifyMessageSubscribers(chatId);
+    }
   }
 
   // Internal method to notify subscribers
@@ -207,6 +292,16 @@ class ChatService {
       current.delete(userId);
       this.chatIdToTypingUsers.set(key, current);
     }
+  }
+
+  // Scheduled messages checker (runs every minute)
+  startScheduledMessageChecker() {
+    if (this.scheduledMessageInterval) {
+      return;
+    }
+    this.scheduledMessageInterval = setInterval(() => {
+      this.checkScheduledMessages();
+    }, 60000);
   }
 
   subscribeToTypingIndicators(chatId, callback) {
@@ -242,7 +337,7 @@ class ChatService {
     if (!this.userIdToChats.has(userId)) {
       // Provide a default sample chat for demo
       this.userIdToChats.set(userId, [
-        { id: 'demo', name: 'Demo Chat', lastMessageAt: Date.now() }
+        { id: 'demo', name: 'Demo Chat', lastMessageAt: Date.now(), type: 'direct' }
       ]);
     }
     callback(this.userIdToChats.get(userId));
@@ -250,6 +345,133 @@ class ChatService {
       // no-op for stub
     };
     return unsubscribe;
+  }
+
+  // Create new chat
+  async createChat(participants, chatName = null, isGroup = false) {
+    const chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const chat = {
+      id: chatId,
+      name: chatName || (isGroup ? 'Group Chat' : 'Direct Chat'),
+      participants,
+      type: isGroup ? 'group' : 'direct',
+      createdAt: Date.now(),
+      lastMessageAt: Date.now()
+    };
+
+    // Add chat to each participant's chat list
+    participants.forEach(userId => {
+      if (!this.userIdToChats.has(userId)) {
+        this.userIdToChats.set(userId, []);
+      }
+      const userChats = this.userIdToChats.get(userId);
+      if (!userChats.find(c => c.id === chatId)) {
+        userChats.push(chat);
+      }
+    });
+
+    return chat;
+  }
+
+  // Forward message to another chat
+  async forwardMessage(messageId, fromChatId, toChatId) {
+    const messages = this.chatIdToMessages.get(fromChatId) || [];
+    const message = messages.find(m => m.id === messageId);
+
+    if (message) {
+      const forwardedMessage = {
+        ...message,
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        forwarded: true,
+        forwardedAt: Date.now(),
+        forwardedBy: userId,
+        originalChatId: fromChatId,
+        timestamp: Date.now(),
+        senderId: userId
+      };
+
+      await this.sendMessage(toChatId, forwardedMessage);
+      return forwardedMessage;
+    }
+    return null;
+  }
+
+  // Pin message
+  async pinMessage(chatId, messageId, userId) {
+    const messages = this.chatIdToMessages.get(chatId) || [];
+    const message = messages.find(m => m.id === messageId);
+
+    if (message) {
+      message.pinned = true;
+      message.pinnedAt = Date.now();
+      message.pinnedBy = userId;
+      this.saveMessagesToStorage();
+      this.notifyMessageSubscribers(chatId);
+      return message;
+    }
+    return null;
+  }
+
+  // Unpin message
+  async unpinMessage(chatId, messageId) {
+    const messages = this.chatIdToMessages.get(chatId) || [];
+    const message = messages.find(m => m.id === messageId);
+
+    if (message) {
+      message.pinned = false;
+      message.pinnedAt = null;
+      message.pinnedBy = null;
+      this.saveMessagesToStorage();
+      this.notifyMessageSubscribers(chatId);
+      return message;
+    }
+    return null;
+  }
+
+  // Schedule message
+  async scheduleMessage(chatId, message, scheduleTime, userId) {
+    const scheduledMessage = {
+      ...message,
+      scheduled: true,
+      scheduleTime,
+      createdAt: Date.now()
+    };
+
+    // Store in scheduled messages
+    if (!this.scheduledMessages) {
+      this.scheduledMessages = new Map();
+    }
+    const scheduled = this.scheduledMessages.get(chatId) || [];
+    scheduled.push(scheduledMessage);
+    this.scheduledMessages.set(chatId, scheduled);
+
+    // Check and send scheduled messages periodically
+    this.checkScheduledMessages();
+
+    return scheduledMessage;
+  }
+
+  // Check and send scheduled messages
+  checkScheduledMessages() {
+    if (!this.scheduledMessages) {return;}
+
+    const now = Date.now();
+    this.scheduledMessages.forEach((messages, chatId) => {
+      const toSend = messages.filter(msg => msg.scheduleTime <= now);
+
+      toSend.forEach(async (msg) => {
+        await this.sendMessage(chatId, {
+          ...msg,
+          scheduled: false,
+          scheduleTime: null,
+          timestamp: now
+        });
+      });
+
+      // Remove sent messages
+      const remaining = messages.filter(msg => msg.scheduleTime > now);
+      this.scheduledMessages.set(chatId, remaining);
+    });
   }
 
   // Notifications

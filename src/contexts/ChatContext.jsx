@@ -7,6 +7,7 @@ export function ChatProvider({ children }) {
   const [typingUsers, setTypingUsers] = useState({});
   const [presenceStatus, setPresenceStatus] = useState({});
   const [chats, setChats] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
 
   const value = {
     messages,
@@ -16,7 +17,9 @@ export function ChatProvider({ children }) {
     presenceStatus,
     setPresenceStatus,
     chats,
-    setChats
+    setChats,
+    currentChatId,
+    setCurrentChatId
   };
 
   return (

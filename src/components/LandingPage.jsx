@@ -21,7 +21,7 @@ export default function LandingPage() {
               <h1 className="app-title">EchoChat</h1>
               <p className="app-tagline">Secure, fast, and feature-rich messaging app</p>
             </div>
-            
+
             <div className="hero-features">
               <div className="feature-item">
                 <div className="feature-icon">🔒</div>

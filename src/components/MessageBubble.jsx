@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useChat } from '../hooks/useChat';
+import { useUI } from '../hooks/useUI';
 import { chatService } from '../services/chatService';
+import { validationService } from '../services/validationService';
 
 const COMMON_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 export default function MessageBubble({ message, isOwn = false, chatId = 'demo' }) {
   const { user } = useAuth();
+  const { openBlockUserModal } = useUI();
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -40,27 +42,27 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
     if (!isOwn && message && !message.readAt && user) {
       // Simulate read after 1 second of viewing
       setTimeout(() => {
-        chatService.markMessageAsRead(chatId, message.id, user.uid);
+        chatService.markMessageAsRead(chatId, message.id);
       }, 1000);
     }
   }, [message, isOwn, chatId, user]);
 
-  if (!message) return null;
+  if (!message) {return null;}
 
   // Format timestamp
   const formatTimestamp = (timestamp) => {
-    if (!timestamp) return '';
+    if (!timestamp) {return '';}
     const date = new Date(timestamp);
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
+
     if (messageDate.getTime() === today.getTime()) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } else if (messageDate.getTime() === today.getTime() - 86400000) {
       return `Yesterday ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + 
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
              ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
   };
@@ -81,7 +83,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
   };
 
   const handleReaction = (emoji) => {
-    if (!user) return;
+    if (!user) {return;}
     const hasReaction = message.reactions?.[emoji]?.includes(user.uid);
     if (hasReaction) {
       chatService.removeReaction(chatId, message.id, emoji, user.uid);
@@ -120,16 +122,31 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
     setShowContextMenu(false);
   };
 
+  const handleForward = () => {
+    // In production, open a modal to select chat to forward to
+    // TODO: Implement forward modal
+    setShowContextMenu(false);
+  };
+
+  const handlePin = () => {
+    if (message.pinned) {
+      chatService.unpinMessage(chatId, message.id);
+    } else {
+      chatService.pinMessage(chatId, message.id, user?.uid);
+    }
+    setShowContextMenu(false);
+  };
+
   // Read receipt status
   const getReadStatus = () => {
-    if (!isOwn) return null;
-    if (message.readAt) return '✓✓'; // Read (double check)
-    if (message.deliveredAt) return '✓'; // Delivered (single check)
+    if (!isOwn) {return null;}
+    if (message.readAt) {return '✓✓';} // Read (double check)
+    if (message.deliveredAt) {return '✓';} // Delivered (single check)
     return '';
   };
 
   return (
-    <div 
+    <div
       className={messageClass}
       onContextMenu={handleContextMenu}
       onDoubleClick={() => !isOwn && setShowReactions(true)}
@@ -150,9 +167,28 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
           <button onClick={handleCopy} className="context-menu-item">
             📋 Copy
           </button>
+          <button onClick={() => handleForward()} className="context-menu-item">
+            ➡️ Forward
+          </button>
+          <button onClick={() => handlePin()} className="context-menu-item">
+            📌 {message.pinned ? 'Unpin' : 'Pin'}
+          </button>
+          {isOwn && (
+            <button onClick={handleDisappearing} className="context-menu-item">
+              ⏱️ Disappear (5s)
+            </button>
+          )}
           <button onClick={() => setShowReactions(true)} className="context-menu-item">
             😀 React
           </button>
+          {!isOwn && (
+            <button onClick={() => {
+              openBlockUserModal(message.senderId, message.senderName);
+              setShowContextMenu(false);
+            }} className="context-menu-item">
+              🚫 Block/Report
+            </button>
+          )}
         </div>
       )}
 
@@ -186,6 +222,16 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
         </div>
       )}
 
+      {message.pinned && (
+        <div className="message-pinned-indicator">
+          📌 Pinned
+        </div>
+      )}
+      {message.forwarded && (
+        <div className="message-forwarded-indicator">
+          ➡️ Forwarded
+        </div>
+      )}
       <div className="message-content">
         {message.deleted ? (
           <div className="message-text deleted-text">
@@ -199,8 +245,8 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveEdit();
-                if (e.key === 'Escape') handleCancelEdit();
+                if (e.key === 'Enter') {handleSaveEdit();}
+                if (e.key === 'Escape') {handleCancelEdit();}
               }}
               onBlur={handleSaveEdit}
             />

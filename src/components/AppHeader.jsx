@@ -1,15 +1,22 @@
 import React from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
+import { useChat } from '../hooks/useChat';
 
 export default function AppHeader() {
-  const { toggleSidebar, openSettingsModal } = useUI();
+  const { toggleSidebar, openSettingsModal, openCallModal, isSidebarOpen } = useUI();
   const { user } = useAuth();
+  const { currentChatId } = useChat();
 
   return (
     <header className="app-header">
       <div className="header-left">
-        <button className="menu-toggle" onClick={toggleSidebar}>
+        <button 
+          className="menu-toggle" 
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
+          data-testid="menu-toggle"
+        >
           <span></span>
           <span></span>
           <span></span>
@@ -35,9 +42,9 @@ export default function AppHeader() {
         </button>
         {user && (
           <div className="user-avatar" onClick={openSettingsModal}>
-            <img 
-              src={user.photoURL || `/icons/default-avatar.png`} 
-              alt={user.displayName || 'User'} 
+            <img
+              src={user.photoURL || `/icons/default-avatar.png`}
+              alt={user.displayName || 'User'}
               onError={(e) => { e.target.src = '/icons/default-avatar.png'; }}
             />
           </div>

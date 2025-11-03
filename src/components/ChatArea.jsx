@@ -4,27 +4,51 @@ import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { useRealtimeMessages, useTypingIndicator } from '../hooks/useRealtime';
 import { chatService } from '../services/chatService';
+import { validationService } from '../services/validationService';
+import { firestoreService } from '../services/firestoreService';
 import MessageBubble from './MessageBubble';
+import VoiceRecorder from './VoiceRecorder';
+import MessageSearch from './MessageSearch';
+import GifPicker from './GifPicker';
+import { EMOJI_LIST } from '../data/emojis';
 
 export default function ChatArea() {
-  const { messages, setMessages } = useChat();
+  const { messages, currentChatId, setCurrentChatId } = useChat();
   const { user } = useAuth();
-  const { openNewChatModal } = useUI();
+  const { openNewChatModal, openCallModal, toggleSidebar, openSettingsModal } = useUI();
   const [messageText, setMessageText] = useState('');
-  const [currentChatId, setCurrentChatId] = useState('demo'); // Default chat ID
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
+  const moreMenuRef = useRef(null);
   const { typingUsers, startTyping, stopTyping } = useTypingIndicator(currentChatId);
   
-  // Close emoji picker when clicking outside
+  // Track mobile state
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close emoji picker and more menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
         setShowEmojiPicker(false);
+      }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
+        setShowMoreMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -47,33 +71,30 @@ export default function ChatArea() {
         e.preventDefault();
         openNewChatModal();
       }
-      // Cmd/Ctrl + F to focus search (if search exists)
+      // Cmd/Ctrl + F to toggle search
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-        const searchInput = document.querySelector('.search-input');
-        if (searchInput) {
-          e.preventDefault();
-          searchInput.focus();
-        }
+        e.preventDefault();
+        setShowSearch((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [openNewChatModal]);
+  }, [openNewChatModal, setShowSearch]);
 
   // Handle file selection
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
     setSelectedFiles(files);
-    
+
     // Create previews for images
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
     const newPreviews = [];
-    
+
     if (imageFiles.length === 0) {
       setPreviewImages([]);
       return;
     }
-    
+
     let loadedCount = 0;
     imageFiles.forEach(file => {
       const reader = new FileReader();
@@ -102,48 +123,120 @@ export default function ChatArea() {
     setShowEmojiPicker(false);
   };
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if ((!messageText.trim() && selectedFiles.length === 0) || !user) return;
+  const handleVoiceRecordingComplete = async (audioBlob) => {
+    if (!user) {return;}
 
     try {
-      // Send images first
-      for (const preview of previewImages) {
+      // Convert blob to base64 for storage (in production, upload to Firebase Storage)
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Audio = reader.result;
         await chatService.sendMessage(currentChatId, {
           text: '',
-          image: preview.url,
-          imageName: preview.file.name,
+          audio: base64Audio,
+          audioName: `voice_${Date.now()}.webm`,
           senderId: user.uid,
           senderName: user.displayName || user.email || 'User'
         });
+      };
+      reader.readAsDataURL(audioBlob);
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+    }
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if ((!messageText.trim() && selectedFiles.length === 0) || !user) {
+      return;
+    }
+
+    try {
+      // Validate message text
+      if (messageText.trim()) {
+        const textValidation = validationService.validateMessage(messageText.trim());
+        if (!textValidation.valid) {
+          alert(textValidation.error);
+          return;
+        }
+      }
+
+      // Validate files
+      for (const file of selectedFiles) {
+        const fileValidation = validationService.validateFile(file);
+        if (!fileValidation.valid) {
+          alert(fileValidation.error);
+          return;
+        }
+      }
+
+      // Send images first
+      for (const preview of previewImages) {
+        const fileValidation = validationService.validateFile(preview.file);
+        if (!fileValidation.valid) {
+          alert(`Invalid image: ${fileValidation.error}`);
+          continue;
+        }
+
+        try {
+          await chatService.sendMessage(currentChatId, {
+            text: '',
+            image: preview.url,
+            imageName: preview.file.name,
+            fileSize: preview.file.size,
+            fileType: preview.file.type,
+            senderId: user.uid,
+            senderName: user.displayName || user.email || 'User'
+          });
+        } catch (error) {
+          alert(`Error sending image: ${error.message || 'Unknown error'}`);
+        }
       }
 
       // Send files
       for (const file of selectedFiles) {
         if (!file.type.startsWith('image/')) {
-          const fileData = {
-            name: file.name,
-            size: file.size,
-            type: file.type
-          };
-          await chatService.sendMessage(currentChatId, {
-            text: '',
-            file: fileData,
-            senderId: user.uid,
-            senderName: user.displayName || user.email || 'User'
-          });
+          const fileValidation = validationService.validateFile(file);
+          if (!fileValidation.valid) {
+            alert(`Invalid file: ${fileValidation.error}`);
+            continue;
+          }
+
+          try {
+            const fileData = {
+              name: file.name,
+              size: file.size,
+              type: file.type
+            };
+            await chatService.sendMessage(currentChatId, {
+              text: '',
+              file: fileData,
+              fileSize: file.size,
+              fileType: file.type,
+              fileName: file.name,
+              senderId: user.uid,
+              senderName: user.displayName || user.email || 'User'
+            });
+          } catch (error) {
+            alert(`Error sending file: ${error.message || 'Unknown error'}`);
+          }
         }
       }
 
       // Send text message
       if (messageText.trim()) {
-        await chatService.sendMessage(currentChatId, {
-          text: messageText.trim(),
-          senderId: user.uid,
-          senderName: user.displayName || user.email || 'User'
-        });
+        try {
+          await chatService.sendMessage(currentChatId, {
+            text: validationService.sanitizeInput(messageText.trim()),
+            senderId: user.uid,
+            senderName: user.displayName || user.email || 'User'
+          });
+        } catch (error) {
+          alert(`Error sending message: ${error.message || 'Unknown error'}`);
+          return;
+        }
       }
-      
+
       setMessageText('');
       setSelectedFiles([]);
       setPreviewImages([]);
@@ -153,6 +246,7 @@ export default function ChatArea() {
       stopTyping();
     } catch (error) {
       console.error('Error sending message:', error);
+      alert('An error occurred while sending your message. Please try again.');
     }
   };
 
@@ -175,7 +269,10 @@ export default function ChatArea() {
   // Show welcome screen if no messages and no current chat
   if (messages.length === 0 && !currentChatId) {
     return (
-      <div className="chat-area">
+      <div 
+        className="chat-area"
+        data-has-chat="false"
+      >
         <div className="welcome-screen">
           <div className="welcome-content">
             <div className="welcome-icon">💬</div>
@@ -193,18 +290,35 @@ export default function ChatArea() {
   }
 
   return (
-    <div className="chat-area">
+    <div 
+      className={`chat-area ${currentChatId ? 'has-chat' : ''}`}
+      data-has-chat={currentChatId ? 'true' : 'false'}
+    >
       <div className="chat-interface">
         {/* Chat Header */}
         <div className="chat-header">
           <div className="chat-info">
+            {/* Back button on mobile - shows sidebar and clears chat selection */}
+            {isMobile && (
+              <button 
+                className="back-button mobile-only"
+                onClick={() => {
+                  setCurrentChatId(null);
+                  toggleSidebar();
+                }}
+                data-testid="back-button"
+                aria-label="Back to chats"
+              >
+                ←
+              </button>
+            )}
             <div className="chat-avatar">
               <img src="/icons/default-avatar.png" alt="Chat" />
             </div>
             <div className="chat-details">
               <h3>Demo Chat</h3>
               <div className="chat-status">
-                {Object.keys(typingUsers).length > 0 
+                {Object.keys(typingUsers).length > 0
                   ? `${Object.values(typingUsers)[0]?.displayName || 'Someone'} is typing...`
                   : 'Online'
                 }
@@ -212,11 +326,146 @@ export default function ChatArea() {
             </div>
           </div>
           <div className="chat-actions">
-            <button className="action-btn" title="Attach file">📎</button>
-            <button className="action-btn" title="Voice call">📞</button>
-            <button className="action-btn" title="More options">⋯</button>
+            <button
+              className="action-btn"
+              title="Search messages"
+              onClick={() => setShowSearch((prev) => !prev)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35"/>
+              </svg>
+            </button>
+            <button
+              className="action-btn action-btn-call"
+              title="Voice call"
+              onClick={() => openCallModal('audio')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </button>
+            <button
+              className="action-btn action-btn-video"
+              title="Video call"
+              onClick={() => openCallModal('video')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 11l-7-5v10l7-5z"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+            </button>
+            <button 
+              className="action-btn action-btn-more" 
+              title="More options"
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              ref={moreMenuRef}
+              style={{ position: 'relative' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="1"/>
+                <circle cx="19" cy="12" r="1"/>
+                <circle cx="5" cy="12" r="1"/>
+              </svg>
+              {showMoreMenu && (
+                <div className="more-menu" style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  right: 0,
+                  marginBottom: '8px',
+                  background: 'var(--surface-color)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  minWidth: '160px',
+                  zIndex: 1000,
+                  overflow: 'hidden'
+                }}>
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      openSettingsModal();
+                      setShowMoreMenu(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      background: 'none',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      color: 'var(--text-color)',
+                      transition: 'background 0.2s'
+                    }}
+                  >
+                    <span>⚙️</span>
+                    <span>Settings</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      setShowSearch(true);
+                      setShowMoreMenu(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      background: 'none',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      color: 'var(--text-color)',
+                      transition: 'background 0.2s',
+                      borderTop: '1px solid var(--border-color)'
+                    }}
+                  >
+                    <span>🔍</span>
+                    <span>Search Messages</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      if (currentChatId) {
+                        if (window.confirm('Are you sure you want to leave this chat?')) {
+                          setCurrentChatId(null);
+                        }
+                      }
+                      setShowMoreMenu(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      background: 'none',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      color: '#f44336',
+                      transition: 'background 0.2s',
+                      borderTop: '1px solid var(--border-color)'
+                    }}
+                  >
+                    <span>🚪</span>
+                    <span>Leave Chat</span>
+                  </button>
+                </div>
+              )}
+            </button>
           </div>
         </div>
+
+        {/* Message Search */}
+        {showSearch && (
+          <MessageSearch />
+        )}
 
         {/* Messages Container */}
         <div className="messages-container">
@@ -233,8 +482,8 @@ export default function ChatArea() {
             ) : (
               <>
                 {messages.map((message, idx) => (
-                  <MessageBubble 
-                    key={message.id || idx} 
+                  <MessageBubble
+                    key={message.id || idx}
                     message={message}
                     isOwn={message.senderId === user?.uid}
                     chatId={currentChatId}
@@ -252,8 +501,8 @@ export default function ChatArea() {
             {previewImages.map((preview, idx) => (
               <div key={idx} className="image-preview">
                 <img src={preview.url} alt={preview.file.name} />
-                <button 
-                  className="remove-preview" 
+                <button
+                  className="remove-preview"
                   onClick={() => removePreview(idx)}
                   title="Remove"
                 >
@@ -276,22 +525,45 @@ export default function ChatArea() {
               accept="image/*,application/pdf,.doc,.docx,.txt"
               onChange={handleFileSelect}
             />
-            <button 
-              className="input-action-btn" 
+            <button
+              className="input-action-btn"
               title="Attach file"
               onClick={() => fileInputRef.current?.click()}
             >
               📎
             </button>
-            <button 
-              className="input-action-btn emoji-btn" 
+            <button
+              className="input-action-btn emoji-btn"
               title="Add emoji"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              onClick={() => {
+                setShowEmojiPicker(!showEmojiPicker);
+                setShowGifPicker(false);
+              }}
             >
               😀
             </button>
+            <VoiceRecorder onRecordingComplete={handleVoiceRecordingComplete} />
+            {showGifPicker && (
+              <GifPicker
+                onSelectGif={async (gifUrl) => {
+                  try {
+                    await chatService.sendMessage(currentChatId, {
+                      text: '',
+                      image: gifUrl,
+                      imageName: 'gif.gif',
+                      senderId: user.uid,
+                      senderName: user.displayName || user.email || 'User'
+                    });
+                    setShowGifPicker(false);
+                  } catch (error) {
+                    alert('Error sending GIF: ' + (error.message || 'Unknown error'));
+                  }
+                }}
+                onClose={() => setShowGifPicker(false)}
+              />
+            )}
           </div>
-          
+
           {/* Emoji Picker */}
           {showEmojiPicker && (
             <div className="emoji-picker" ref={emojiPickerRef}>
@@ -299,9 +571,7 @@ export default function ChatArea() {
                 <span>Pick an emoji</span>
               </div>
               <div className="emoji-grid">
-                {['😀', '😂', '🥰', '😍', '🤔', '😎', '🥳', '😊', '😢', '🤗', '😴', '🤮', 
-                  '👍', '👎', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '💔', '💯',
-                  '🔥', '⭐', '🎉', '🎊', '🎁', '🏆', '👏', '🙌', '🤝', '💪', '🙏', '🤞'].map(emoji => (
+                {EMOJI_LIST.map(emoji => (
                   <button
                     key={emoji}
                     className="emoji-item"
@@ -314,16 +584,16 @@ export default function ChatArea() {
             </div>
           )}
           <form onSubmit={handleSendMessage} className="message-input-wrapper" style={{ flex: 1 }}>
-            <input 
+            <input
               id="message-input"
-              type="text" 
+              type="text"
               placeholder="Type a message..."
               value={messageText}
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
             />
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="send-btn"
               disabled={!messageText.trim() && selectedFiles.length === 0}
               title="Send message"
@@ -339,4 +609,3 @@ export default function ChatArea() {
     </div>
   );
 }
-

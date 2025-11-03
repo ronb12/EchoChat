@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ChatProvider } from './contexts/ChatContext';
 import { UIProvider } from './contexts/UIContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './components/LandingPage';
 import LoginModal from './components/LoginModal';
@@ -10,15 +11,29 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import SettingsModal from './components/SettingsModal';
 import NewChatModal from './components/NewChatModal';
+import CallModal from './components/CallModal';
+import BlockUserModal from './components/BlockUserModal';
+import StatusModal from './components/StatusModal';
 import NotificationToast from './components/NotificationToast';
 import { useAuth } from './hooks/useAuth';
 import { useUI } from './hooks/useUI';
+import { useChat } from './hooks/useChat';
 import { usePresenceStatus, useNotifications } from './hooks/useRealtime';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const { showLoginModal, showSettingsModal, showNewChatModal } = useUI();
+  const { showLoginModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, callModalType, blockUserId, blockUserName } = useUI();
+  const { currentChatId } = useChat();
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Initialize real-time features
   usePresenceStatus();
@@ -39,7 +54,7 @@ function AppContent() {
             for (let registration of registrations) {
               await registration.unregister();
             }
-            
+
             // Only register in production
             if (import.meta.env.PROD) {
               const registration = await navigator.serviceWorker.register('/sw.js');
@@ -87,10 +102,13 @@ function AppContent() {
     );
   }
 
+  // On mobile, hide header when showing sidebar (no chat selected)
+  const showHeader = !isMobile || currentChatId;
+
   return (
     <div className="app-container">
-      {/* Header */}
-      <AppHeader />
+      {/* Header - hidden on mobile when sidebar is shown */}
+      {showHeader && <AppHeader />}
 
       {/* Main Content */}
       <main className="main-content">
@@ -105,6 +123,9 @@ function AppContent() {
       {showLoginModal && <LoginModal />}
       {showSettingsModal && <SettingsModal />}
       {showNewChatModal && <NewChatModal />}
+      {showCallModal && <CallModal callType={callModalType} />}
+      {showBlockUserModal && <BlockUserModal userId={blockUserId} userName={blockUserName} />}
+      {showStatusModal && <StatusModal />}
 
       {/* Notifications */}
       <NotificationToast />
@@ -114,13 +135,15 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <ChatProvider>
-        <UIProvider>
-          <AppContent />
-        </UIProvider>
-      </ChatProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ChatProvider>
+          <UIProvider>
+            <AppContent />
+          </UIProvider>
+        </ChatProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

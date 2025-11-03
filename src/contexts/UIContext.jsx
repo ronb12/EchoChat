@@ -7,10 +7,17 @@ export { UIContext };
 
 export function UIProvider({ children }) {
   const [theme, setTheme] = useState('dark');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // On mobile, sidebar should be open by default (showing chat list)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [showBlockUserModal, setShowBlockUserModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [callModalType, setCallModalType] = useState('video');
+  const [blockUserId, setBlockUserId] = useState(null);
+  const [blockUserName, setBlockUserName] = useState(null);
   const [notifications, setNotifications] = useState([]);
 
   // Load theme from localStorage
@@ -35,6 +42,11 @@ export function UIProvider({ children }) {
   // Toggle sidebar
   const toggleSidebar = () => {
     setIsSidebarOpen(prev => !prev);
+  };
+
+  // Close sidebar (useful for mobile when chat is selected)
+  const closeSidebar = () => {
+    setIsSidebarOpen(false);
   };
 
   // Show notification
@@ -62,6 +74,26 @@ export function UIProvider({ children }) {
   const closeSettingsModal = () => setShowSettingsModal(false);
   const openNewChatModal = () => setShowNewChatModal(true);
   const closeNewChatModal = () => setShowNewChatModal(false);
+  const openCallModal = (type = 'video') => {
+    setCallModalType(type);
+    setShowCallModal(true);
+  };
+  const closeCallModal = () => {
+    setShowCallModal(false);
+    setCallModalType('video');
+  };
+  const openBlockUserModal = (userId, userName) => {
+    setBlockUserId(userId);
+    setBlockUserName(userName);
+    setShowBlockUserModal(true);
+  };
+  const closeBlockUserModal = () => {
+    setShowBlockUserModal(false);
+    setBlockUserId(null);
+    setBlockUserName(null);
+  };
+  const openStatusModal = () => setShowStatusModal(true);
+  const closeStatusModal = () => setShowStatusModal(false);
 
   const value = {
     theme,
@@ -69,9 +101,16 @@ export function UIProvider({ children }) {
     showLoginModal,
     showSettingsModal,
     showNewChatModal,
+    showCallModal,
+    showBlockUserModal,
+    showStatusModal,
+    callModalType,
+    blockUserId,
+    blockUserName,
     notifications,
     toggleTheme,
     toggleSidebar,
+    closeSidebar,
     showNotification,
     removeNotification,
     openLoginModal,
@@ -79,7 +118,13 @@ export function UIProvider({ children }) {
     openSettingsModal,
     closeSettingsModal,
     openNewChatModal,
-    closeNewChatModal
+    closeNewChatModal,
+    openCallModal,
+    closeCallModal,
+    openBlockUserModal,
+    closeBlockUserModal,
+    openStatusModal,
+    closeStatusModal
   };
 
   return (

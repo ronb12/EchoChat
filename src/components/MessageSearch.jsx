@@ -1,63 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useChat } from '../hooks/useChat';
 
-function MessageSearch({ messages, onSelectMessage }) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [results, setResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
+export default function MessageSearch() {
+  const { messages } = useChat();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
 
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setResults([]);
-      setIsSearching(false);
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
       return;
     }
 
-    setIsSearching(true);
-    const filtered = messages.filter(msg => 
-      msg.content?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      msg.deleted !== true
+    const results = messages.filter(msg =>
+      msg.text?.toLowerCase().includes(query.toLowerCase())
     );
-    setResults(filtered);
-  }, [searchTerm, messages]);
-
-  const handleResultClick = (message) => {
-    onSelectMessage?.(message);
+    setSearchResults(results);
   };
 
   return (
     <div className="message-search">
-      <input
-        type="text"
-        className="search-input"
-        placeholder="Search messages..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
-      
-      {isSearching && (
+      <div className="search-input-wrapper">
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Search messages..."
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+        />
+        <span className="search-icon">🔍</span>
+      </div>
+      {searchResults.length > 0 && (
         <div className="search-results">
-          {results.length > 0 ? (
-            results.map(msg => (
-              <div 
-                key={msg.id} 
-                className="search-result-item"
-                onClick={() => handleResultClick(msg)}
-              >
-                <div className="search-result-content">{msg.content}</div>
-                <div className="search-result-time">
-                  {msg.timestamp?.toLocaleDateString()}
+          <div className="results-header">
+            <span>{searchResults.length} result(s) found</span>
+          </div>
+          <div className="results-list">
+            {searchResults.map((message, idx) => (
+              <div key={message.id || idx} className="search-result-item">
+                <div className="result-sender">{message.senderName || 'Unknown'}</div>
+                <div className="result-text">{message.text}</div>
+                <div className="result-time">
+                  {new Date(message.timestamp).toLocaleString()}
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="search-no-results">No results found</div>
-          )}
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
-
-export default MessageSearch;
-
 

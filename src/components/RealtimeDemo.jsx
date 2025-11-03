@@ -1,73 +1,60 @@
-import React, { useState } from 'react';
-import { useUI } from '../hooks/useUI';
+import React, { useState, useEffect } from 'react';
+import { useRealtimeMessages, useTypingIndicator } from '../hooks/useRealtime';
+import { chatService } from '../services/chatService';
 
-function RealtimeDemo() {
-  const { showNotification } = useUI();
-  const [testMessage, setTestMessage] = useState('');
+export default function RealtimeDemo() {
+  const chatId = 'demo';
+  const [connectionStatus, setConnectionStatus] = useState('connecting');
 
-  const testNotification = (type) => {
-    showNotification(`This is a ${type} notification!`, type);
-  };
+  useRealtimeMessages(chatId);
+  const { typingUsers } = useTypingIndicator(chatId);
 
-  const testTypingIndicator = () => {
-    showNotification('Typing indicator would show here in a real chat', 'info');
-  };
+  useEffect(() => {
+    // Simulate connection status
+    const timer = setTimeout(() => {
+      setConnectionStatus('connected');
+    }, 1000);
 
-  const testPresenceStatus = () => {
-    showNotification('Presence status would update here', 'success');
+    return () => clearTimeout(timer);
+  }, []);
+
+  const sendTestMessage = async () => {
+    await chatService.sendMessage(chatId, {
+      text: `Test message at ${new Date().toLocaleTimeString()}`,
+      senderId: 'demo-user',
+      senderName: 'Demo User'
+    });
   };
 
   return (
-    <div style={{ 
-      position: 'fixed', 
-      bottom: '20px', 
-      left: '20px', 
-      background: 'var(--surface-color)', 
-      padding: '1rem', 
-      borderRadius: '0.5rem',
-      border: '1px solid var(--border-color)',
-      zIndex: 1000
-    }}>
-      <h4 style={{ color: 'var(--text-color)', margin: '0 0 1rem 0' }}>Real-time Features Demo</h4>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <button 
-          onClick={() => testNotification('success')}
-          style={{ padding: '0.5rem', background: 'var(--success-color)', color: 'white', border: 'none', borderRadius: '0.25rem' }}
-        >
-          Test Success Notification
-        </button>
-        
-        <button 
-          onClick={() => testNotification('error')}
-          style={{ padding: '0.5rem', background: 'var(--error-color)', color: 'white', border: 'none', borderRadius: '0.25rem' }}
-        >
-          Test Error Notification
-        </button>
-        
-        <button 
-          onClick={() => testNotification('warning')}
-          style={{ padding: '0.5rem', background: 'var(--warning-color)', color: 'white', border: 'none', borderRadius: '0.25rem' }}
-        >
-          Test Warning Notification
-        </button>
-        
-        <button 
-          onClick={testTypingIndicator}
-          style={{ padding: '0.5rem', background: 'var(--accent-color)', color: 'white', border: 'none', borderRadius: '0.25rem' }}
-        >
-          Test Typing Indicator
-        </button>
-        
-        <button 
-          onClick={testPresenceStatus}
-          style={{ padding: '0.5rem', background: 'var(--info-color)', color: 'white', border: 'none', borderRadius: '0.25rem' }}
-        >
-          Test Presence Status
-        </button>
+    <div className="realtime-demo">
+      <div className="demo-header">
+        <h3>Realtime Demo</h3>
+        <div className={`status-indicator ${connectionStatus}`}>
+          <span className="status-dot"></span>
+          {connectionStatus}
+        </div>
+      </div>
+      <div className="demo-content">
+        <div className="demo-section">
+          <h4>Connection Status</h4>
+          <p>Status: <strong>{connectionStatus}</strong></p>
+        </div>
+        <div className="demo-section">
+          <h4>Typing Indicators</h4>
+          {Object.keys(typingUsers).length > 0 ? (
+            <p>{Object.values(typingUsers)[0]?.displayName || 'Someone'} is typing...</p>
+          ) : (
+            <p>No one is typing</p>
+          )}
+        </div>
+        <div className="demo-actions">
+          <button className="btn btn-primary" onClick={sendTestMessage}>
+            Send Test Message
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-export default RealtimeDemo;
