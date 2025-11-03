@@ -340,9 +340,17 @@ class ChatService {
         { id: 'demo', name: 'Demo Chat', lastMessageAt: Date.now(), type: 'direct' }
       ]);
     }
+    // Immediately deliver current state
     callback(this.userIdToChats.get(userId));
+    
+    // Set up polling to check for updates (simulating real-time)
+    const interval = setInterval(() => {
+      const userChats = this.userIdToChats.get(userId) || [];
+      callback(userChats);
+    }, 500);
+    
     const unsubscribe = () => {
-      // no-op for stub
+      clearInterval(interval);
     };
     return unsubscribe;
   }
@@ -350,13 +358,17 @@ class ChatService {
   // Create new chat
   async createChat(participants, chatName = null, isGroup = false) {
     const chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const createdAt = Date.now();
     const chat = {
       id: chatId,
       name: chatName || (isGroup ? 'Group Chat' : 'Direct Chat'),
       participants,
       type: isGroup ? 'group' : 'direct',
-      createdAt: Date.now(),
-      lastMessageAt: Date.now()
+      createdAt,
+      lastMessageAt: createdAt,
+      avatar: null,
+      lastMessage: null,
+      unreadCount: 0
     };
 
     // Add chat to each participant's chat list
@@ -374,7 +386,7 @@ class ChatService {
   }
 
   // Forward message to another chat
-  async forwardMessage(messageId, fromChatId, toChatId) {
+  async forwardMessage(messageId, fromChatId, toChatId, userId) {
     const messages = this.chatIdToMessages.get(fromChatId) || [];
     const message = messages.find(m => m.id === messageId);
 
@@ -486,6 +498,22 @@ class ChatService {
     for (const cb of this.notificationListeners) {
       cb({ message, type, title });
     }
+  }
+
+  // Clear chat history
+  async clearChatHistory(chatId) {
+    if (!chatId) {
+      throw new Error('Chat ID is required');
+    }
+
+    // Clear messages from memory
+    this.chatIdToMessages.set(chatId, []);
+    
+    // Update storage
+    this.saveMessagesToStorage();
+    
+    // Return success
+    return true;
   }
 }
 

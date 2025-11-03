@@ -137,6 +137,13 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
     setShowContextMenu(false);
   };
 
+  const handleDisappearing = () => {
+    if (isOwn && message.senderId === user?.uid && !message.deleted) {
+      chatService.setDisappearingTimer(chatId, message.id, 5);
+      setShowContextMenu(false);
+    }
+  };
+
   // Read receipt status
   const getReadStatus = () => {
     if (!isOwn) {return null;}

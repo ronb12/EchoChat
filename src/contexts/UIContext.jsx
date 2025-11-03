@@ -15,6 +15,12 @@ export function UIProvider({ children }) {
   const [showCallModal, setShowCallModal] = useState(false);
   const [showBlockUserModal, setShowBlockUserModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showGroupChatModal, setShowGroupChatModal] = useState(false);
+  const [showMediaGallery, setShowMediaGallery] = useState(false);
+  const [showCashoutModal, setShowCashoutModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
   const [callModalType, setCallModalType] = useState('video');
   const [blockUserId, setBlockUserId] = useState(null);
   const [blockUserName, setBlockUserName] = useState(null);
@@ -94,6 +100,18 @@ export function UIProvider({ children }) {
   };
   const openStatusModal = () => setShowStatusModal(true);
   const closeStatusModal = () => setShowStatusModal(false);
+  const openGroupChatModal = () => setShowGroupChatModal(true);
+  const closeGroupChatModal = () => setShowGroupChatModal(false);
+  const openMediaGallery = () => setShowMediaGallery(true);
+  const closeMediaGallery = () => setShowMediaGallery(false);
+  const openCashoutModal = () => setShowCashoutModal(true);
+  const closeCashoutModal = () => setShowCashoutModal(false);
+  const openPrivacyModal = () => setShowPrivacyModal(true);
+  const closePrivacyModal = () => setShowPrivacyModal(false);
+  const openTermsModal = () => setShowTermsModal(true);
+  const closeTermsModal = () => setShowTermsModal(false);
+  const openSupportModal = () => setShowSupportModal(true);
+  const closeSupportModal = () => setShowSupportModal(false);
 
   const value = {
     theme,
@@ -104,6 +122,12 @@ export function UIProvider({ children }) {
     showCallModal,
     showBlockUserModal,
     showStatusModal,
+    showGroupChatModal,
+    showMediaGallery,
+    showCashoutModal,
+    showPrivacyModal,
+    showTermsModal,
+    showSupportModal,
     callModalType,
     blockUserId,
     blockUserName,
@@ -124,7 +148,19 @@ export function UIProvider({ children }) {
     openBlockUserModal,
     closeBlockUserModal,
     openStatusModal,
-    closeStatusModal
+    closeStatusModal,
+    openGroupChatModal,
+    closeGroupChatModal,
+    openMediaGallery,
+    closeMediaGallery,
+    openCashoutModal,
+    closeCashoutModal,
+    openPrivacyModal,
+    closePrivacyModal,
+    openTermsModal,
+    closeTermsModal,
+    openSupportModal,
+    closeSupportModal
   };
 
   return (
