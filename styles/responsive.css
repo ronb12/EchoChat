@@ -1,0 +1,108 @@
+/* Universal Responsive Design System */
+/* This ensures the app adapts to ANY screen size */
+
+/* Fluid Typography - scales smoothly across all screen sizes */
+.chat-name {
+  font-size: clamp(0.875rem, 1vw + 0.5rem, 1rem) !important;
+}
+
+.chat-preview,
+.chat-status {
+  font-size: clamp(0.75rem, 0.8vw + 0.4rem, 0.875rem) !important;
+}
+
+.chat-details h3 {
+  font-size: clamp(0.9375rem, 1.2vw + 0.5rem, 1.125rem) !important;
+}
+
+/* Responsive padding - scales with viewport */
+.chat-header {
+  padding: clamp(0.5rem, 1.5vw, 1rem) clamp(0.75rem, 2vw, 1rem) !important;
+}
+
+.sidebar-header {
+  padding: clamp(0.5rem, 1.5vw, 0.75rem) clamp(0.75rem, 2vw, 1rem) !important;
+}
+
+/* Responsive message input container */
+.message-input-container {
+  padding: clamp(0.5rem, 1vw, 0.75rem) clamp(0.75rem, 2vw, 1rem) !important;
+  padding-bottom: calc(clamp(0.5rem, 1vw, 0.75rem) + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+#message-input {
+  font-size: clamp(0.9375rem, 1vw + 0.5rem, 1rem) !important;
+  padding: clamp(0.5rem, 1vw, 0.75rem) clamp(0.75rem, 1.5vw, 1rem) !important;
+}
+
+/* Responsive action buttons */
+.input-action-btn,
+.action-btn {
+  min-width: clamp(32px, 4vw, 48px) !important;
+  min-height: clamp(32px, 4vw, 48px) !important;
+  padding: clamp(0.375rem, 1vw, 0.5rem) !important;
+  font-size: clamp(1rem, 1.5vw, 1.25rem) !important;
+}
+
+/* Responsive avatars */
+.chat-avatar {
+  width: clamp(40px, 5vw, 56px) !important;
+  height: clamp(40px, 5vw, 56px) !important;
+}
+
+/* Responsive message bubbles */
+.message {
+  max-width: clamp(65%, 50vw, 85%) !important;
+}
+
+/* Responsive gaps */
+.gap-responsive {
+  gap: clamp(0.5rem, 1vw, 1rem) !important;
+}
+
+/* Responsive container max-widths */
+.modal-content {
+  max-width: clamp(300px, 90vw, 600px) !important;
+  width: 90vw !important;
+}
+
+/* Ensure all containers are flexible */
+* {
+  max-width: 100%;
+}
+
+/* Responsive font sizes for all headings */
+h1 { font-size: clamp(1.5rem, 3vw, 2.5rem) !important; }
+h2 { font-size: clamp(1.25rem, 2.5vw, 2rem) !important; }
+h3 { font-size: clamp(1.125rem, 2vw, 1.5rem) !important; }
+
+/* Responsive spacing utilities */
+.p-responsive {
+  padding: clamp(0.5rem, 1.5vw, 1.5rem) !important;
+}
+
+.m-responsive {
+  margin: clamp(0.5rem, 1.5vw, 1.5rem) !important;
+}
+
+/* Ensure flex containers are responsive */
+.flex-responsive {
+  flex-wrap: wrap;
+  gap: clamp(0.5rem, 1vw, 1rem);
+}
+
+/* Responsive grid layouts */
+.grid-responsive {
+  grid-template-columns: repeat(auto-fit, minmax(clamp(200px, 25vw, 300px), 1fr));
+  gap: clamp(0.5rem, 1.5vw, 1.5rem);
+}
+
+/* Viewport-based sizing */
+.width-responsive {
+  width: clamp(280px, 30vw, 100%);
+}
+
+.height-responsive {
+  height: clamp(400px, 50vh, 800px);
+}
+
