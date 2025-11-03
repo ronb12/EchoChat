@@ -1,0 +1,48 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0084ff"/>
+      <stop offset="100%" style="stop-color:#0052cc"/>
+    </linearGradient>
+    <linearGradient id="bubbleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#f5f5f5"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="120" fill="url(#bgGradient)"/>
+  
+  <!-- Main chat bubble (left - incoming message) -->
+  <path d="M 80 140 L 200 140 A 25 25 0 0 1 225 165 L 225 245 A 25 25 0 0 1 200 270 L 130 270 L 90 310 L 90 270 L 80 270 A 25 25 0 0 1 55 245 L 55 165 A 25 25 0 0 1 80 140 Z" 
+        fill="url(#bubbleGradient)"/>
+  
+  <!-- Text lines in first bubble (simulating message text) -->
+  <rect x="75" y="170" width="130" height="8" rx="4" fill="#0084ff" opacity="0.3"/>
+  <rect x="75" y="190" width="100" height="8" rx="4" fill="#0084ff" opacity="0.3"/>
+  <rect x="75" y="210" width="115" height="8" rx="4" fill="#0084ff" opacity="0.3"/>
+  
+  <!-- Secondary chat bubble (right - outgoing message) -->
+  <path d="M 287 270 L 432 270 A 25 25 0 0 0 457 245 L 457 165 A 25 25 0 0 0 432 140 L 362 140 L 322 100 L 322 140 L 287 140 A 25 25 0 0 0 262 165 L 262 245 A 25 25 0 0 0 287 270 Z" 
+        fill="url(#bubbleGradient)" 
+        opacity="0.95"/>
+  
+  <!-- Text lines in second bubble (simulating reply text) -->
+  <rect x="292" y="170" width="140" height="8" rx="4" fill="#0084ff" opacity="0.4"/>
+  <rect x="292" y="190" width="110" height="8" rx="4" fill="#0084ff" opacity="0.4"/>
+  <rect x="292" y="210" width="125" height="8" rx="4" fill="#0084ff" opacity="0.4"/>
+  
+  <!-- Small decorative chat bubble (showing conversation flow) -->
+  <circle cx="150" cy="340" r="35" fill="url(#bubbleGradient)" opacity="0.7"/>
+  <circle cx="150" cy="340" r="25" fill="#ffffff" opacity="0.5"/>
+  
+  <!-- Echo/Mic indicator circle (representing voice messages) -->
+  <circle cx="362" cy="340" r="40" fill="none" stroke="#ffffff" stroke-width="5" opacity="0.3"/>
+  <circle cx="362" cy="340" r="30" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.4"/>
+  <circle cx="362" cy="340" r="15" fill="#ffffff" opacity="0.6"/>
+  
+  <!-- Message dots indicator (showing active conversation) -->
+  <circle cx="256" cy="400" r="8" fill="#00d4ff" opacity="0.8"/>
+  <circle cx="276" cy="400" r="8" fill="#00d4ff" opacity="0.6"/>
+  <circle cx="296" cy="400" r="8" fill="#00d4ff" opacity="0.4"/>
+</svg>
