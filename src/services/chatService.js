@@ -1,5 +1,6 @@
 // Minimal in-memory chat service to support runtime in dev
 // Uses localStorage to persist messages across tabs
+import { encryptionService } from './encryptionService';
 
 class ChatService {
   constructor() {
@@ -9,6 +10,7 @@ class ChatService {
     this.userIdToChats = new Map();
     this.notificationListeners = new Set();
     this.scheduledMessages = new Map();
+    this.lastMessageTimes = new Map();
 
     // Load messages from localStorage on init
     this.loadMessagesFromStorage();
@@ -77,8 +79,8 @@ class ChatService {
     return unsubscribe;
   }
 
-  // Send a message with validation
-  async sendMessage(chatId, message) {
+  // Send a message with validation and encryption
+  async sendMessage(chatId, message, userId = null) {
     // Input validation
     if (!chatId || !message || !message.senderId) {
       throw new Error('Invalid message data');
@@ -105,10 +107,36 @@ class ChatService {
     this.lastMessageTimes = this.lastMessageTimes || new Map();
     this.lastMessageTimes.set(message.senderId, Date.now());
 
+    // Encrypt message text if present
+    let encryptedText = null;
+    let isEncrypted = false;
+    
+    if (message.text && message.text.trim()) {
+      try {
+        const encryptionResult = await encryptionService.encryptMessageText(
+          message.text,
+          userId || message.senderId,
+          chatId
+        );
+        
+        if (encryptionResult && encryptionResult.encrypted) {
+          encryptedText = encryptionResult;
+          isEncrypted = true;
+        } else {
+          encryptedText = message.text; // Fallback if encryption fails
+        }
+      } catch (error) {
+        console.error('Encryption error, sending unencrypted:', error);
+        encryptedText = message.text; // Fallback to unencrypted
+      }
+    }
+
     const messages = this.chatIdToMessages.get(chatId) || [];
     const newMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      text: message.text || '',
+      text: isEncrypted ? null : (message.text || ''), // Store encrypted data separately
+      encryptedText: encryptedText, // Encrypted message data
+      isEncrypted: isEncrypted,
       senderId: message.senderId,
       senderName: message.senderName,
       timestamp: Date.now(),
@@ -122,6 +150,11 @@ class ChatService {
       deletedForEveryone: false,
       ...message
     };
+
+    // Remove text if encrypted (to avoid storing plaintext)
+    if (isEncrypted) {
+      delete newMessage.text;
+    }
 
     messages.push(newMessage);
     this.chatIdToMessages.set(chatId, messages);
@@ -514,6 +547,39 @@ class ChatService {
     
     // Return success
     return true;
+  }
+
+  // Get messages with automatic decryption
+  getMessages(chatId, userId = null) {
+    const messages = this.chatIdToMessages.get(chatId) || [];
+    
+    // Return messages with decryption handled by component
+    return messages.map(msg => ({
+      ...msg,
+      needsDecryption: msg.isEncrypted && !msg.decryptedText
+    }));
+  }
+
+  // Decrypt a single message (called when displaying)
+  async decryptMessage(message, userId = null, chatId = null) {
+    if (!message || !message.isEncrypted || !message.encryptedText) {
+      return message.text || '';
+    }
+
+    try {
+      const decrypted = await encryptionService.decryptMessageText(
+        message.encryptedText,
+        userId || message.senderId,
+        chatId
+      );
+      
+      // Cache decrypted text
+      message.decryptedText = decrypted;
+      return decrypted;
+    } catch (error) {
+      console.error('Decryption error:', error);
+      return '[Unable to decrypt message]';
+    }
   }
 }
 

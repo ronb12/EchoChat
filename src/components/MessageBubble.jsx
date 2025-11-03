@@ -14,6 +14,8 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message?.text || '');
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
+  const [decryptedText, setDecryptedText] = useState(null);
+  const [isDecrypting, setIsDecrypting] = useState(false);
   const contextMenuRef = useRef(null);
   const editInputRef = useRef(null);
 
@@ -36,6 +38,32 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Decrypt encrypted messages when component mounts or message changes
+  useEffect(() => {
+    const decryptMessage = async () => {
+      if (message && message.isEncrypted && message.encryptedText && !decryptedText && !isDecrypting) {
+        setIsDecrypting(true);
+        try {
+          const decrypted = await chatService.decryptMessage(message, user?.uid, chatId);
+          setDecryptedText(decrypted);
+        } catch (error) {
+          console.error('Error decrypting message:', error);
+          setDecryptedText('[Unable to decrypt message]');
+        } finally {
+          setIsDecrypting(false);
+        }
+      } else if (message && !message.isEncrypted && message.text) {
+        // Plain text message
+        setDecryptedText(message.text);
+      } else if (message?.decryptedText) {
+        // Already decrypted
+        setDecryptedText(message.decryptedText);
+      }
+    };
+
+    decryptMessage();
+  }, [message, user, chatId, decryptedText, isDecrypting]);
 
   // Mark message as read when it's visible
   useEffect(() => {
@@ -76,8 +104,9 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
   };
 
   const handleCopy = () => {
-    if (message.text) {
-      navigator.clipboard.writeText(message.text);
+    const textToCopy = decryptedText || message.text || '';
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
       setShowContextMenu(false);
     }
   };
@@ -97,13 +126,14 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
   const handleEdit = () => {
     if (isOwn && message.senderId === user?.uid && !message.deleted) {
       setIsEditing(true);
-      setEditText(message.text || '');
+      setEditText(decryptedText || message.text || '');
       setShowContextMenu(false);
     }
   };
 
   const handleSaveEdit = () => {
-    if (editText.trim() && editText !== message.text) {
+    const currentText = decryptedText || message.text || '';
+    if (editText.trim() && editText !== currentText) {
       chatService.editMessage(chatId, message.id, editText.trim(), user.uid);
     }
     setIsEditing(false);
@@ -111,7 +141,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
 
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setEditText(message.text || '');
+    setEditText(decryptedText || message.text || '');
   };
 
   const handleDelete = (forEveryone = false) => {
@@ -260,13 +290,19 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
           </div>
         ) : (
           <>
-            {message.text && (
+            {(decryptedText || message.text) && (
               <div className="message-text">
-                {message.text}
-                {message.edited && (
-                  <span className="edited-indicator" title={`Edited at ${formatTimestamp(message.editedAt)}`}>
-                    (edited)
-                  </span>
+                {isDecrypting ? (
+                  <span style={{ opacity: 0.6 }}>Decrypting...</span>
+                ) : (
+                  <>
+                    {decryptedText || message.text}
+                    {message.edited && (
+                      <span className="edited-indicator" title={`Edited at ${formatTimestamp(message.editedAt)}`}>
+                        (edited)
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             )}
