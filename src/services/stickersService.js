@@ -1,6 +1,6 @@
 // Stickers Service - Sticker packs and management
 import { db } from './firebaseConfig';
-import { collection, doc, setDoc, getDocs, increment, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, updateDoc, getDoc, increment, query, where, orderBy, limit } from 'firebase/firestore';
 import { chatService } from './chatService';
 
 class StickersService {
@@ -136,13 +136,24 @@ class StickersService {
   async trackStickerUsage(userId, stickerId, packId) {
     try {
       const usageRef = doc(db, 'stickerUsage', `${userId}_${stickerId}`);
-      await setDoc(usageRef, {
-        userId,
-        stickerId,
-        packId,
-        usageCount: increment(1),
-        lastUsed: new Date().toISOString()
-      }, { merge: true });
+      const docSnapshot = await getDoc(usageRef);
+      
+      if (docSnapshot.exists()) {
+        // Document exists, increment usage count
+        await updateDoc(usageRef, {
+          usageCount: increment(1),
+          lastUsed: new Date().toISOString()
+        });
+      } else {
+        // Document doesn't exist, create it with initial count
+        await setDoc(usageRef, {
+          userId,
+          stickerId,
+          packId,
+          usageCount: 1,
+          lastUsed: new Date().toISOString()
+        });
+      }
     } catch (error) {
       console.error('Error tracking sticker usage:', error);
       // Non-critical, don't throw
