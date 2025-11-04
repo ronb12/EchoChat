@@ -61,16 +61,24 @@ export function AuthProvider({ children }) {
       };
 
       // Check for Google sign-in redirect result on page load
-      // This must be called to complete the sign-in flow after redirect
+      // This must be called IMMEDIATELY to complete the sign-in flow after redirect
+      // Chrome's bounce tracking mitigations might interfere, so we check immediately
       (async () => {
         try {
+          // Check for redirect result immediately - don't wait for anything
           const result = await authService.getRedirectResult();
+          console.log('Redirect result check:', result);
+          
           if (result.success && result.user && mounted) {
             // Redirect result found - user will be set by onAuthStateChanged
-            console.log('Google sign-in redirect completed:', result.user.email);
+            console.log('✅ Google sign-in redirect completed:', result.user.email);
+          } else if (result.error) {
+            console.warn('⚠️ Redirect result error:', result.error);
+          } else {
+            console.log('ℹ️ No redirect result (normal page load)');
           }
         } catch (error) {
-          console.error('Error checking redirect result:', error);
+          console.error('❌ Error checking redirect result:', error);
         }
       })();
 
