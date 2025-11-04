@@ -16,7 +16,7 @@ const getDisplayName = (user, profile = null) => {
 
 export default function AppHeader() {
   const { toggleSidebar, openSettingsModal, openStatusModal, showNotification } = useUI();
-  const { user, signOut } = useAuth();
+  const { user, signOut, setUser } = useAuth();
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
@@ -129,8 +129,11 @@ export default function AppHeader() {
         const result = await signOut();
         if (result.success) {
           showNotification('Signed out successfully', 'success');
-          // Clear account type from localStorage
+          // Clear account type and demo user from localStorage
           localStorage.removeItem('echochat_account_type');
+          localStorage.removeItem('echochat_user');
+          // Clear user state
+          setUser(null);
         } else {
           showNotification(result.error || 'Failed to sign out', 'error');
         }
