@@ -268,8 +268,8 @@ class EncryptionService {
 
           // Rotate key if message count exceeds threshold (PFS)
           if (!session || !session.key || (session.messageCount || 0) >= this.keyRotationInterval) {
-            // Generate new session key
-            const newKey = await this.generateKey();
+            // Generate new session key (extractable for storage)
+            const newKey = await this.generateKey(true); // Make extractable for storage
             const keyData = await crypto.subtle.exportKey('jwk', newKey);
 
             // Store new session
@@ -405,8 +405,8 @@ class EncryptionService {
               );
               resolve(key);
             } catch (error) {
-              // If import fails, generate new key
-              const newKey = await this.generateKey();
+              // If import fails, generate new key (extractable for storage)
+              const newKey = await this.generateKey(true);
               const keyData = await crypto.subtle.exportKey('jwk', newKey);
 
               store.put({
@@ -419,8 +419,8 @@ class EncryptionService {
               resolve(newKey);
             }
           } else {
-            // Generate new master key
-            const newKey = await this.generateKey();
+            // Generate new master key (extractable for storage)
+            const newKey = await this.generateKey(true);
             const keyData = await crypto.subtle.exportKey('jwk', newKey);
 
             store.put({
@@ -452,7 +452,7 @@ class EncryptionService {
       await this.initialize();
     }
 
-    const preKey = await this.generateKey();
+    const preKey = await this.generateKey(true); // Extractable for storage
     const keyData = await crypto.subtle.exportKey('jwk', preKey);
 
     const preKeyId = `prekey_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

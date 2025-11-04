@@ -26,6 +26,12 @@
     "test:comprehensive": "node test-all-features-comprehensive.js",
     "test:business": "node test-business-features.js",
     "test:stripe": "node scripts/test-stripe-cli.js",
+    "stripe:check": "node scripts/switch-stripe-mode.js check",
+    "stripe:test": "node scripts/switch-stripe-mode.js test",
+    "stripe:live": "node scripts/switch-stripe-mode.js live",
+    "test:money": "node scripts/test-money-features.js",
+    "test:auth": "node test-auth-automated.js",
+    "test:auth:watch": "HEADLESS=false node test-auth-automated.js",
     "lint": "eslint src --ext .js,.jsx",
     "lint:fix": "eslint src --ext .js,.jsx --fix"
   },
@@ -39,6 +45,7 @@
   "author": "Bradley Virtual Solutions, LLC",
   "license": "MIT",
   "dependencies": {
+    "@stripe/react-stripe-js": "^5.3.0",
     "@stripe/stripe-js": "^8.2.0",
     "crypto-js": "^4.2.0",
     "firebase": "^10.14.1",

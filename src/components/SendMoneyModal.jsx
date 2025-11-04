@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { useChat } from '../hooks/useChat';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
+import SendMoneyForm from './SendMoneyForm';
 
 const COMMON_REASONS = [
   'Dinner/Meal',
@@ -25,6 +28,28 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
   const [selectedReason, setSelectedReason] = useState('');
   const [customNote, setCustomNote] = useState('');
   const [sending, setSending] = useState(false);
+  const [clientSecret, setClientSecret] = useState(null);
+  const [paymentIntentId, setPaymentIntentId] = useState(null);
+  const [stripePromise, setStripePromise] = useState(null);
+  
+  // Initialize Stripe
+  useEffect(() => {
+    const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+    if (stripePublishableKey) {
+      // Log Stripe mode for debugging
+      const isLive = stripePublishableKey.startsWith('pk_live_');
+      const isTest = stripePublishableKey.startsWith('pk_test_');
+      if (isLive) {
+        console.warn('⚠️ Stripe LIVE MODE detected - Real payments will be processed!');
+      } else if (isTest) {
+        console.log('✅ Stripe TEST MODE - Using test environment');
+      }
+      
+      loadStripe(stripePublishableKey).then(stripe => {
+        setStripePromise(stripe);
+      });
+    }
+  }, []);
 
   // Get the final note value (from dropdown or custom input)
   const getFinalNote = () => {
@@ -93,8 +118,23 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
 
           if (response.ok) {
             const data = await response.json();
-            showNotification(`Payment intent created. Amount: $${numAmount.toFixed(2)}`, 'success');
-            // In production, handle payment confirmation flow here
+            console.log('Payment intent created:', data);
+            
+            if (data.clientSecret && stripePromise) {
+              // Store client secret for Stripe Elements payment form
+              setClientSecret(data.clientSecret);
+              setPaymentIntentId(data.paymentIntentId);
+              setSending(false); // Don't close modal yet - need payment confirmation
+              // Don't show notification yet - wait for payment confirmation
+            } else if (data.clientSecret) {
+              // Stripe not configured on frontend - show info
+              showNotification(`Payment intent created. Stripe publishable key not configured.`, 'info');
+              setSending(false);
+            } else {
+              // No client secret - demo mode
+              showNotification(`Successfully sent $${numAmount.toFixed(2)} to ${recipientName}`, 'success');
+              setTimeout(() => onClose(), 1500);
+            }
           } else {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to create payment intent');
@@ -365,37 +405,108 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
             </div>
           </div>
 
-          <div style={{
-            marginTop: '1.5rem',
-            padding: '12px',
-            background: 'rgba(255, 193, 7, 0.1)',
-            borderRadius: '8px',
-            fontSize: '13px',
-            color: 'var(--text-color-secondary)'
-          }}>
-            <strong>⚠️ Note:</strong> This is a demo feature. In production, this would integrate with a payment processor (Stripe, PayPal, etc.) and require proper security, compliance, and licensing.
-          </div>
+          {/* Stripe Payment Form - shown when payment intent is created */}
+          {clientSecret && stripePromise && mode === 'send' && (
+            <Elements stripe={stripePromise}>
+              <SendMoneyForm
+                amount={parseFloat(amount)}
+                recipientName={recipientName}
+                clientSecret={clientSecret}
+                onSuccess={(paymentIntent) => {
+                  console.log('Payment succeeded:', paymentIntent);
+                  showNotification(`Successfully sent $${parseFloat(amount).toFixed(2)} to ${recipientName}!`, 'success');
+                  setTimeout(() => {
+                    onClose();
+                    setClientSecret(null);
+                    setPaymentIntentId(null);
+                  }, 1500);
+                }}
+                onError={(error) => {
+                  console.error('Payment failed:', error);
+                  setClientSecret(null);
+                  setPaymentIntentId(null);
+                }}
+                disabled={sending}
+              />
+            </Elements>
+          )}
 
-          <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={onClose}
-              disabled={sending}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={handleSend}
-              disabled={sending || !amount || parseFloat(amount) <= 0 || !finalNote}
-              style={{ minWidth: '120px' }}
-            >
-              {sending
-                ? (mode === 'send' ? 'Sending...' : 'Creating Request...')
-                : (mode === 'send' ? 'Send Money' : 'Request Money')
-              }
-            </button>
-          </div>
+          {/* Stripe Mode Notice */}
+          {stripePromise && (() => {
+            const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+            const isLive = stripePublishableKey?.startsWith('pk_live_');
+            const isTest = stripePublishableKey?.startsWith('pk_test_');
+            
+            if (isLive) {
+              return (
+                <div style={{
+                  marginTop: '1.5rem',
+                  padding: '12px',
+                  background: 'rgba(244, 67, 54, 0.15)',
+                  border: '2px solid #f44336',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  color: '#f44336',
+                  fontWeight: '600'
+                }}>
+                  <strong>⚠️ LIVE MODE:</strong> Real payments will be processed! Using production Stripe account.
+                </div>
+              );
+            } else if (isTest) {
+              return (
+                <div style={{
+                  marginTop: '1.5rem',
+                  padding: '12px',
+                  background: 'rgba(76, 175, 80, 0.1)',
+                  border: '1px solid #4caf50',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  color: '#4caf50'
+                }}>
+                  <strong>✅ TEST MODE:</strong> Using Stripe test environment. No real payments will be processed.
+                </div>
+              );
+            }
+            return null;
+          })()}
+          
+          {/* Demo Mode Notice - only show if Stripe not configured */}
+          {!stripePromise && (
+            <div style={{
+              marginTop: '1.5rem',
+              padding: '12px',
+              background: 'rgba(255, 193, 7, 0.1)',
+              borderRadius: '8px',
+              fontSize: '13px',
+              color: 'var(--text-color-secondary)'
+            }}>
+              <strong>⚠️ Note:</strong> Stripe is not configured. This is running in demo mode. To enable full payment processing, configure VITE_STRIPE_PUBLISHABLE_KEY.
+            </div>
+          )}
+
+          {/* Regular Action Buttons - only show if payment form not shown */}
+          {!clientSecret && (
+            <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={onClose}
+                disabled={sending}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSend}
+                disabled={sending || !amount || parseFloat(amount) <= 0 || !finalNote}
+                style={{ minWidth: '120px' }}
+              >
+                {sending
+                  ? (mode === 'send' ? 'Creating Payment...' : 'Creating Request...')
+                  : (mode === 'send' ? 'Continue to Payment' : 'Request Money')
+                }
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { useChat } from '../hooks/useChat';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../services/firebaseConfig';
 import { profileService } from '../services/profileService';
+import { getStripeMode } from '../utils/stripeMode';
 // import { getDisplayName } from '../utils/userDisplayName';
 const getDisplayName = (user, profile = null) => {
   if (!user) {return 'User';}
@@ -21,6 +22,7 @@ export default function AppHeader() {
   const [uploading, setUploading] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [isBusinessAccount, setIsBusinessAccount] = useState(false);
+  const [stripeMode, setStripeMode] = useState(null);
   const avatarMenuRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -32,6 +34,9 @@ export default function AppHeader() {
       const isBusiness = accountType === 'business' || user.isBusinessAccount === true;
       setIsBusinessAccount(isBusiness);
     }
+    // Check Stripe mode
+    const stripeInfo = getStripeMode();
+    setStripeMode(stripeInfo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -166,6 +171,41 @@ export default function AppHeader() {
           <span className="status-dot"></span>
           <span>Online</span>
         </div>
+        {/* Stripe Mode Indicator */}
+        {stripeMode && stripeMode.mode !== 'not_configured' && (
+          <div
+            className="stripe-mode-indicator"
+            style={{
+              marginLeft: '12px',
+              padding: '4px 10px',
+              borderRadius: '12px',
+              fontSize: '11px',
+              fontWeight: '600',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              backgroundColor: stripeMode.isLive 
+                ? 'rgba(244, 67, 54, 0.9)' 
+                : 'rgba(76, 175, 80, 0.9)',
+              color: 'white',
+              boxShadow: stripeMode.isLive 
+                ? '0 0 8px rgba(244, 67, 54, 0.6)' 
+                : '0 0 8px rgba(76, 175, 80, 0.6)',
+              animation: stripeMode.isLive ? 'pulse 2s infinite' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'help',
+              title: stripeMode.message
+            }}
+          >
+            <span style={{ fontSize: '10px' }}>
+              {stripeMode.isLive ? '⚠️' : '✅'}
+            </span>
+            <span>
+              {stripeMode.isLive ? 'LIVE' : 'TEST'}
+            </span>
+          </div>
+        )}
       </div>
       <div className="header-right">
         {user && (
