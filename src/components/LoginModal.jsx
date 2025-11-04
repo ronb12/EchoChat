@@ -12,31 +12,21 @@ export default function LoginModal() {
   const [error, setError] = useState('');
 
   const handleGoogleSignIn = async () => {
-    console.log('Google sign-in button clicked');
     setIsLoading(true);
     setError('');
 
     try {
-      console.log('Calling authService.signInWithGoogle()...');
       const result = await authService.signInWithGoogle();
-      console.log('Sign-in result:', result);
-      
       if (result.success) {
         if (result.pending) {
           // Redirect is happening - page will navigate away
-          console.log('Redirect pending - page will navigate to Google');
-          // Don't show notification or close modal as page will redirect
-          // The auth state will be updated after redirect
-          // Keep loading state as page will redirect
+          // Don't reset loading state as page will redirect
         } else {
-          // User is already signed in
-          console.log('User already signed in');
           showNotification('Signed in with Google successfully!', 'success');
           closeLoginModal();
           setIsLoading(false);
         }
       } else {
-        console.error('Sign-in failed:', result.error);
         setError(result.error || 'Failed to sign in with Google');
         setIsLoading(false);
       }
@@ -115,12 +105,7 @@ export default function LoginModal() {
           {/* Google Sign In */}
           <button
             className="btn btn-secondary"
-            onClick={(e) => {
-              // Don't prevent default - let the redirect happen naturally
-              e.stopPropagation();
-              console.log('Button clicked directly');
-              handleGoogleSignIn();
-            }}
+            onClick={handleGoogleSignIn}
             disabled={isLoading}
             type="button"
             style={{
@@ -129,8 +114,7 @@ export default function LoginModal() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.5rem',
-              cursor: isLoading ? 'not-allowed' : 'pointer'
+              gap: '0.5rem'
             }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24">

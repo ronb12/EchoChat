@@ -33,25 +33,25 @@ export default function SignUpModal() {
     setError('');
 
     try {
+      // Store account type before redirect
+      localStorage.setItem('echochat_account_type', accountType);
+      
       const result = await authService.signInWithGoogle();
       if (result.success) {
         if (result.pending) {
-          // Redirect is happening - store account type before redirect
-          localStorage.setItem('echochat_account_type', accountType);
-          // Page will navigate away, auth state will be updated after redirect
+          // Redirect is happening - page will navigate away
         } else {
-          // User is already signed in
-          localStorage.setItem('echochat_account_type', accountType);
           showNotification('Account created with Google successfully!', 'success');
           closeSignUpModal();
+          setIsLoading(false);
         }
       } else {
         setError(result.error || 'Failed to sign up with Google');
         setIsLoading(false);
       }
     } catch (err) {
-      setError(err.message || 'An error occurred');
-    } finally {
+      console.error('Google sign-up error:', err);
+      setError(err.message || 'An error occurred during Google sign-up');
       setIsLoading(false);
     }
   };
@@ -193,11 +193,13 @@ export default function SignUpModal() {
                 </div>
               )}
 
+
               {/* Google Sign Up */}
               <button
                 className="btn btn-secondary"
                 onClick={handleGoogleSignUp}
                 disabled={isLoading || !accountType}
+                type="button"
                 style={{
                   width: '100%',
                   marginBottom: '1rem',
