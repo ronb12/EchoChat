@@ -18,7 +18,7 @@ import { EMOJI_LIST } from '../data/emojis';
 
 export default function ChatArea() {
   const { messages, currentChatId, setCurrentChatId, chats } = useChat();
-  const { user } = useAuth();
+  const { user, signOut, setUser } = useAuth();
   
   // Get current chat details
   const currentChat = chats.find(chat => chat.id === currentChatId);
@@ -650,6 +650,33 @@ export default function ChatArea() {
                   >
                     <span>🚪</span>
                     <span>Leave Chat</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      setShowMoreMenu(false);
+                      try {
+                        const result = await signOut();
+                        if (result.success) {
+                          showNotification('Signed out successfully', 'success');
+                          // Clear account type and demo user from localStorage
+                          localStorage.removeItem('echochat_account_type');
+                          localStorage.removeItem('echochat_user');
+                          // Clear user state
+                          setUser(null);
+                        } else {
+                          showNotification(result.error || 'Failed to sign out', 'error');
+                        }
+                      } catch (error) {
+                        showNotification('Error signing out', 'error');
+                        console.error('Error signing out:', error);
+                      }
+                    }}
+                    style={{ color: '#f44336' }}
+                  >
+                    <span>🔓</span>
+                    <span>Logout</span>
                   </button>
                 </div>
               )}
