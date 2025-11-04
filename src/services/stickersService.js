@@ -161,14 +161,18 @@ class StickersService {
   }
 
   // Get frequently used stickers for a user
-  async getFrequentlyUsed(userId, limit = 12) {
+  async getFrequentlyUsed(userId, maxResults = 12) {
     try {
+      if (!userId) {
+        return [];
+      }
+      
       const usageRef = collection(db, 'stickerUsage');
       const q = query(
         usageRef,
         where('userId', '==', userId),
         orderBy('usageCount', 'desc'),
-        limit(limit)
+        limit(maxResults)
       );
       const snapshot = await getDocs(q);
 
@@ -180,6 +184,7 @@ class StickersService {
       return frequent;
     } catch (error) {
       console.error('Error getting frequently used stickers:', error);
+      // Return empty array on error (non-critical feature)
       return [];
     }
   }
