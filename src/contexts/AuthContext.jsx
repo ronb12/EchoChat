@@ -60,9 +60,10 @@ export function AuthProvider({ children }) {
         }
       };
 
-      // Check for redirect result from Google sign-in (must be done before onAuthStateChanged)
+      // Check for redirect result from Google sign-in FIRST
       // This is critical - getRedirectResult must be called to complete the sign-in flow
       // It should be called on every page load to check if we're returning from a redirect
+      // We need to await this before setting up onAuthStateChanged to ensure proper ordering
       const checkRedirectResult = async () => {
         try {
           const result = await authService.getRedirectResult();
@@ -83,16 +84,15 @@ export function AuthProvider({ children }) {
         }
       };
       
-      // Call immediately to check for redirect result
-      checkRedirectResult();
-
-      // Wait for onAuthStateChanged to fire - it will fire immediately with current state
-      // This is more reliable than checking auth.currentUser directly
+      // Set up auth state listener
       // Note: onAuthStateChanged will fire after getRedirectResult completes the sign-in
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (!mounted) return;
         setUserFromFirebase(firebaseUser);
       });
+
+      // Check for redirect result (this will trigger onAuthStateChanged if a redirect happened)
+      checkRedirectResult();
 
       // Safety timeout - ensure loading state doesn't persist too long
       // If auth hasn't initialized after 1 second, show landing page (no user)
