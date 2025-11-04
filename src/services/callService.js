@@ -1,11 +1,13 @@
-// WebRTC Call Service for Video/Voice Calls
+// WebRTC Call Service for Video/Voice Calls with Screen Sharing
 class CallService {
   constructor() {
     this.localStream = null;
     this.remoteStream = null;
+    this.screenStream = null; // Screen sharing stream
     this.peerConnection = null;
     this.isCallActive = false;
     this.callType = null; // 'video' or 'audio'
+    this.isScreenSharing = false;
     this.callListeners = new Set();
   }
 
@@ -136,6 +138,12 @@ class CallService {
 
   // End call
   endCall() {
+    // Stop screen sharing first
+    if (this.screenStream) {
+      this.screenStream.getTracks().forEach(track => track.stop());
+      this.screenStream = null;
+    }
+
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => track.stop());
       this.localStream = null;
@@ -148,6 +156,7 @@ class CallService {
 
     this.remoteStream = null;
     this.isCallActive = false;
+    this.isScreenSharing = false;
     this.callType = null;
 
     this.notifyCallListeners('callEnded');
@@ -175,6 +184,106 @@ class CallService {
     }
   }
 
+  // Start screen sharing
+  async startScreenShare() {
+    try {
+      if (!this.peerConnection || !this.isCallActive) {
+        throw new Error('Call must be active to share screen');
+      }
+
+      // Get screen stream
+      this.screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          cursor: 'always',
+          displaySurface: 'browser'
+        },
+        audio: true // Capture system audio if available
+      });
+
+      // Replace video track in peer connection with screen track
+      const screenVideoTrack = this.screenStream.getVideoTracks()[0];
+      if (screenVideoTrack) {
+        const sender = this.peerConnection.getSenders().find(s => 
+          s.track && s.track.kind === 'video'
+        );
+        
+        if (sender) {
+          await sender.replaceTrack(screenVideoTrack);
+        }
+
+        // Handle screen share ending (user stops sharing)
+        screenVideoTrack.onended = () => {
+          this.stopScreenShare();
+        };
+
+        this.isScreenSharing = true;
+        this.notifyCallListeners('screenShareStarted', this.screenStream);
+      }
+
+      return this.screenStream;
+    } catch (error) {
+      console.error('Error starting screen share:', error);
+      if (error.name === 'NotAllowedError') {
+        throw new Error('Screen sharing permission denied');
+      } else if (error.name === 'NotFoundError') {
+        throw new Error('No screen/window available to share');
+      }
+      throw error;
+    }
+  }
+
+  // Stop screen sharing
+  async stopScreenShare() {
+    try {
+      if (!this.isScreenSharing || !this.screenStream) {
+        return;
+      }
+
+      // Stop screen stream tracks
+      this.screenStream.getTracks().forEach(track => track.stop());
+
+      // Restore original video track if local stream exists
+      if (this.localStream && this.peerConnection) {
+        const originalVideoTrack = this.localStream.getVideoTracks()[0];
+        if (originalVideoTrack) {
+          const sender = this.peerConnection.getSenders().find(s => 
+            s.track && s.track.kind === 'video'
+          );
+          
+          if (sender) {
+            await sender.replaceTrack(originalVideoTrack);
+          }
+        }
+      }
+
+      this.screenStream = null;
+      this.isScreenSharing = false;
+      this.notifyCallListeners('screenShareStopped');
+    } catch (error) {
+      console.error('Error stopping screen share:', error);
+      // Clean up even if replaceTrack fails
+      this.screenStream = null;
+      this.isScreenSharing = false;
+    }
+  }
+
+  // Toggle screen sharing
+  async toggleScreenShare() {
+    if (this.isScreenSharing) {
+      await this.stopScreenShare();
+    } else {
+      await this.startScreenShare();
+    }
+  }
+
+  // Check if screen sharing is supported
+  isScreenShareSupported() {
+    return !!(
+      navigator.mediaDevices &&
+      navigator.mediaDevices.getDisplayMedia
+    );
+  }
+
   // Subscribe to call events
   subscribeToCallEvents(callback) {
     this.callListeners.add(callback);
@@ -194,4 +303,5 @@ class CallService {
 
 export const callService = new CallService();
 export default callService;
+
 

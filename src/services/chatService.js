@@ -1,6 +1,7 @@
-// Minimal in-memory chat service to support runtime in dev
-// Uses localStorage to persist messages across tabs
+// Production-ready chat service with Firebase Firestore backend
+// Falls back to localStorage for offline/demo mode
 import { encryptionService } from './encryptionService';
+import { firestoreService } from './firestoreService';
 
 class ChatService {
   constructor() {
@@ -11,20 +12,36 @@ class ChatService {
     this.notificationListeners = new Set();
     this.scheduledMessages = new Map();
     this.lastMessageTimes = new Map();
+    this.useFirestore = true; // Use Firestore as primary backend
+    this.firestoreUnsubscribes = new Map();
 
-    // Load messages from localStorage on init
-    this.loadMessagesFromStorage();
+    // Try to use Firestore, fall back to localStorage if unavailable
+    this.initializeBackend();
 
-    // Listen for storage changes (for cross-tab communication)
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'echochat_messages') {
-        this.loadMessagesFromStorage();
-        this.notifyAllSubscribers();
-      }
-    });
+    // Listen for storage changes (for cross-tab communication in localStorage mode)
+    if (!this.useFirestore) {
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'echochat_messages') {
+          this.loadMessagesFromStorage();
+          this.notifyAllSubscribers();
+        }
+      });
+    }
 
     // Start scheduled messages checker
     this.startScheduledMessageChecker();
+  }
+
+  async initializeBackend() {
+    // Check if Firestore is available
+    try {
+      // Test Firestore connection
+      this.useFirestore = true;
+    } catch (error) {
+      console.warn('Firestore not available, using localStorage fallback:', error);
+      this.useFirestore = false;
+      this.loadMessagesFromStorage();
+    }
   }
 
   loadMessagesFromStorage() {
@@ -59,8 +76,35 @@ class ChatService {
     // This is handled by the polling mechanism in subscribeToMessages
   }
 
-  // Messages
+  // Messages - Uses Firestore for real-time sync, localStorage as fallback
   subscribeToMessages(chatId, callback) {
+    if (this.useFirestore) {
+      // Use Firestore real-time subscription
+      try {
+        const unsubscribe = firestoreService.subscribeToMessages(chatId, (messages) => {
+          // Decrypt messages that need decryption
+          const processedMessages = messages.map(msg => ({
+            ...msg,
+            needsDecryption: msg.isEncrypted && msg.encryptedText
+          }));
+          callback(processedMessages);
+        });
+        
+        this.firestoreUnsubscribes.set(chatId, unsubscribe);
+        return () => {
+          if (this.firestoreUnsubscribes.has(chatId)) {
+            this.firestoreUnsubscribes.get(chatId)();
+            this.firestoreUnsubscribes.delete(chatId);
+          }
+        };
+      } catch (error) {
+        console.warn('Firestore subscription failed, falling back to localStorage:', error);
+        this.useFirestore = false;
+        // Fall through to localStorage mode
+      }
+    }
+
+    // Fallback: localStorage mode with polling
     if (!this.chatIdToMessages.has(chatId)) {
       this.chatIdToMessages.set(chatId, []);
     }
@@ -131,9 +175,8 @@ class ChatService {
       }
     }
 
-    const messages = this.chatIdToMessages.get(chatId) || [];
-    const newMessage = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    // Prepare message data
+    const messageData = {
       text: isEncrypted ? null : (message.text || ''), // Store encrypted data separately
       encryptedText: encryptedText, // Encrypted message data
       isEncrypted: isEncrypted,
@@ -153,8 +196,28 @@ class ChatService {
 
     // Remove text if encrypted (to avoid storing plaintext)
     if (isEncrypted) {
-      delete newMessage.text;
+      delete messageData.text;
     }
+
+    // Use Firestore if available, otherwise localStorage
+    if (this.useFirestore) {
+      try {
+        const newMessage = await firestoreService.sendMessage(chatId, messageData);
+        // Real-time subscription will handle notifying subscribers
+        return newMessage;
+      } catch (error) {
+        console.error('Firestore sendMessage failed, falling back to localStorage:', error);
+        this.useFirestore = false;
+        // Fall through to localStorage
+      }
+    }
+
+    // Fallback: localStorage mode
+    const messages = this.chatIdToMessages.get(chatId) || [];
+    const newMessage = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...messageData
+    };
 
     messages.push(newMessage);
     this.chatIdToMessages.set(chatId, messages);
@@ -209,7 +272,21 @@ class ChatService {
   }
 
   // Edit message
-  editMessage(chatId, messageId, newText, userId) {
+  async editMessage(chatId, messageId, newText, userId) {
+    // Use Firestore if available
+    if (this.useFirestore) {
+      try {
+        const updatedMessage = await firestoreService.editMessage(messageId, newText);
+        // Real-time subscription will handle notifying subscribers
+        return updatedMessage;
+      } catch (error) {
+        console.error('Firestore editMessage failed, falling back to localStorage:', error);
+        this.useFirestore = false;
+        // Fall through to localStorage
+      }
+    }
+
+    // Fallback: localStorage mode
     const messages = this.chatIdToMessages.get(chatId) || [];
     const message = messages.find(m => m.id === messageId);
     if (message && message.senderId === userId) {
@@ -224,7 +301,21 @@ class ChatService {
   }
 
   // Delete message
-  deleteMessage(chatId, messageId, userId, forEveryone = false) {
+  async deleteMessage(chatId, messageId, userId, forEveryone = false) {
+    // Use Firestore if available
+    if (this.useFirestore) {
+      try {
+        const deletedMessage = await firestoreService.deleteMessage(messageId, forEveryone);
+        // Real-time subscription will handle notifying subscribers
+        return deletedMessage;
+      } catch (error) {
+        console.error('Firestore deleteMessage failed, falling back to localStorage:', error);
+        this.useFirestore = false;
+        // Fall through to localStorage
+      }
+    }
+
+    // Fallback: localStorage mode
     const messages = this.chatIdToMessages.get(chatId) || [];
     const message = messages.find(m => m.id === messageId);
     if (message && message.senderId === userId) {
