@@ -61,17 +61,34 @@ export function AuthProvider({ children }) {
       };
 
       // Check for redirect result from Google sign-in (must be done before onAuthStateChanged)
-      authService.getRedirectResult().then((result) => {
-        if (mounted && result.success && result.user) {
-          // Redirect result found - user will be set by onAuthStateChanged
-          console.log('Google sign-in redirect result:', result);
+      // This is critical - getRedirectResult must be called to complete the sign-in flow
+      // It should be called on every page load to check if we're returning from a redirect
+      const checkRedirectResult = async () => {
+        try {
+          const result = await authService.getRedirectResult();
+          if (mounted) {
+            if (result.success && result.user) {
+              // Redirect result found - Firebase will update auth state
+              console.log('Google sign-in redirect result found:', result.user.email);
+              // The onAuthStateChanged listener will handle setting the user
+            } else if (result.error) {
+              console.error('Redirect result error:', result.error);
+            } else {
+              // No redirect result - this is normal for regular page loads
+              console.log('No redirect result (normal page load)');
+            }
+          }
+        } catch (error) {
+          console.error('Error checking redirect result:', error);
         }
-      }).catch((error) => {
-        console.error('Error checking redirect result:', error);
-      });
+      };
+      
+      // Call immediately to check for redirect result
+      checkRedirectResult();
 
       // Wait for onAuthStateChanged to fire - it will fire immediately with current state
       // This is more reliable than checking auth.currentUser directly
+      // Note: onAuthStateChanged will fire after getRedirectResult completes the sign-in
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (!mounted) return;
         setUserFromFirebase(firebaseUser);
