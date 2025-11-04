@@ -40,15 +40,32 @@ class AuthService {
     try {
       const authInstance = (this && this.auth) || auth;
       if (!authInstance) {
+        console.error('Auth instance not found');
         return { success: false, error: 'Authentication service not initialized' };
       }
       
+      console.log('Starting Google sign-in redirect...');
+      console.log('Auth domain:', authInstance.config?.authDomain);
+      console.log('Current URL:', window.location.href);
+      
       const provider = new GoogleAuthProvider();
+      
+      // Call signInWithRedirect - this WILL navigate away from the page
+      // The await ensures the redirect is initiated
       await signInWithRedirect(authInstance, provider);
-      // Note: signInWithRedirect navigates away, so this won't execute
+      
+      // This line should not execute if redirect works (page navigates away)
+      // But if we get here, something prevented the redirect
+      console.warn('signInWithRedirect completed but page did not redirect');
       return { success: true, pending: true };
     } catch (error) {
       console.error('Google sign-in error:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
       return { success: false, error: error.message || 'Failed to sign in with Google' };
     }
   }

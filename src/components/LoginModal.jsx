@@ -12,21 +12,31 @@ export default function LoginModal() {
   const [error, setError] = useState('');
 
   const handleGoogleSignIn = async () => {
+    console.log('Google sign-in button clicked');
     setIsLoading(true);
     setError('');
 
     try {
+      console.log('Calling authService.signInWithGoogle()...');
       const result = await authService.signInWithGoogle();
+      console.log('Sign-in result:', result);
+      
       if (result.success) {
         if (result.pending) {
           // Redirect is happening - page will navigate away
+          console.log('Redirect initiated - page should navigate to Google');
           // Don't reset loading state as page will redirect
+          // Return early to prevent any further execution
+          return;
         } else {
+          // User is already signed in (shouldn't happen with redirect)
+          console.log('User already signed in');
           showNotification('Signed in with Google successfully!', 'success');
           closeLoginModal();
           setIsLoading(false);
         }
       } else {
+        console.error('Sign-in failed:', result.error);
         setError(result.error || 'Failed to sign in with Google');
         setIsLoading(false);
       }
