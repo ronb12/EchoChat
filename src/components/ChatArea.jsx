@@ -666,27 +666,43 @@ export default function ChatArea() {
                           localStorage.removeItem('echochat_user');
                           setUser(null);
                           showNotification('Signed out successfully', 'success');
-                        } else {
+                        } else if (signOut && typeof signOut === 'function') {
                           // Real user - use Firebase signOut
-                          const result = await signOut();
-                          if (result.success) {
-                            showNotification('Signed out successfully', 'success');
-                            // Clear account type and demo user from localStorage
+                          try {
+                            const result = await signOut();
+                            if (result && result.success) {
+                              showNotification('Signed out successfully', 'success');
+                              // Clear account type and demo user from localStorage
+                              localStorage.removeItem('echochat_account_type');
+                              localStorage.removeItem('echochat_user');
+                              // Clear user state
+                              setUser(null);
+                            } else {
+                              showNotification(result?.error || 'Failed to sign out', 'error');
+                            }
+                          } catch (signOutError) {
+                            // If signOut throws an error, still clear local data
+                            console.error('Error during signOut:', signOutError);
                             localStorage.removeItem('echochat_account_type');
                             localStorage.removeItem('echochat_user');
-                            // Clear user state
                             setUser(null);
-                          } else {
-                            showNotification(result.error || 'Failed to sign out', 'error');
+                            showNotification('Signed out successfully', 'success');
                           }
+                        } else {
+                          // signOut not available - manually clear everything
+                          console.warn('signOut function not available, clearing local data');
+                          localStorage.removeItem('echochat_account_type');
+                          localStorage.removeItem('echochat_user');
+                          setUser(null);
+                          showNotification('Signed out successfully', 'success');
                         }
                       } catch (error) {
-                        // If Firebase signOut fails, still try to clear demo user data
+                        // If anything fails, still try to clear local data
+                        console.error('Error signing out:', error);
                         localStorage.removeItem('echochat_account_type');
                         localStorage.removeItem('echochat_user');
                         setUser(null);
                         showNotification('Signed out successfully', 'success');
-                        console.error('Error signing out:', error);
                       }
                     }}
                     style={{ color: '#f44336' }}

@@ -5,7 +5,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth';
 import { auth } from './firebaseConfig';
 
@@ -38,8 +39,26 @@ class AuthService {
   async signInWithGoogle() {
     try {
       const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(this.auth, provider);
-      return { success: true, user: userCredential.user };
+      // Use redirect instead of popup to avoid COOP (Cross-Origin-Opener-Policy) issues
+      await signInWithRedirect(this.auth, provider);
+      // Note: signInWithRedirect will navigate away, so we return a pending state
+      return { success: true, pending: true };
+    } catch (error) {
+      // If redirect is blocked, try to check if user is already signed in
+      if (this.auth.currentUser) {
+        return { success: true, user: this.auth.currentUser };
+      }
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getRedirectResult() {
+    try {
+      const result = await getRedirectResult(this.auth);
+      if (result && result.user) {
+        return { success: true, user: result.user };
+      }
+      return { success: false, user: null };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -47,10 +66,15 @@ class AuthService {
 
   async signOut() {
     try {
+      if (!this.auth) {
+        console.error('Auth object is not initialized');
+        return { success: false, error: 'Authentication service not initialized' };
+      }
       await firebaseSignOut(this.auth);
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.error('Error signing out:', error);
+      return { success: false, error: error.message || 'Failed to sign out' };
     }
   }
 
