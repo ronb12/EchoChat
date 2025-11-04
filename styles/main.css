@@ -1485,6 +1485,22 @@ body {
 .message-text {
   white-space: pre-wrap;
   word-wrap: break-word;
+  line-height: 1.5;
+  /* Inherit color from parent (.message-content) which has explicit colors */
+}
+
+/* Ensure text is visible in sent messages (white text) */
+.message.sent .message-text {
+  color: #ffffff !important;
+}
+
+/* Ensure text is visible in received messages */
+.message.received .message-text {
+  color: #111b21 !important;
+}
+
+[data-theme="dark"] .message.received .message-text {
+  color: #e9edef !important;
 }
 
 .message-edited {

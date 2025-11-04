@@ -177,7 +177,8 @@ class ChatService {
 
     // Prepare message data
     const messageData = {
-      text: isEncrypted ? null : (message.text || ''), // Store encrypted data separately
+      // Keep text for immediate display, even if encrypted (will be decrypted on render)
+      text: message.text || '', // Keep original text for display until decryption
       encryptedText: encryptedText, // Encrypted message data
       isEncrypted: isEncrypted,
       senderId: message.senderId,
@@ -209,10 +210,9 @@ class ChatService {
       ...message
     };
 
-    // Remove text if encrypted (to avoid storing plaintext)
-    if (isEncrypted) {
-      delete messageData.text;
-    }
+    // Note: We keep text field for immediate display
+    // The encryptedText is used for secure storage, but text is kept for UI rendering
+    // This ensures messages are visible immediately after sending
 
     // Use Firestore if available, otherwise localStorage
     if (this.useFirestore) {

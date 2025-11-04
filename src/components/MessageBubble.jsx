@@ -41,11 +41,16 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
   // Decrypt encrypted messages when component mounts or message changes
   useEffect(() => {
     const decryptMessage = async () => {
-      if (message && message.isEncrypted && message.encryptedText && !decryptedText && !isDecrypting) {
+      // If already decrypted, use it
+      if (decryptedText) {
+        return;
+      }
+      
+      if (message && message.isEncrypted && message.encryptedText && !isDecrypting) {
         setIsDecrypting(true);
         try {
           const decrypted = await chatService.decryptMessage(message, user?.uid, chatId);
-          setDecryptedText(decrypted);
+          setDecryptedText(decrypted || '[Unable to decrypt message]');
         } catch (error) {
           console.error('Error decrypting message:', error);
           setDecryptedText('[Unable to decrypt message]');
@@ -58,11 +63,14 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
       } else if (message?.decryptedText) {
         // Already decrypted
         setDecryptedText(message.decryptedText);
+      } else if (message?.text) {
+        // Fallback: use text if available
+        setDecryptedText(message.text);
       }
     };
 
     decryptMessage();
-  }, [message, user, chatId, decryptedText, isDecrypting]);
+  }, [message, user, chatId]);
 
   // Mark message as read when it's visible
   useEffect(() => {
@@ -304,13 +312,13 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
               </div>
             )}
             {/* Show text if it exists */}
-            {(decryptedText || message.text) && (
+            {(decryptedText || message.text || message.encryptedText) && (
               <div className="message-text">
                 {isDecrypting ? (
                   <span style={{ opacity: 0.6 }}>Decrypting...</span>
                 ) : (
                   <>
-                    {decryptedText || message.text}
+                    {decryptedText || message.text || (message.encryptedText ? '[Encrypted message]' : '')}
                     {message.edited && (
                       <span className="edited-indicator" title={`Edited at ${formatTimestamp(message.editedAt)}`}>
                         (edited)
