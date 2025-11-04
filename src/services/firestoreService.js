@@ -105,15 +105,26 @@ class FirestoreService {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toMillis() || Date.now(),
-        deliveredAt: doc.data().deliveredAt?.toMillis() || null,
-        readAt: doc.data().readAt?.toMillis() || null,
-        editedAt: doc.data().editedAt?.toMillis() || null,
-        deletedAt: doc.data().deletedAt?.toMillis() || null
-      }));
+      const messages = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Preserve timestamp conversions
+          timestamp: data.timestamp?.toMillis() || Date.now(),
+          deliveredAt: data.deliveredAt?.toMillis() || null,
+          readAt: data.readAt?.toMillis() || null,
+          editedAt: data.editedAt?.toMillis() || null,
+          deletedAt: data.deletedAt?.toMillis() || null,
+          // Explicitly preserve sticker fields from Firestore
+          sticker: data.sticker || null,
+          stickerId: data.stickerId || null,
+          stickerPackId: data.stickerPackId || null,
+          // Preserve video fields
+          video: data.video || null,
+          videoName: data.videoName || null
+        };
+      });
       callback(messages);
     }, (error) => {
       console.error('Error subscribing to messages:', error);
