@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
+import { useChat } from '../hooks/useChat';
 import { chatService } from '../services/chatService';
 
 export default function GroupChatModal() {
-  const { closeGroupChatModal } = useUI();
+  const { closeGroupChatModal, showNotification, closeSidebar } = useUI();
   const { user } = useAuth();
+  const { setCurrentChatId, setChats, chats } = useChat();
   const [groupName, setGroupName] = useState('');
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [users, setUsers] = useState([]);
@@ -39,17 +41,49 @@ export default function GroupChatModal() {
   };
 
   const handleCreateGroup = async () => {
-    if (!groupName.trim() || selectedUsers.length === 0 || !user) {return;}
+    if (!groupName.trim() || selectedUsers.length === 0 || !user) {
+      showNotification('Please enter a group name and select at least one member', 'error');
+      return;
+    }
 
     try {
       const participants = [user.uid, ...selectedUsers.map(u => u.id)];
       const chat = await chatService.createChat(participants, groupName.trim(), true);
       console.log('Group created:', chat);
+
+      // Add chat to chats list
+      const newChat = {
+        id: chat.id,
+        name: groupName.trim(),
+        avatar: null,
+        lastMessage: null,
+        lastMessageAt: chat.createdAt,
+        unreadCount: 0,
+        type: 'group',
+        participants: participants.length
+      };
+      setChats([...chats, newChat]);
+
+      // Set as current chat
+      setCurrentChatId(chat.id);
+
+      // Show success notification
+      showNotification(`Group "${groupName.trim()}" created successfully!`, 'success');
+
+      // Close modal
       closeGroupChatModal();
+
+      // Close sidebar on mobile to show the chat
+      if (window.innerWidth < 768) {
+        closeSidebar();
+      }
+
+      // Reset form
       setGroupName('');
       setSelectedUsers([]);
     } catch (error) {
       console.error('Error creating group:', error);
+      showNotification('Failed to create group. Please try again.', 'error');
     }
   };
 

@@ -1,7 +1,7 @@
 // Group Polls Service - Create and manage polls in group chats
 import { db } from './firebaseConfig';
-import { collection, doc, addDoc, updateDoc, getDoc, getDocs, query, where, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
-import { firestoreService } from './firestoreService';
+import { collection, doc, addDoc, updateDoc, getDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { chatService } from './chatService';
 
 class GroupPollsService {
   constructor() {
@@ -249,8 +249,8 @@ class GroupPollsService {
 
       const results = poll.options.map(option => ({
         ...option,
-        percentage: poll.totalVotes > 0 
-          ? Math.round((option.voteCount / poll.totalVotes) * 100) 
+        percentage: poll.totalVotes > 0
+          ? Math.round((option.voteCount / poll.totalVotes) * 100)
           : 0
       }));
 

@@ -29,7 +29,8 @@ export default function NewChatModal() {
     const demoUsers = [
       { id: 'user1', name: 'John Doe', email: 'john@example.com', avatar: '/icons/default-avatar.png' },
       { id: 'user2', name: 'Jane Smith', email: 'jane@example.com', avatar: '/icons/default-avatar.png' },
-      { id: 'user3', name: 'Bob Johnson', email: 'bob@example.com', avatar: '/icons/default-avatar.png' }
+      { id: 'user3', name: 'Bob Johnson', email: 'bob@example.com', avatar: '/icons/default-avatar.png' },
+      { id: 'test-business-1', name: 'Test Business Account', email: 'business@echochat.com', avatar: '/icons/default-avatar.png' }
     ];
     setUsers(demoUsers);
   }, []);
@@ -46,26 +47,37 @@ export default function NewChatModal() {
 
     setCreating(true);
     try {
-      const chat = await chatService.createChat([user.uid, selectedUser.id], null, false);
+      const chat = await chatService.createChat([user.uid, selectedUser.id], selectedUser.name, false);
       console.log('Chat created:', chat);
-      
-      // Add chat to chats list
+
+      // The chat should already have the correct name since we passed selectedUser.name to createChat
+      // But we need to ensure the avatar is set. Since userIdToChats is private, we'll rely on
+      // the manual setChats call for immediate update, and useRealtimeChats polling will sync later
+
+      // Add chat to chats list (useRealtimeChats will pick this up via polling)
       const newChat = {
         id: chat.id,
         name: selectedUser.name,
         avatar: selectedUser.avatar,
         lastMessage: null,
         lastMessageAt: chat.createdAt,
-        unreadCount: 0
+        unreadCount: 0,
+        type: 'direct'
       };
-      setChats([...chats, newChat]);
-      
+
+      // Update chats state - ensure we don't add duplicates
+      // Check if chat already exists before adding
+      const chatExists = chats.some(c => c.id === chat.id);
+      if (!chatExists) {
+        setChats([...chats, newChat]);
+      }
+
       // Set as current chat
       setCurrentChatId(chat.id);
-      
+
       // Close modal
       closeNewChatModal();
-      
+
       // Close sidebar on mobile to show the chat
       if (isMobile) {
         closeSidebar();

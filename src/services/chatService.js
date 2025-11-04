@@ -89,7 +89,7 @@ class ChatService {
           }));
           callback(processedMessages);
         });
-        
+
         this.firestoreUnsubscribes.set(chatId, unsubscribe);
         return () => {
           if (this.firestoreUnsubscribes.has(chatId)) {
@@ -154,7 +154,7 @@ class ChatService {
     // Encrypt message text if present
     let encryptedText = null;
     let isEncrypted = false;
-    
+
     if (message.text && message.text.trim()) {
       try {
         const encryptionResult = await encryptionService.encryptMessageText(
@@ -162,7 +162,7 @@ class ChatService {
           userId || message.senderId,
           chatId
         );
-        
+
         if (encryptionResult && encryptionResult.encrypted) {
           encryptedText = encryptionResult;
           isEncrypted = true;
@@ -466,13 +466,13 @@ class ChatService {
     }
     // Immediately deliver current state
     callback(this.userIdToChats.get(userId));
-    
+
     // Set up polling to check for updates (simulating real-time)
     const interval = setInterval(() => {
       const userChats = this.userIdToChats.get(userId) || [];
       callback(userChats);
     }, 500);
-    
+
     const unsubscribe = () => {
       clearInterval(interval);
     };
@@ -632,10 +632,10 @@ class ChatService {
 
     // Clear messages from memory
     this.chatIdToMessages.set(chatId, []);
-    
+
     // Update storage
     this.saveMessagesToStorage();
-    
+
     // Return success
     return true;
   }
@@ -643,7 +643,7 @@ class ChatService {
   // Get messages with automatic decryption
   getMessages(chatId, userId = null) {
     const messages = this.chatIdToMessages.get(chatId) || [];
-    
+
     // Return messages with decryption handled by component
     return messages.map(msg => ({
       ...msg,
@@ -663,7 +663,7 @@ class ChatService {
         userId || message.senderId,
         chatId
       );
-      
+
       // Cache decrypted text
       message.decryptedText = decrypted;
       return decrypted;

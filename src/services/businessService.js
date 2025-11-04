@@ -29,7 +29,7 @@ class BusinessService {
         autoReply: businessData.autoReply || null,
         quickReplies: businessData.quickReplies || []
       };
-      
+
       await setDoc(businessRef, business);
       return business;
     } catch (error) {
@@ -43,11 +43,11 @@ class BusinessService {
     try {
       const businessRef = doc(this.db, 'businesses', businessId);
       const businessDoc = await getDoc(businessRef);
-      
+
       if (businessDoc.exists()) {
         return { id: businessDoc.id, ...businessDoc.data() };
       }
-      
+
       return null;
     } catch (error) {
       console.error('Error getting business profile:', error);
@@ -59,7 +59,7 @@ class BusinessService {
   async updateBusinessStatus(businessId, status) {
     try {
       const businessRef = doc(this.db, 'businesses', businessId);
-      await setDoc(businessRef, { 
+      await setDoc(businessRef, {
         status,
         statusUpdatedAt: new Date()
       }, { merge: true });
@@ -74,17 +74,17 @@ class BusinessService {
     try {
       const businessRef = doc(this.db, 'businesses', businessId);
       const businessDoc = await getDoc(businessRef);
-      const quickReplies = businessDoc.exists() 
+      const quickReplies = businessDoc.exists()
         ? businessDoc.data().quickReplies || []
         : [];
-      
+
       quickReplies.push({
         id: Date.now().toString(),
         text: reply.text,
         shortcut: reply.shortcut,
         createdAt: new Date()
       });
-      
+
       await setDoc(businessRef, { quickReplies }, { merge: true });
     } catch (error) {
       console.error('Error adding quick reply:', error);
@@ -108,21 +108,62 @@ class BusinessService {
     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const day = days[currentDay];
     const hours = businessHours[day];
-    
+
     if (!hours || hours.closed) {
       return false;
     }
-    
+
     const now = new Date();
     const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    
+
     return currentTime >= hours.open && currentTime <= hours.close;
   }
 
   // Get customer chat analytics
   async getChatAnalytics(businessId, startDate, endDate) {
     try {
+      // Check if this is the test business account
+      const isTestBusiness = businessId === 'test-business-1' ||
+                            businessId === 'business@echochat.com' ||
+                            businessId.includes('test-business');
+
+      if (isTestBusiness) {
+        // Return sample data for test business account
+        return {
+          totalMessages: 247,
+          totalCustomers: 18,
+          averageResponseTime: 4.2, // minutes
+          customerSatisfaction: 4.6, // out of 5
+          period: {
+            start: startDate,
+            end: endDate
+          },
+          breakdown: {
+            messagesToday: 23,
+            messagesThisWeek: 89,
+            messagesThisMonth: 247,
+            newCustomers: 3,
+            returningCustomers: 15
+          },
+          responseTime: {
+            average: 4.2,
+            min: 1.5,
+            max: 12.3,
+            under5Min: 85, // percentage
+            over15Min: 5 // percentage
+          },
+          satisfaction: {
+            average: 4.6,
+            excellent: 12, // customers
+            good: 5,
+            averageRating: 1,
+            poor: 0
+          }
+        };
+      }
+
       // In production, query Firestore for analytics
+      // For now, return placeholder data for other accounts
       return {
         totalMessages: 0,
         totalCustomers: 0,
@@ -138,4 +179,5 @@ class BusinessService {
 
 export const businessService = new BusinessService();
 export default businessService;
+
 

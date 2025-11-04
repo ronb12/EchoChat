@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { useChat } from '../hooks/useChat';
-import paymentService from '../services/paymentService';
 
 const COMMON_REASONS = [
   'Dinner/Meal',
@@ -21,7 +20,6 @@ const COMMON_REASONS = [
 export default function SendMoneyModal({ recipientId, recipientName, onClose, initialMode = 'send' }) {
   const { showNotification } = useUI();
   const { user } = useAuth();
-  const { currentChatId } = useChat();
   const [mode, setMode] = useState(initialMode); // 'send' or 'request'
   const [amount, setAmount] = useState('');
   const [selectedReason, setSelectedReason] = useState('');
@@ -41,18 +39,18 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
 
   const handleSend = async () => {
     const numAmount = parseFloat(amount);
-    
+
     // Validation
     if (!numAmount || numAmount <= 0) {
       showNotification('Please enter a valid amount', 'error');
       return;
     }
-    
+
     if (numAmount < 1) {
       showNotification('Minimum amount is $1.00', 'error');
       return;
     }
-    
+
     if (numAmount > 500) {
       showNotification('Maximum amount per transaction is $500', 'error');
       return;
@@ -144,12 +142,12 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
           showNotification(`Payment request for $${numAmount.toFixed(2)} created for ${recipientName}`, 'success');
         }
       }
-      
+
       // Close modal after short delay
       setTimeout(() => {
         onClose();
       }, 1500);
-      
+
     } catch (error) {
       console.error(`Error ${mode === 'send' ? 'sending' : 'requesting'} money:`, error);
       showNotification(`Failed to ${mode === 'send' ? 'send' : 'request'} money. Please try again.`, 'error');
@@ -171,9 +169,9 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
         </div>
         <div className="modal-body">
           {/* Mode Toggle */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '8px', 
+          <div style={{
+            display: 'flex',
+            gap: '8px',
             marginBottom: '1.5rem',
             background: 'var(--border-color)',
             padding: '4px',
@@ -392,7 +390,7 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
               disabled={sending || !amount || parseFloat(amount) <= 0 || !finalNote}
               style={{ minWidth: '120px' }}
             >
-              {sending 
+              {sending
                 ? (mode === 'send' ? 'Sending...' : 'Creating Request...')
                 : (mode === 'send' ? 'Send Money' : 'Request Money')
               }

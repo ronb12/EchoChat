@@ -1,7 +1,7 @@
 // Two-Factor Authentication Service
 import { auth, db } from './firebaseConfig';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { RecaptchaVerifier, signInWithPhoneNumber, PhoneAuthProvider } from 'firebase/auth';
+import { RecaptchaVerifier } from 'firebase/auth';
 import CryptoJS from 'crypto-js';
 
 class TwoFactorService {
@@ -154,4 +154,5 @@ class TwoFactorService {
 
 export const twoFactorService = new TwoFactorService();
 export default twoFactorService;
+
 

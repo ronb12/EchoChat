@@ -1,6 +1,6 @@
 // Stickers Service - Sticker packs and management
 import { db } from './firebaseConfig';
-import { collection, doc, getDoc, setDoc, getDocs, updateDoc, increment, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, increment, query, where, orderBy, limit } from 'firebase/firestore';
 import { chatService } from './chatService';
 
 class StickersService {
@@ -91,7 +91,7 @@ class StickersService {
       // Load from Firestore if available
       const packsRef = collection(db, 'stickerPacks');
       const snapshot = await getDocs(packsRef);
-      
+
       const packs = [];
       snapshot.forEach(doc => {
         packs.push({ id: doc.id, ...doc.data() });
@@ -120,7 +120,7 @@ class StickersService {
 
     allPacks.forEach(pack => {
       pack.stickers.forEach(sticker => {
-        const matches = sticker.keywords.some(keyword => 
+        const matches = sticker.keywords.some(keyword =>
           keyword.toLowerCase().includes(queryLower)
         );
         if (matches || sticker.emoji.includes(query)) {
@@ -160,7 +160,7 @@ class StickersService {
         limit(limit)
       );
       const snapshot = await getDocs(q);
-      
+
       const frequent = [];
       snapshot.forEach(doc => {
         frequent.push(doc.data());

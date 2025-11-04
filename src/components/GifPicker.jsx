@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { gifService } from '../services/gifService';
 
 export default function GifPicker({ onSelectGif, onClose }) {
@@ -44,7 +45,7 @@ export default function GifPicker({ onSelectGif, onClose }) {
 
   const handleGifSelect = (gif) => {
     onSelectGif(gif.url);
-    if (onClose) onClose();
+    if (onClose) {onClose();}
   };
 
   return (
@@ -165,4 +166,9 @@ export default function GifPicker({ onSelectGif, onClose }) {
     </div>
   );
 }
+
+GifPicker.propTypes = {
+  onSelectGif: PropTypes.func.isRequired,
+  onClose: PropTypes.func.isRequired
+};
 

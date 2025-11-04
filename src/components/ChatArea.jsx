@@ -5,15 +5,12 @@ import { useUI } from '../hooks/useUI';
 import { useRealtimeMessages, useTypingIndicator } from '../hooks/useRealtime';
 import { chatService } from '../services/chatService';
 import { validationService } from '../services/validationService';
-import { firestoreService } from '../services/firestoreService';
-import { videoMessageService } from '../services/videoMessageService';
 import { stickersService } from '../services/stickersService';
-import { groupPollsService } from '../services/groupPollsService';
+import { videoMessageService } from '../services/videoMessageService';
 import MessageBubble from './MessageBubble';
 import VoiceRecorder from './VoiceRecorder';
 import MessageSearch from './MessageSearch';
 import GifPicker from './GifPicker';
-import MediaGallery from './MediaGallery';
 import SendMoneyModal from './SendMoneyModal';
 import QuickReplyModal from './QuickReplyModal';
 import PollCreatorModal from './PollCreatorModal';
@@ -28,26 +25,28 @@ export default function ChatArea() {
   const [previewImages, setPreviewImages] = useState([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showGifPicker, setShowGifPicker] = useState(false);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showSendMoneyModal, setShowSendMoneyModal] = useState(false);
   const [showRequestMoneyModal, setShowRequestMoneyModal] = useState(false);
   const [showQuickReplyModal, setShowQuickReplyModal] = useState(false);
-  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showPollCreator, setShowPollCreator] = useState(false);
   const [isBusinessAccount, setIsBusinessAccount] = useState(false);
-  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
-  const [videoStream, setVideoStream] = useState(null);
+  const [_isRecordingVideo, setIsRecordingVideo] = useState(false);
+  const [_showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [availableStickers, setAvailableStickers] = useState([]);
+  const [stickerPacks, setStickerPacks] = useState([]);
+  const [selectedPack, setSelectedPack] = useState('all');
+  const [recentStickers, setRecentStickers] = useState([]);
+  const [stickerSearchQuery, setStickerSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
   const moreMenuRef = useRef(null);
   const { typingUsers, startTyping, stopTyping } = useTypingIndicator(currentChatId);
-  
+
   // Track mobile state
   useEffect(() => {
     const checkMobile = () => {
@@ -71,14 +70,29 @@ export default function ChatArea() {
   useEffect(() => {
     if (showStickerPicker) {
       stickersService.getStickerPacks().then(packs => {
-        const allStickers = packs.flatMap(pack => pack.stickers || []);
-        setAvailableStickers(allStickers.slice(0, 30));
+        setStickerPacks(packs);
+        // Load recently used stickers
+        if (user?.uid) {
+          stickersService.getFrequentlyUsed(user.uid, 12).then(frequent => {
+            const recent = frequent.map(usage => {
+              const pack = packs.find(p => p.id === usage.packId);
+              const sticker = pack?.stickers?.find(s => s.id === usage.stickerId);
+              return sticker ? { ...sticker, packId: pack.id } : null;
+            }).filter(Boolean);
+            setRecentStickers(recent);
+          }).catch(() => setRecentStickers([]));
+        }
+        // Load all stickers for "all" view
+        const allStickers = packs.flatMap(pack =>
+          (pack.stickers || []).map(s => ({ ...s, packId: pack.id, packName: pack.name }))
+        );
+        setAvailableStickers(allStickers);
       }).catch(() => {
-        // Fallback to default emojis
+        setStickerPacks([]);
         setAvailableStickers([]);
       });
     }
-  }, [showStickerPicker]);
+  }, [showStickerPicker, user]);
 
   // Close emoji picker and more menu when clicking outside
   useEffect(() => {
@@ -309,7 +323,7 @@ export default function ChatArea() {
   // Show welcome screen if no messages and no current chat
   if (messages.length === 0 && !currentChatId) {
     return (
-      <div 
+      <div
         className="chat-area"
         data-has-chat="false"
       >
@@ -330,7 +344,7 @@ export default function ChatArea() {
   }
 
   return (
-    <div 
+    <div
       className={`chat-area ${currentChatId ? 'has-chat' : ''}`}
       data-has-chat={currentChatId ? 'true' : 'false'}
     >
@@ -340,7 +354,7 @@ export default function ChatArea() {
           <div className="chat-info">
             {/* Back button on mobile - shows sidebar and clears chat selection */}
             {isMobile && (
-              <button 
+              <button
                 className="back-button mobile-only"
                 onClick={() => {
                   setCurrentChatId(null);
@@ -396,8 +410,8 @@ export default function ChatArea() {
               </svg>
             </button>
             <div className="action-btn-wrapper" ref={moreMenuRef} style={{ position: 'relative' }}>
-              <button 
-                className="action-btn action-btn-more" 
+              <button
+                className="action-btn action-btn-more"
                 title="More options"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -666,29 +680,161 @@ export default function ChatArea() {
           <QuickReplyModal onClose={() => setShowQuickReplyModal(false)} />
         )}
 
-        {/* Sticker Picker */}
+        {/* Sticker Picker - Modern Enhanced Version */}
         {showStickerPicker && (
           <div style={{
             position: 'fixed',
             bottom: '80px',
             left: '50%',
             transform: 'translateX(-50%)',
-            maxWidth: '400px',
+            maxWidth: '500px',
             width: '90%',
-            maxHeight: '400px',
-            overflowY: 'auto',
+            maxHeight: '500px',
             background: 'var(--background-color)',
             border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            padding: '16px',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
-            gap: '12px',
+            borderRadius: '16px',
+            padding: '0',
             zIndex: 2000,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
           }}>
-            {availableStickers.length > 0 ? (
-              availableStickers.map((sticker, idx) => (
+            {/* Header with Search */}
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: '1px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <input
+                type="text"
+                placeholder="Search stickers..."
+                value={stickerSearchQuery}
+                onChange={(e) => setStickerSearchQuery(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  background: 'var(--surface-color)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  color: 'var(--text-color)'
+                }}
+              />
+              <button
+                onClick={() => setShowStickerPicker(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  color: 'var(--text-color)'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Category Tabs */}
+            <div style={{
+              display: 'flex',
+              gap: '4px',
+              padding: '8px',
+              borderBottom: '1px solid var(--border-color)',
+              overflowX: 'auto',
+              scrollbarWidth: 'thin'
+            }}>
+              <button
+                onClick={() => { setSelectedPack('recent'); setStickerSearchQuery(''); }}
+                style={{
+                  padding: '8px 12px',
+                  background: selectedPack === 'recent' ? 'var(--primary-color)' : 'var(--surface-color)',
+                  color: selectedPack === 'recent' ? '#fff' : 'var(--text-color)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s'
+                }}
+              >
+                ⭐ Recent
+              </button>
+              <button
+                onClick={() => { setSelectedPack('all'); setStickerSearchQuery(''); }}
+                style={{
+                  padding: '8px 12px',
+                  background: selectedPack === 'all' ? 'var(--primary-color)' : 'var(--surface-color)',
+                  color: selectedPack === 'all' ? '#fff' : 'var(--text-color)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🎨 All
+              </button>
+              {stickerPacks.map(pack => (
+                <button
+                  key={pack.id}
+                  onClick={() => { setSelectedPack(pack.id); setStickerSearchQuery(''); }}
+                  style={{
+                    padding: '8px 12px',
+                    background: selectedPack === pack.id ? 'var(--primary-color)' : 'var(--surface-color)',
+                    color: selectedPack === pack.id ? '#fff' : 'var(--text-color)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {pack.icon} {pack.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Stickers Grid */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '16px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
+              gap: '12px',
+              scrollbarWidth: 'thin'
+            }}>
+            {(() => {
+              // Filter stickers based on selected pack and search
+              let filteredStickers = [];
+
+              if (selectedPack === 'recent') {
+                filteredStickers = recentStickers;
+              } else if (selectedPack === 'all') {
+                filteredStickers = availableStickers;
+              } else {
+                const pack = stickerPacks.find(p => p.id === selectedPack);
+                filteredStickers = pack ? (pack.stickers || []).map(s => ({ ...s, packId: pack.id, packName: pack.name })) : [];
+              }
+
+              // Apply search filter
+              if (stickerSearchQuery.trim()) {
+                const query = stickerSearchQuery.toLowerCase();
+                filteredStickers = filteredStickers.filter(sticker => {
+                  const matchesKeyword = sticker.keywords?.some(k => k.toLowerCase().includes(query));
+                  const matchesEmoji = sticker.emoji?.includes(query);
+                  return matchesKeyword || matchesEmoji;
+                });
+              }
+
+              return filteredStickers.length > 0 ? (
+                filteredStickers.map((sticker, idx) => (
                 <button
                   key={sticker.id || idx}
                   onClick={async () => {
@@ -722,64 +868,20 @@ export default function ChatArea() {
                 >
                   {sticker.emoji || '😊'}
                 </button>
-              ))
-            ) : (
-              ['😊', '❤️', '😂', '👍', '🎉', '🔥', '💯', '🎈', '🎁', '🎂', '🎃', '🎄', '🎅', '🤖', '👾', '🦄'].map((emoji, idx) => (
-                <button
-                  key={`fallback-${idx}`}
-                  onClick={async () => {
-                    try {
-                      await stickersService.sendSticker(
-                        currentChatId,
-                        user?.uid,
-                        user?.displayName || user?.email || 'User',
-                        { emoji, id: `sticker-${idx}`, packId: 'default' }
-                      );
-                      setShowStickerPicker(false);
-                      showNotification('Sticker sent!', 'success');
-                    } catch (error) {
-                      showNotification(`Error sending sticker: ${error.message}`, 'error');
-                    }
-                  }}
-                  style={{
-                    background: 'var(--surface-color)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    cursor: 'pointer',
-                    fontSize: '48px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'transform 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                >
-                  {emoji}
-                </button>
-              ))
-            )}
-            <button
-              onClick={() => setShowStickerPicker(false)}
-              style={{
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                background: 'var(--border-color)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                cursor: 'pointer',
-                fontSize: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              ×
-            </button>
+                ))
+              ) : (
+                <div style={{
+                  gridColumn: '1 / -1',
+                  textAlign: 'center',
+                  padding: '40px 20px',
+                  color: 'var(--text-color-secondary)',
+                  fontSize: '14px'
+                }}>
+                  {stickerSearchQuery ? 'No stickers found matching your search' : 'No stickers available'}
+                </div>
+              );
+            })()}
+            </div>
           </div>
         )}
 

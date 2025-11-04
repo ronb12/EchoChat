@@ -1,7 +1,6 @@
 // Video Message Service - Record, compress, and send video messages
 import { storage } from './firebaseConfig';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { firestoreService } from './firestoreService';
 import { chatService } from './chatService';
 
 class VideoMessageService {
@@ -18,7 +17,7 @@ class VideoMessageService {
     try {
       // Request camera and microphone permissions
       this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
+        video: {
           width: { ideal: 1280 },
           height: { ideal: 720 },
           facingMode: 'user'
@@ -150,7 +149,7 @@ class VideoMessageService {
   }
 
   // Send video message
-  async sendVideoMessage(chatId, userId, senderName, videoBlob, onUploadProgress) {
+  async sendVideoMessage(chatId, userId, senderName, videoBlob, _onUploadProgress) {
     try {
       // Upload video
       const videoData = await this.uploadVideo(chatId, userId, videoBlob);

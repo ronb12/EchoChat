@@ -32,32 +32,32 @@ class EncryptionService {
     return new Promise((resolve, reject) => {
       try {
         const request = indexedDB.open('EchoChatEncryptionDB', 1);
-        
+
         request.onerror = () => {
           console.warn('IndexedDB open failed, using in-memory storage:', request.error);
           resolve(null); // Fallback to in-memory storage
         };
-        
+
         request.onsuccess = () => {
           this.db = request.result;
           resolve(this.db);
         };
-        
+
         request.onupgradeneeded = (event) => {
           const db = event.target.result;
-          
+
           // Keys store
           if (!db.objectStoreNames.contains('keys')) {
             const keysStore = db.createObjectStore('keys', { keyPath: 'id' });
             keysStore.createIndex('userId', 'userId', { unique: false });
             keysStore.createIndex('chatId', 'chatId', { unique: false });
           }
-          
+
           // Pre-keys store
           if (!db.objectStoreNames.contains('preKeys')) {
             db.createObjectStore('preKeys', { keyPath: 'id' });
           }
-          
+
           // Session keys store
           if (!db.objectStoreNames.contains('sessions')) {
             db.createObjectStore('sessions', { keyPath: 'chatId' });
@@ -134,12 +134,12 @@ class EncryptionService {
 
     try {
       let key = encryptionKey;
-      
+
       // Get or create session key for this chat (PFS)
       if (chatId) {
         key = await this.getOrRotateSessionKey(chatId);
       }
-      
+
       // If no key provided, generate/retrieve master key
       if (!key) {
         key = await this.getOrCreateMasterKey();
@@ -147,10 +147,10 @@ class EncryptionService {
 
       // Convert message to ArrayBuffer
       const messageData = new TextEncoder().encode(messageText);
-      
+
       // Generate random IV for each message (required for GCM)
       const iv = this.generateRandomBytes(12); // 96-bit IV for GCM
-      
+
       // Encrypt using AES-256-GCM
       const encrypted = await crypto.subtle.encrypt(
         {
@@ -197,12 +197,12 @@ class EncryptionService {
       // If encrypted data object
       if (typeof encryptedData === 'object' && encryptedData.encrypted) {
         let key = encryptionKey;
-        
+
         // Get session key for this chat if available
         if (chatId && !key) {
           key = await this.getSessionKey(chatId);
         }
-        
+
         // Fallback to master key
         if (!key) {
           key = await this.getOrCreateMasterKey();
@@ -265,13 +265,13 @@ class EncryptionService {
       return new Promise((resolve, reject) => {
         request.onsuccess = async () => {
           const session = request.result;
-          
+
           // Rotate key if message count exceeds threshold (PFS)
           if (!session || !session.key || (session.messageCount || 0) >= this.keyRotationInterval) {
             // Generate new session key
             const newKey = await this.generateKey();
             const keyData = await crypto.subtle.exportKey('jwk', newKey);
-            
+
             // Store new session
             const newSession = {
               chatId: chatId,
@@ -280,7 +280,7 @@ class EncryptionService {
               createdAt: Date.now(),
               lastRotated: Date.now()
             };
-            
+
             const putRequest = store.put(newSession);
             putRequest.onsuccess = () => resolve(newKey);
             putRequest.onerror = () => reject(putRequest.error);
@@ -288,7 +288,7 @@ class EncryptionService {
             // Increment message count
             session.messageCount = (session.messageCount || 0) + 1;
             store.put(session);
-            
+
             // Import existing key
             const existingKey = await crypto.subtle.importKey(
               'jwk',
@@ -300,11 +300,11 @@ class EncryptionService {
               false,
               ['encrypt', 'decrypt']
             );
-            
+
             resolve(existingKey);
           }
         };
-        
+
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -334,7 +334,7 @@ class EncryptionService {
       return new Promise((resolve, reject) => {
         request.onsuccess = async () => {
           const session = request.result;
-          
+
           if (session && session.key) {
             try {
               const key = await crypto.subtle.importKey(
@@ -355,7 +355,7 @@ class EncryptionService {
             resolve(null);
           }
         };
-        
+
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -389,7 +389,7 @@ class EncryptionService {
       return new Promise((resolve, reject) => {
         request.onsuccess = async () => {
           const result = request.result;
-          
+
           if (result && result.keyData) {
             try {
               // Import existing key
@@ -408,32 +408,32 @@ class EncryptionService {
               // If import fails, generate new key
               const newKey = await this.generateKey();
               const keyData = await crypto.subtle.exportKey('jwk', newKey);
-              
+
               store.put({
                 id: `key_${userId}_${Date.now()}`,
                 userId: userId,
                 keyData: keyData,
                 createdAt: Date.now()
               });
-              
+
               resolve(newKey);
             }
           } else {
             // Generate new master key
             const newKey = await this.generateKey();
             const keyData = await crypto.subtle.exportKey('jwk', newKey);
-            
+
             store.put({
               id: `key_${userId}_${Date.now()}`,
               userId: userId,
               keyData: keyData,
               createdAt: Date.now()
             });
-            
+
             resolve(newKey);
           }
         };
-        
+
         request.onerror = () => {
           // Fallback: generate in-memory key (less secure but functional)
           this.generateKey().then(resolve).catch(reject);
@@ -454,13 +454,13 @@ class EncryptionService {
 
     const preKey = await this.generateKey();
     const keyData = await crypto.subtle.exportKey('jwk', preKey);
-    
+
     const preKeyId = `prekey_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     try {
       const transaction = this.db.transaction(['preKeys'], 'readwrite');
       const store = transaction.objectStore('preKeys');
-      
+
       await new Promise((resolve, reject) => {
         const request = store.put({
           id: preKeyId,
@@ -469,11 +469,11 @@ class EncryptionService {
           createdAt: Date.now(),
           used: false
         });
-        
+
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
-      
+
       return { preKeyId, keyData };
     } catch (error) {
       console.error('Error storing pre-key:', error);
@@ -529,7 +529,7 @@ class EncryptionService {
 
     try {
       const transaction = this.db.transaction(['keys', 'sessions', 'preKeys'], 'readwrite');
-      
+
       await Promise.all([
         new Promise((resolve, reject) => {
           const request = transaction.objectStore('keys').clear();
@@ -547,7 +547,7 @@ class EncryptionService {
           request.onerror = () => reject(request.error);
         })
       ]);
-      
+
       this.sessionKeys.clear();
       this.preKeys.clear();
     } catch (error) {

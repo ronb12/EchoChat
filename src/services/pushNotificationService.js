@@ -1,7 +1,7 @@
 // Push Notification Service - Firebase Cloud Messaging
 import { messaging, VAPID_KEY } from './firebaseConfig';
 import { getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
 class PushNotificationService {
@@ -69,7 +69,7 @@ class PushNotificationService {
 
   // Setup listener for foreground messages
   setupForegroundMessageListener() {
-    if (!messaging) return;
+    if (!messaging) {return;}
 
     onMessage(messaging, (payload) => {
       console.log('Foreground message received:', payload);
@@ -106,7 +106,7 @@ class PushNotificationService {
       notification.onclick = () => {
         window.focus();
         notification.close();
-        
+
         // Navigate to chat if data contains chatId
         if (data.chatId) {
           window.location.href = `/#/chat/${data.chatId}`;

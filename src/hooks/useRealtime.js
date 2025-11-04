@@ -122,7 +122,41 @@ export function useRealtimeChats() {
     if (!user) {return;}
 
     const unsubscribe = chatService.subscribeToUserChats(user.uid, (userChats) => {
-      setChats(userChats);
+      // Deduplicate chats by ID to prevent duplicates
+      // Merge with existing chats to preserve any additional properties (like avatar from NewChatModal)
+      setChats(prevChats => {
+        const chatMap = new Map();
+
+        // First, add all existing chats to the map
+        prevChats.forEach(chat => {
+          chatMap.set(chat.id, chat);
+        });
+
+        // Then, update/add chats from the service, preserving existing properties
+        userChats.forEach(serviceChat => {
+          const existing = chatMap.get(serviceChat.id);
+          if (existing) {
+            // Merge: keep existing properties like avatar if they exist, but update from service
+            chatMap.set(serviceChat.id, {
+              ...serviceChat,
+              ...existing,
+              // Prefer service data for these fields
+              name: serviceChat.name || existing.name,
+              lastMessageAt: serviceChat.lastMessageAt || existing.lastMessageAt,
+              createdAt: serviceChat.createdAt || existing.createdAt
+            });
+          } else {
+            chatMap.set(serviceChat.id, serviceChat);
+          }
+        });
+
+        // Sort by lastMessageAt (most recent first)
+        return Array.from(chatMap.values()).sort((a, b) => {
+          const aTime = a.lastMessageAt || a.createdAt || 0;
+          const bTime = b.lastMessageAt || b.createdAt || 0;
+          return bTime - aTime;
+        });
+      });
     });
 
     return () => {

@@ -89,7 +89,7 @@ export default function PollCreatorModal({ chatId, userId, userName, onClose, on
         overflowY: 'auto'
       }}>
         <h2 style={{ marginTop: 0, marginBottom: '20px' }}>Create Poll</h2>
-        
+
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
             Poll Question

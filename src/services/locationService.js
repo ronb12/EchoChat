@@ -41,7 +41,7 @@ class LocationService {
     // Static map image URL (Google Maps Static API or OpenStreetMap)
     // For OpenStreetMap (no API key needed):
     return `https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+ff0000(${longitude},${latitude})/${longitude},${latitude},${zoom}/${width}x${height}?access_token=${import.meta.env.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw'}`;
-    
+
     // Alternative: OpenStreetMap (free, no API key):
     // return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&markers=${latitude},${longitude},red`;
   }
@@ -84,4 +84,5 @@ class LocationService {
 
 export const locationService = new LocationService();
 export default locationService;
+
 

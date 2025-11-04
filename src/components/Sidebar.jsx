@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useChat } from '../hooks/useChat';
+import { useRealtimeChats } from '../hooks/useRealtime';
 
 export default function Sidebar() {
   const { isSidebarOpen, openNewChatModal, toggleSidebar, closeSidebar } = useUI();
   const { chats = [], currentChatId, setCurrentChatId } = useChat();
+  // Initialize chats from service
+  useRealtimeChats();
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -37,8 +40,8 @@ export default function Sidebar() {
     <>
       {/* Backdrop overlay on mobile when sidebar is open AND no chat is selected */}
       {isSidebarOpen && !currentChatId && (
-        <div 
-          className="sidebar-backdrop" 
+        <div
+          className="sidebar-backdrop"
           onClick={toggleSidebar}
         />
       )}
@@ -63,8 +66,8 @@ export default function Sidebar() {
               </li>
             ) : (
               chats.map((chat) => (
-                <li 
-                  key={chat.id} 
+                <li
+                  key={chat.id}
                   className={`chat-item ${currentChatId === chat.id ? 'active' : ''}`}
                   onClick={() => handleChatClick(chat.id)}
                   style={{ cursor: 'pointer' }}

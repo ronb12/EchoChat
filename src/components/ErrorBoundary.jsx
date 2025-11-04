@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import PropTypes from 'prop-types';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -34,7 +35,7 @@ class ErrorBoundary extends Component {
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚠️</div>
           <h2 style={{ marginBottom: '1rem' }}>Something went wrong</h2>
           <p style={{ marginBottom: '2rem', color: 'var(--text-secondary)' }}>
-            We're sorry for the inconvenience. Please try refreshing the page.
+            We&apos;re sorry for the inconvenience. Please try refreshing the page.
           </p>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button
@@ -75,5 +76,10 @@ class ErrorBoundary extends Component {
   }
 }
 
+ErrorBoundary.propTypes = {
+  children: PropTypes.node.isRequired
+};
+
 export default ErrorBoundary;
+
 

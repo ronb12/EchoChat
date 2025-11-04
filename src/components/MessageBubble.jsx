@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { chatService } from '../services/chatService';
-import { validationService } from '../services/validationService';
 
 const COMMON_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -309,6 +308,18 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
             {message.image && (
               <div className="message-media">
                 <img src={message.image} alt="Shared" className="message-image" />
+              </div>
+            )}
+            {message.sticker && (
+              <div className="message-sticker" style={{
+                fontSize: '64px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '12px',
+                background: 'transparent'
+              }}>
+                {message.sticker}
               </div>
             )}
             {message.file && (

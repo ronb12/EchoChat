@@ -24,7 +24,7 @@ class CollaborationService {
           defaultChannel: null
         }
       };
-      
+
       const workspaceRef = await addDoc(collection(this.db, 'workspaces'), workspace);
       return { id: workspaceRef.id, ...workspace };
     } catch (error) {
@@ -45,9 +45,9 @@ class CollaborationService {
         createdAt: new Date(),
         pinned: false
       };
-      
+
       const channelRef = await addDoc(collection(this.db, 'channels'), channel);
-      
+
       // Update workspace channels list
       const workspaceRef = doc(this.db, 'workspaces', workspaceId);
       const workspaceDoc = await getDoc(workspaceRef);
@@ -56,7 +56,7 @@ class CollaborationService {
         channels.push(channelRef.id);
         await updateDoc(workspaceRef, { channels });
       }
-      
+
       return { id: channelRef.id, ...channel };
     } catch (error) {
       console.error('Error creating channel:', error);
@@ -77,9 +77,9 @@ class CollaborationService {
         timestamp: new Date(),
         ...messageData
       };
-      
+
       const messageRef = await addDoc(collection(this.db, 'messages'), message);
-      
+
       // Update thread count if replying
       if (parentMessageId) {
         const parentRef = doc(this.db, 'messages', parentMessageId);
@@ -89,7 +89,7 @@ class CollaborationService {
           await updateDoc(parentRef, { threadCount });
         }
       }
-      
+
       return { id: messageRef.id, ...message };
     } catch (error) {
       console.error('Error sending threaded message:', error);
@@ -159,7 +159,7 @@ class CollaborationService {
       if (workspaceDoc.exists()) {
         const members = workspaceDoc.data().members || [];
         const admins = workspaceDoc.data().admins || [];
-        
+
         if (!members.includes(userId)) {
           members.push(userId);
           if (role === 'admin') {
@@ -188,7 +188,7 @@ class CollaborationService {
         dueDate: taskData.dueDate || null,
         createdAt: new Date()
       };
-      
+
       const taskRef = await addDoc(collection(this.db, 'tasks'), task);
       return { id: taskRef.id, ...task };
     } catch (error) {
@@ -200,4 +200,5 @@ class CollaborationService {
 
 export const collaborationService = new CollaborationService();
 export default collaborationService;
+
 

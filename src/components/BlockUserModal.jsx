@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { firestoreService } from '../services/firestoreService';
@@ -11,7 +12,7 @@ export default function BlockUserModal({ userId, userName }) {
   const [loading, setLoading] = useState(false);
 
   const handleBlock = async () => {
-    if (!user || !userId) return;
+    if (!user || !userId) {return;}
 
     setLoading(true);
     try {
@@ -28,7 +29,7 @@ export default function BlockUserModal({ userId, userName }) {
   };
 
   const handleReport = async () => {
-    if (!user || !userId || !reportReason.trim()) return;
+    if (!user || !userId || !reportReason.trim()) {return;}
 
     setLoading(true);
     try {
@@ -68,7 +69,7 @@ export default function BlockUserModal({ userId, userName }) {
                   🚫 Block User
                 </button>
                 <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                  Blocked users won't be able to send you messages or see your profile.
+                  Blocked users won&apos;t be able to send you messages or see your profile.
                 </p>
               </div>
 
@@ -122,4 +123,9 @@ export default function BlockUserModal({ userId, userName }) {
     </div>
   );
 }
+
+BlockUserModal.propTypes = {
+  userId: PropTypes.string.isRequired,
+  userName: PropTypes.string
+};
 

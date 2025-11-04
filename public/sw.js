@@ -482,4 +482,23 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
     console.log('[SW] Update available, reloading...');
     self.skipWaiting().then(() => {
-      retu
+      return clients.matchAll().then((clients) => {
+        clients.forEach(client => {
+          client.postMessage({ type: 'RELOAD' });
+        });
+      });
+    });
+  }
+});
+
+// Error handling
+self.addEventListener('error', (event) => {
+  console.error('[SW] Service Worker error:', event.error);
+});
+
+self.addEventListener('unhandledrejection', (event) => {
+  console.error('[SW] Unhandled rejection:', event.reason);
+});
+
+console.log('[SW] EchoChat Enhanced Service Worker loaded v' + CACHE_VERSION);
+

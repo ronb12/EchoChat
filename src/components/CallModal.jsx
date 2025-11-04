@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { callService } from '../services/callService';
 
-export default function CallModal({ callType = 'video', isIncoming = false, callerId = null, onEndCall }) {
+export default function CallModal({ callType = 'video', isIncoming = false, onEndCall }) {
   const { closeCallModal } = useUI();
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
@@ -83,6 +84,7 @@ export default function CallModal({ callType = 'video', isIncoming = false, call
       unsubscribe();
       callService.endCall();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callType, isIncoming, user]);
 
   const handleEndCall = () => {
@@ -252,4 +254,10 @@ export default function CallModal({ callType = 'video', isIncoming = false, call
     </div>
   );
 }
+
+CallModal.propTypes = {
+  callType: PropTypes.oneOf(['video', 'audio']),
+  isIncoming: PropTypes.bool,
+  onEndCall: PropTypes.func
+};
 

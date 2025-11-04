@@ -17,7 +17,7 @@ export default function LoginModal() {
   const [password, setPassword] = useState('');
   const [accountType, setAccountType] = useState(''); // Must be selected: 'personal' or 'business'
   const [showAccountTypeSelection, setShowAccountTypeSelection] = useState(false);
-  
+
   // Load previously selected account type if exists
   useEffect(() => {
     const savedType = localStorage.getItem('selected_account_type');
@@ -34,10 +34,10 @@ export default function LoginModal() {
       accountType: accountType,
       isBusinessAccount: accountType === 'business'
     };
-    
+
     // Store account type in localStorage
     localStorage.setItem('echochat_account_type', accountType);
-    
+
     setUser(userData);
     closeLoginModal();
   };
@@ -51,18 +51,18 @@ export default function LoginModal() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    
+
     // Validate account type is selected
     if (!accountType || accountType === '') {
       alert('Please select an account type (Personal or Business)');
       setShowAccountTypeSelection(true);
       return;
     }
-    
+
     // Simple login - accept any credentials for demo
     if (email && password) {
       const selectedType = accountType || localStorage.getItem('selected_account_type') || 'personal';
-      
+
       setUser({
         uid: `user_${Date.now()}`,
         displayName: email.split('@')[0],
@@ -70,11 +70,11 @@ export default function LoginModal() {
         accountType: selectedType,
         isBusinessAccount: selectedType === 'business'
       });
-      
+
       // Store account type in localStorage
       localStorage.setItem('echochat_account_type', selectedType);
       localStorage.removeItem('selected_account_type'); // Clean up
-      
+
       closeLoginModal();
     }
   };
@@ -101,11 +101,11 @@ export default function LoginModal() {
                 <button
                   className="btn btn-primary"
                   onClick={() => handleAccountTypeSelect('personal')}
-                  style={{ 
-                    padding: '1.5rem', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
+                  style={{
+                    padding: '1.5rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
                     gap: '0.5rem',
                     background: accountType === 'personal' ? 'var(--primary-color)' : 'var(--surface-color)'
                   }}
@@ -117,11 +117,11 @@ export default function LoginModal() {
                 <button
                   className="btn btn-primary"
                   onClick={() => handleAccountTypeSelect('business')}
-                  style={{ 
-                    padding: '1.5rem', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
+                  style={{
+                    padding: '1.5rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
                     gap: '0.5rem',
                     background: accountType === 'business' ? 'var(--primary-color)' : 'var(--surface-color)'
                   }}
@@ -154,9 +154,9 @@ export default function LoginModal() {
                         key={user.uid}
                         className="btn btn-secondary"
                         onClick={() => handleQuickLogin(user)}
-                        style={{ 
-                          width: '100%', 
-                          textAlign: 'left', 
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
                           justifyContent: 'flex-start',
                           border: isBusiness ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
                           background: isBusiness ? 'rgba(0, 132, 255, 0.1)' : 'var(--surface-color)'
@@ -167,9 +167,9 @@ export default function LoginModal() {
                       >
                         {isBusiness ? '🏢' : '👤'} {user.displayName} ({user.email})
                         {isBusiness && (
-                          <span style={{ 
-                            marginLeft: '8px', 
-                            fontSize: '0.75rem', 
+                          <span style={{
+                            marginLeft: '8px',
+                            fontSize: '0.75rem',
                             color: 'var(--primary-color)',
                             fontWeight: '600'
                           }}>
@@ -186,7 +186,7 @@ export default function LoginModal() {
                 <h3 style={{ fontSize: '0.9rem', marginBottom: '0.75rem', color: 'var(--text-secondary)' }}>
                   Create New Account
                 </h3>
-                
+
                 {/* Account Type Selection - Always Required */}
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: '600', fontSize: '0.95rem' }}>
@@ -206,9 +206,9 @@ export default function LoginModal() {
                       </button>
                     </div>
                   ) : (
-                    <div style={{ 
-                      padding: '1rem', 
-                      background: accountType === 'business' ? 'rgba(0, 132, 255, 0.1)' : 'var(--surface-color)', 
+                    <div style={{
+                      padding: '1rem',
+                      background: accountType === 'business' ? 'rgba(0, 132, 255, 0.1)' : 'var(--surface-color)',
                       borderRadius: '8px',
                       border: `2px solid ${accountType === 'business' ? 'var(--primary-color)' : 'var(--border-color)'}`
                     }}>
@@ -222,7 +222,7 @@ export default function LoginModal() {
                               {accountType === 'business' ? 'Business Account' : 'Personal Account'}
                             </div>
                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                              {accountType === 'business' 
+                              {accountType === 'business'
                                 ? 'Business hours, auto-reply, analytics & more'
                                 : 'Personal messaging and communication'}
                             </div>
@@ -242,7 +242,7 @@ export default function LoginModal() {
                     </div>
                   )}
                 </div>
-                
+
                 <form onSubmit={handleLogin}>
                   <div className="form-group">
                     <label htmlFor="email">Email</label>
@@ -270,10 +270,10 @@ export default function LoginModal() {
                       Minimum 6 characters
                     </small>
                   </div>
-                  
+
                   {/* Show account type reminder */}
-                  <div className="form-group" style={{ 
-                    padding: '0.75rem', 
+                  <div className="form-group" style={{
+                    padding: '0.75rem',
                     background: accountType === 'business' ? 'rgba(0, 132, 255, 0.1)' : 'var(--surface-color)',
                     borderRadius: '8px',
                     border: `1px solid ${accountType === 'business' ? 'var(--primary-color)' : 'var(--border-color)'}`
@@ -287,9 +287,9 @@ export default function LoginModal() {
                       </span>
                     </div>
                     {accountType && (
-                      <div style={{ 
-                        padding: '0.75rem', 
-                        background: 'var(--surface-color)', 
+                      <div style={{
+                        padding: '0.75rem',
+                        background: 'var(--surface-color)',
                         borderRadius: '6px',
                         fontSize: '0.9rem',
                         color: 'var(--text-color-secondary)',
@@ -310,10 +310,10 @@ export default function LoginModal() {
                           }
                         }}
                         required
-                        style={{ 
-                          width: '100%', 
-                          padding: '0.75rem', 
-                          borderRadius: '8px', 
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          borderRadius: '8px',
                           border: '1px solid var(--border-color)',
                           background: 'var(--background-color)',
                           color: 'var(--text-color)',
@@ -326,10 +326,10 @@ export default function LoginModal() {
                       </select>
                     )}
                   </div>
-                  
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary" 
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
                     style={{ width: '100%', marginTop: '0.5rem' }}
                     disabled={!accountType || accountType === ''}
                   >

@@ -45,7 +45,7 @@ class CallService {
     // Handle connection state changes
     this.peerConnection.onconnectionstatechange = () => {
       this.notifyCallListeners('connectionState', this.peerConnection.connectionState);
-      if (this.peerConnection.connectionState === 'disconnected' || 
+      if (this.peerConnection.connectionState === 'disconnected' ||
           this.peerConnection.connectionState === 'failed') {
         this.endCall();
       }
@@ -203,10 +203,10 @@ class CallService {
       // Replace video track in peer connection with screen track
       const screenVideoTrack = this.screenStream.getVideoTracks()[0];
       if (screenVideoTrack) {
-        const sender = this.peerConnection.getSenders().find(s => 
+        const sender = this.peerConnection.getSenders().find(s =>
           s.track && s.track.kind === 'video'
         );
-        
+
         if (sender) {
           await sender.replaceTrack(screenVideoTrack);
         }
@@ -246,10 +246,10 @@ class CallService {
       if (this.localStream && this.peerConnection) {
         const originalVideoTrack = this.localStream.getVideoTracks()[0];
         if (originalVideoTrack) {
-          const sender = this.peerConnection.getSenders().find(s => 
+          const sender = this.peerConnection.getSenders().find(s =>
             s.track && s.track.kind === 'video'
           );
-          
+
           if (sender) {
             await sender.replaceTrack(originalVideoTrack);
           }

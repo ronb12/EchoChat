@@ -30,8 +30,8 @@ export default function StatusModal() {
   };
 
   const handleSave = async () => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     setLoading(true);
     try {
       await profileService.setStatus(
@@ -164,4 +164,5 @@ export default function StatusModal() {
     </div>
   );
 }
+
 

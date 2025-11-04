@@ -30,7 +30,7 @@ class EnterpriseService {
         createdAt: new Date(),
         plan: orgData.plan || 'enterprise'
       };
-      
+
       const orgRef = await addDoc(collection(this.db, 'organizations'), org);
       return { id: orgRef.id, ...org };
     } catch (error) {
@@ -44,24 +44,24 @@ class EnterpriseService {
     try {
       const orgRef = doc(this.db, 'organizations', orgId);
       const orgDoc = await getDoc(orgRef);
-      
+
       if (!orgDoc.exists()) {
         throw new Error('Organization not found');
       }
-      
+
       const org = orgDoc.data();
-      
+
       if (!org.settings?.ssoEnabled) {
         throw new Error('SSO not enabled for this organization');
       }
-      
+
       // In production, verify SSO token with provider
       // This is a stub - integrate with actual SSO provider
       const ssoConfig = org.settings.ssoConfig || {};
-      
+
       // Mock verification (replace with actual SSO verification)
       const verified = true; // await verifyWithProvider(ssoToken, provider, ssoConfig);
-      
+
       if (verified) {
         return {
           success: true,
@@ -69,7 +69,7 @@ class EnterpriseService {
           organizationId: orgId
         };
       }
-      
+
       return { success: false, error: 'SSO authentication failed' };
     } catch (error) {
       console.error('Error authenticating SSO:', error);
@@ -91,7 +91,7 @@ class EnterpriseService {
         userAgent: logEntry.userAgent || null,
         timestamp: new Date()
       };
-      
+
       const logRef = await addDoc(collection(this.db, 'auditLogs'), auditLog);
       return { id: logRef.id, ...auditLog };
     } catch (error) {
@@ -107,19 +107,19 @@ class EnterpriseService {
         collection(this.db, 'auditLogs'),
         where('organizationId', '==', orgId)
       );
-      
+
       if (filters.userId) {
         q = query(q, where('userId', '==', filters.userId));
       }
-      
+
       if (filters.action) {
         q = query(q, where('action', '==', filters.action));
       }
-      
+
       if (filters.startDate) {
         q = query(q, where('timestamp', '>=', filters.startDate));
       }
-      
+
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => ({
         id: doc.id,
@@ -136,18 +136,18 @@ class EnterpriseService {
     try {
       const orgRef = doc(this.db, 'organizations', orgId);
       const orgDoc = await getDoc(orgRef);
-      
+
       if (!orgDoc.exists()) {
         throw new Error('Organization not found');
       }
-      
+
       const org = orgDoc.data();
       const admins = org.admins || [];
-      
+
       if (!admins.includes(addedBy)) {
         throw new Error('Only admins can add users');
       }
-      
+
       const members = org.members || [];
       if (!members.find(m => m.userId === userId)) {
         members.push({
@@ -156,9 +156,9 @@ class EnterpriseService {
           addedAt: new Date(),
           addedBy
         });
-        
+
         await updateDoc(orgRef, { members });
-        
+
         // Add audit log
         await this.addAuditLog(orgId, {
           userId: addedBy,
@@ -168,7 +168,7 @@ class EnterpriseService {
           details: { role, addedUserId: userId }
         });
       }
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error adding user to organization:', error);
@@ -181,23 +181,23 @@ class EnterpriseService {
     try {
       const orgRef = doc(this.db, 'organizations', orgId);
       const orgDoc = await getDoc(orgRef);
-      
+
       if (!orgDoc.exists()) {
         throw new Error('Organization not found');
       }
-      
+
       const org = orgDoc.data();
       const admins = org.admins || [];
-      
+
       if (!admins.includes(removedBy)) {
         throw new Error('Only admins can remove users');
       }
-      
+
       const members = org.members || [];
       const updatedMembers = members.filter(m => m.userId !== userId);
-      
+
       await updateDoc(orgRef, { members: updatedMembers });
-      
+
       // Add audit log
       await this.addAuditLog(orgId, {
         userId: removedBy,
@@ -206,7 +206,7 @@ class EnterpriseService {
         resourceId: userId,
         details: { removedUserId: userId }
       });
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error removing user from organization:', error);
@@ -219,16 +219,16 @@ class EnterpriseService {
     try {
       const orgRef = doc(this.db, 'organizations', orgId);
       const orgDoc = await getDoc(orgRef);
-      
+
       if (!orgDoc.exists()) {
         throw new Error('Organization not found');
       }
-      
+
       const org = orgDoc.data();
       const retentionDays = org.settings?.dataRetentionDays || 365;
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-      
+
       // In production, query and delete messages older than cutoff
       // This is a stub
       return {
@@ -263,13 +263,13 @@ class EnterpriseService {
     try {
       const orgRef = doc(this.db, 'organizations', orgId);
       const orgDoc = await getDoc(orgRef);
-      
+
       if (!orgDoc.exists()) {
         throw new Error('Organization not found');
       }
-      
+
       const org = orgDoc.data();
-      
+
       return {
         organizationId: orgId,
         reportType,
@@ -291,4 +291,5 @@ class EnterpriseService {
 
 export const enterpriseService = new EnterpriseService();
 export default enterpriseService;
+
 
