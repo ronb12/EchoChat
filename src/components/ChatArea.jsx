@@ -436,7 +436,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setShowSearch(true);
                       setShowMoreMenu(false);
                     }}
@@ -446,7 +447,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       openGroupChatModal();
                       setShowMoreMenu(false);
                     }}
@@ -456,7 +458,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       openStatusModal();
                       setShowMoreMenu(false);
                     }}
@@ -466,7 +469,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={async () => {
+                    onClick={async (e) => {
+                      e.stopPropagation();
                       if (!videoMessageService.isSupported()) {
                         showNotification('Video recording is not supported on this device', 'error');
                         setShowMoreMenu(false);
@@ -490,7 +494,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setShowStickerPicker(!showStickerPicker);
                       setShowMoreMenu(false);
                     }}
@@ -500,7 +505,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setShowPollCreator(true);
                       setShowMoreMenu(false);
                     }}
@@ -511,7 +517,8 @@ export default function ChatArea() {
                   {isBusinessAccount && (
                     <button
                       className="more-menu-item"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setShowQuickReplyModal(true);
                         setShowMoreMenu(false);
                       }}
@@ -522,7 +529,8 @@ export default function ChatArea() {
                   )}
                   <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setShowSendMoneyModal(true);
                       setShowMoreMenu(false);
                     }}
@@ -532,7 +540,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={async () => {
+                    onClick={async (e) => {
+                      e.stopPropagation();
                       if (currentChatId && messages.length > 0) {
                         if (window.confirm(`Are you sure you want to clear all ${messages.length} messages from this chat? This action cannot be undone.`)) {
                           try {
@@ -552,7 +561,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       try {
                         const chatData = {
                           chatId: currentChatId,
@@ -580,7 +590,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       openSettingsModal();
                       setShowMoreMenu(false);
                     }}
@@ -590,7 +601,8 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (currentChatId) {
                         if (window.confirm('Are you sure you want to leave this chat?')) {
                           setCurrentChatId(null);
