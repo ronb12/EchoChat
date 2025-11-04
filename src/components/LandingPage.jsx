@@ -3,7 +3,7 @@ import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 
 export default function LandingPage() {
-  const { openLoginModal } = useUI();
+  const { openLoginModal, openPrivacyModal, openTermsModal, openSupportModal } = useUI();
   const { setUser } = useAuth();
 
   const continueAsDemo = () => {
@@ -88,11 +88,11 @@ export default function LandingPage() {
         {/* Footer */}
         <footer className="landing-footer">
           <div className="footer-content">
-            <p>© 2024 EchoChat. Secure messaging for everyone.</p>
+            <p>© 2025 EchoChat is a product of Bradley Virtual Solutions, LLC. Secure messaging for everyone.</p>
             <div className="footer-links">
-              <a href="#">Privacy</a>
-              <a href="#">Terms</a>
-              <a href="#">Support</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); openPrivacyModal(); }}>Privacy</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); openTermsModal(); }}>Terms</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); openSupportModal(); }}>Support</a>
             </div>
           </div>
         </footer>
