@@ -657,19 +657,35 @@ export default function ChatArea() {
                       e.stopPropagation();
                       setShowMoreMenu(false);
                       try {
-                        const result = await signOut();
-                        if (result.success) {
-                          showNotification('Signed out successfully', 'success');
-                          // Clear account type and demo user from localStorage
+                        // Check if user is a demo user (no Firebase UID)
+                        const isDemoUser = user && !user.uid;
+                        
+                        if (isDemoUser) {
+                          // Demo user - just clear localStorage and state
                           localStorage.removeItem('echochat_account_type');
                           localStorage.removeItem('echochat_user');
-                          // Clear user state
                           setUser(null);
+                          showNotification('Signed out successfully', 'success');
                         } else {
-                          showNotification(result.error || 'Failed to sign out', 'error');
+                          // Real user - use Firebase signOut
+                          const result = await signOut();
+                          if (result.success) {
+                            showNotification('Signed out successfully', 'success');
+                            // Clear account type and demo user from localStorage
+                            localStorage.removeItem('echochat_account_type');
+                            localStorage.removeItem('echochat_user');
+                            // Clear user state
+                            setUser(null);
+                          } else {
+                            showNotification(result.error || 'Failed to sign out', 'error');
+                          }
                         }
                       } catch (error) {
-                        showNotification('Error signing out', 'error');
+                        // If Firebase signOut fails, still try to clear demo user data
+                        localStorage.removeItem('echochat_account_type');
+                        localStorage.removeItem('echochat_user');
+                        setUser(null);
+                        showNotification('Signed out successfully', 'success');
                         console.error('Error signing out:', error);
                       }
                     }}

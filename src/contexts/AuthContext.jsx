@@ -14,6 +14,16 @@ export function AuthProvider({ children }) {
     let mounted = true;
     let authInitialized = false;
     
+    // On mount, clear any demo user data if no Firebase user exists
+    // This ensures demo users don't persist across hard refreshes
+    try {
+      if (!auth.currentUser) {
+        localStorage.removeItem('echochat_user');
+      }
+    } catch (e) {
+      // Ignore errors during cleanup
+    }
+    
     try {
       // Helper function to set user from Firebase user
       const setUserFromFirebase = (firebaseUser) => {
@@ -57,19 +67,23 @@ export function AuthProvider({ children }) {
         setUserFromFirebase(firebaseUser);
       });
 
-      // Safety timeout - only warn if auth hasn't initialized after 3 seconds
+      // Safety timeout - ensure loading state doesn't persist too long
+      // If auth hasn't initialized after 1 second, show landing page (no user)
       const timeout = setTimeout(() => {
         if (mounted && !authInitialized) {
-          // This is just a safety net - auth should have initialized by now
-          // If currentUser is available, use it
+          // This is a safety net - if auth hasn't initialized by now,
+          // assume no user (show landing page)
           if (auth.currentUser) {
+            // User exists but listener hasn't fired yet - use currentUser
             setUserFromFirebase(auth.currentUser);
           } else {
+            // No user - clear any demo user and show landing page
+            localStorage.removeItem('echochat_user');
             setUser(null);
             setLoading(false);
           }
         }
-      }, 3000);
+      }, 1000); // Reduced from 3000ms to 1000ms for faster landing page display
 
       return () => {
         mounted = false;
@@ -78,8 +92,12 @@ export function AuthProvider({ children }) {
       };
     } catch (error) {
       console.error('Error setting up auth listener:', error);
-      setLoading(false);
-      setUser(null);
+      // On error, ensure we show landing page (no user)
+      if (mounted) {
+        localStorage.removeItem('echochat_user');
+        setUser(null);
+        setLoading(false);
+      }
     }
   }, []);
 
