@@ -51,15 +51,24 @@ class AuthService {
       const provider = new GoogleAuthProvider();
       
       // Call signInWithRedirect - this WILL navigate away from the page
-      // The await ensures the redirect is initiated
-      await signInWithRedirect(authInstance, provider);
+      // We don't await it because the redirect happens asynchronously
+      // and the page will navigate away before the promise resolves
+      signInWithRedirect(authInstance, provider)
+        .then(() => {
+          // This should not execute as page navigates away
+          console.warn('signInWithRedirect promise resolved but page did not redirect');
+        })
+        .catch((error) => {
+          // Only log if we're still on the page (shouldn't happen)
+          console.error('Redirect error:', error);
+        });
       
-      // This line should not execute if redirect works (page navigates away)
-      // But if we get here, something prevented the redirect
-      console.warn('signInWithRedirect completed but page did not redirect');
+      // Return immediately - redirect is in progress
+      // The page will navigate away, so this return may not execute
       return { success: true, pending: true };
     } catch (error) {
-      console.error('Google sign-in error:', error);
+      // This catch is for synchronous errors only
+      console.error('Google sign-in error (sync):', error);
       console.error('Error details:', {
         code: error.code,
         message: error.message,

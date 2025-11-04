@@ -22,7 +22,7 @@ export default function SignUpModal() {
     }
   }, []);
 
-  const handleGoogleSignUp = async (e) => {
+  const handleGoogleSignUp = (e) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -35,28 +35,30 @@ export default function SignUpModal() {
     setIsLoading(true);
     setError('');
 
-    try {
-      // Store account type before redirect
-      localStorage.setItem('echochat_account_type', accountType);
-      
-      const result = await authService.signInWithGoogle();
-      if (result.success) {
-        if (result.pending) {
-          // Redirect is happening - page will navigate away
+    // Store account type before redirect
+    localStorage.setItem('echochat_account_type', accountType);
+    
+    // Call signInWithGoogle but don't await - redirect happens immediately
+    authService.signInWithGoogle()
+      .then((result) => {
+        if (result.success) {
+          if (result.pending) {
+            // Redirect is happening - page will navigate away
+          } else {
+            showNotification('Account created with Google successfully!', 'success');
+            closeSignUpModal();
+            setIsLoading(false);
+          }
         } else {
-          showNotification('Account created with Google successfully!', 'success');
-          closeSignUpModal();
+          setError(result.error || 'Failed to sign up with Google');
           setIsLoading(false);
         }
-      } else {
-        setError(result.error || 'Failed to sign up with Google');
+      })
+      .catch((err) => {
+        console.error('Google sign-up error:', err);
+        setError(err.message || 'An error occurred during Google sign-up');
         setIsLoading(false);
-      }
-    } catch (err) {
-      console.error('Google sign-up error:', err);
-      setError(err.message || 'An error occurred during Google sign-up');
-      setIsLoading(false);
-    }
+      });
   };
 
   const handleAccountTypeSelect = (type) => {

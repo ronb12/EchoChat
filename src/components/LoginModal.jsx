@@ -11,7 +11,7 @@ export default function LoginModal() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleGoogleSignIn = async (e) => {
+  const handleGoogleSignIn = (e) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -19,35 +19,35 @@ export default function LoginModal() {
     setIsLoading(true);
     setError('');
 
-    try {
-      console.log('Calling authService.signInWithGoogle()...');
-      const result = await authService.signInWithGoogle();
-      console.log('Sign-in result:', result);
-      
-      if (result.success) {
-        if (result.pending) {
-          // Redirect is happening - page will navigate away
-          console.log('Redirect initiated - page should navigate to Google');
-          // Don't reset loading state as page will redirect
-          // Return early to prevent any further execution
-          return;
+    // Call signInWithGoogle but don't await - redirect happens immediately
+    console.log('Calling authService.signInWithGoogle()...');
+    authService.signInWithGoogle()
+      .then((result) => {
+        console.log('Sign-in result:', result);
+        
+        if (result.success) {
+          if (result.pending) {
+            // Redirect is happening - page will navigate away
+            console.log('Redirect initiated - page should navigate to Google');
+            // Don't reset loading state as page will redirect
+          } else {
+            // User is already signed in (shouldn't happen with redirect)
+            console.log('User already signed in');
+            showNotification('Signed in with Google successfully!', 'success');
+            closeLoginModal();
+            setIsLoading(false);
+          }
         } else {
-          // User is already signed in (shouldn't happen with redirect)
-          console.log('User already signed in');
-          showNotification('Signed in with Google successfully!', 'success');
-          closeLoginModal();
+          console.error('Sign-in failed:', result.error);
+          setError(result.error || 'Failed to sign in with Google');
           setIsLoading(false);
         }
-      } else {
-        console.error('Sign-in failed:', result.error);
-        setError(result.error || 'Failed to sign in with Google');
+      })
+      .catch((err) => {
+        console.error('Google sign-in error:', err);
+        setError(err.message || 'An error occurred during Google sign-in');
         setIsLoading(false);
-      }
-    } catch (err) {
-      console.error('Google sign-in error:', err);
-      setError(err.message || 'An error occurred during Google sign-in');
-      setIsLoading(false);
-    }
+      });
   };
 
   const handleLogin = async (e) => {
