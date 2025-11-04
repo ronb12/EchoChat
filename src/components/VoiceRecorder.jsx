@@ -97,6 +97,3 @@ export default function VoiceRecorder({ onRecordingComplete }) {
     </div>
   );
 }
-
-
-
