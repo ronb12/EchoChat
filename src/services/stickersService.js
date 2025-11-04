@@ -186,9 +186,17 @@ class StickersService {
 
   // Send sticker as message
   async sendSticker(chatId, userId, senderName, sticker) {
+    if (!userId) {
+      throw new Error('User ID is required to send sticker');
+    }
+    
+    if (!chatId) {
+      throw new Error('Chat ID is required to send sticker');
+    }
+    
     const messageData = {
       senderId: userId,
-      senderName: senderName,
+      senderName: senderName || 'User',
       sticker: sticker.emoji,
       stickerId: sticker.id,
       stickerPackId: sticker.packId,
@@ -196,9 +204,11 @@ class StickersService {
       timestamp: Date.now()
     };
 
-    // Track usage
-    if (sticker.packId) {
-      await this.trackStickerUsage(userId, sticker.id, sticker.packId);
+    // Track usage (non-blocking, don't wait for it)
+    if (sticker.packId && userId) {
+      this.trackStickerUsage(userId, sticker.id, sticker.packId).catch(err => {
+        console.warn('Failed to track sticker usage:', err);
+      });
     }
 
     // Send via chatService
