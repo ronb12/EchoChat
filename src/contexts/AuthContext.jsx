@@ -12,9 +12,11 @@ export function AuthProvider({ children }) {
   // Listen to Firebase auth state changes
   useEffect(() => {
     let mounted = true;
+    let authInitialized = false;
     
     try {
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Helper function to set user from Firebase user
+      const setUserFromFirebase = (firebaseUser) => {
         if (!mounted) return;
         
         try {
@@ -42,18 +44,41 @@ export function AuthProvider({ children }) {
           setUser(null);
         } finally {
           if (mounted) {
+            authInitialized = true;
             setLoading(false);
           }
         }
+      };
+
+      // Check current user immediately (in case auth is already initialized)
+      if (auth.currentUser) {
+        setUserFromFirebase(auth.currentUser);
+      } else {
+        // Clear demo user if no Firebase user
+        localStorage.removeItem('echochat_user');
+        setUser(null);
+        authInitialized = true;
+        setLoading(false);
+      }
+
+      // Set up listener for future auth state changes
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        setUserFromFirebase(firebaseUser);
       });
 
-      // Set a timeout to ensure loading doesn't hang forever
+      // Safety timeout - only warn if auth hasn't initialized after 3 seconds
       const timeout = setTimeout(() => {
-        if (mounted) {
-          console.warn('Auth state change timeout - forcing loading to false');
-          setLoading(false);
+        if (mounted && !authInitialized) {
+          // This is just a safety net - auth should have initialized by now
+          // If currentUser is available, use it
+          if (auth.currentUser) {
+            setUserFromFirebase(auth.currentUser);
+          } else {
+            setUser(null);
+            setLoading(false);
+          }
         }
-      }, 5000);
+      }, 3000);
 
       return () => {
         mounted = false;

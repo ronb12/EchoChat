@@ -3,7 +3,7 @@ import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 
 export default function LandingPage() {
-  const { openLoginModal, openPrivacyModal, openTermsModal, openSupportModal } = useUI();
+  const { openLoginModal, openSignUpModal, openPrivacyModal, openTermsModal, openSupportModal } = useUI();
   const { setUser } = useAuth();
 
   const continueAsDemo = () => {
@@ -41,8 +41,11 @@ export default function LandingPage() {
             </div>
 
             <div className="cta-buttons" style={{ marginTop: '2rem' }}>
-              <button className="btn btn-primary btn-large" onClick={openLoginModal} data-testid="get-started-btn">
-                Get Started
+              <button className="btn btn-primary btn-large" onClick={openSignUpModal} data-testid="get-started-btn">
+                Create Account
+              </button>
+              <button className="btn btn-secondary btn-large" onClick={openLoginModal} data-testid="sign-in-btn">
+                Sign In
               </button>
               <button className="btn btn-secondary btn-large" onClick={continueAsDemo} data-testid="try-demo-btn">
                 Try Demo
@@ -78,7 +81,7 @@ export default function LandingPage() {
             <h2>Ready to get started?</h2>
             <p>Join thousands of users enjoying secure, fast messaging</p>
             <div className="cta-buttons">
-              <button className="btn btn-primary btn-large" onClick={openLoginModal}>
+              <button className="btn btn-primary btn-large" onClick={openSignUpModal}>
                 Sign Up Now
               </button>
             </div>

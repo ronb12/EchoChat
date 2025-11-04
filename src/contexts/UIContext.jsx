@@ -10,6 +10,7 @@ export function UIProvider({ children }) {
   // On mobile, sidebar should be open by default (showing chat list)
   const [isSidebarOpen, setIsSidebarOpen] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [showCallModal, setShowCallModal] = useState(false);
@@ -76,6 +77,8 @@ export function UIProvider({ children }) {
   // Modal controls
   const openLoginModal = () => setShowLoginModal(true);
   const closeLoginModal = () => setShowLoginModal(false);
+  const openSignUpModal = () => setShowSignUpModal(true);
+  const closeSignUpModal = () => setShowSignUpModal(false);
   const openSettingsModal = () => setShowSettingsModal(true);
   const closeSettingsModal = () => setShowSettingsModal(false);
   const openNewChatModal = () => setShowNewChatModal(true);
@@ -117,6 +120,7 @@ export function UIProvider({ children }) {
     theme,
     isSidebarOpen,
     showLoginModal,
+    showSignUpModal,
     showSettingsModal,
     showNewChatModal,
     showCallModal,
@@ -139,6 +143,8 @@ export function UIProvider({ children }) {
     removeNotification,
     openLoginModal,
     closeLoginModal,
+    openSignUpModal,
+    closeSignUpModal,
     openSettingsModal,
     closeSettingsModal,
     openNewChatModal,

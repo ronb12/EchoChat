@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen';
 import LandingPage from './components/LandingPage';
 import LoginModal from './components/LoginModal';
+import SignUpModal from './components/SignUpModal';
 import AppHeader from './components/AppHeader';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
@@ -27,7 +28,7 @@ import { usePresenceStatus, useNotifications } from './hooks/useRealtime';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const { showLoginModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, showGroupChatModal, showMediaGallery, closeMediaGallery, showPrivacyModal, showTermsModal, showSupportModal, callModalType, blockUserId, blockUserName } = useUI();
+  const { showLoginModal, showSignUpModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, showGroupChatModal, showMediaGallery, closeMediaGallery, showPrivacyModal, showTermsModal, showSupportModal, callModalType, blockUserId, blockUserName } = useUI();
   const { messages } = useChat();
   const { currentChatId } = useChat();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -103,6 +104,7 @@ function AppContent() {
       <div className="app-container">
         <LandingPage />
         {showLoginModal && <LoginModal />}
+        {showSignUpModal && <SignUpModal />}
         {showPrivacyModal && <PrivacyPolicyModal />}
         {showTermsModal && <TermsOfServiceModal />}
         {showSupportModal && <SupportModal />}
@@ -130,6 +132,7 @@ function AppContent() {
 
       {/* Modals */}
       {showLoginModal && <LoginModal />}
+      {showSignUpModal && <SignUpModal />}
       {showSettingsModal && <SettingsModal />}
       {showNewChatModal && <NewChatModal />}
       {showCallModal && <CallModal callType={callModalType} />}
