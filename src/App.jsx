@@ -56,30 +56,25 @@ function AppContent() {
         const isDev = import.meta.env.DEV;
         if (!isDev && 'serviceWorker' in navigator) {
           try {
-            // Check for old service worker versions and unregister them
+            // Unregister ALL existing service workers to force fresh install
+            // This ensures users get the latest code
             const registrations = await navigator.serviceWorker.getRegistrations();
             for (let registration of registrations) {
-              // If service worker is outdated, unregister it
-              if (registration.active) {
-                const swVersion = registration.active.scriptURL;
-                // Check if it's an old version by looking at the cache
-                // This will force a fresh install of the new service worker
-                try {
-                  await registration.update(); // Force update check
-                } catch (e) {
-                  // Ignore update errors
-                }
-              }
+              console.log('Unregistering old service worker:', registration.scope);
+              await registration.unregister();
             }
 
             // Only register in production
             if (import.meta.env.PROD) {
+              // Wait a bit to ensure old service worker is fully unregistered
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
               const registration = await navigator.serviceWorker.register('/sw.js', {
                 updateViaCache: 'none' // Always fetch fresh service worker
               });
               console.log('Service Worker registered:', registration);
               
-              // Force update on every page load in production
+              // Force immediate update
               registration.update();
             }
           } catch (error) {
