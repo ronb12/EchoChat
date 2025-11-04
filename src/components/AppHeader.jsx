@@ -16,7 +16,7 @@ const getDisplayName = (user, profile = null) => {
 
 export default function AppHeader() {
   const { toggleSidebar, openSettingsModal, openStatusModal, showNotification } = useUI();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
@@ -116,7 +116,7 @@ export default function AppHeader() {
     }
   };
 
-  const handleMenuClick = (action) => {
+  const handleMenuClick = async (action) => {
     setShowAvatarMenu(false);
     if (action === 'settings') {
       openSettingsModal();
@@ -124,6 +124,19 @@ export default function AppHeader() {
       openStatusModal();
     } else if (action === 'profile') {
       fileInputRef.current?.click();
+    } else if (action === 'logout') {
+      try {
+        const result = await signOut();
+        if (result.success) {
+          showNotification('Signed out successfully', 'success');
+          // Clear account type from localStorage
+          localStorage.removeItem('echochat_account_type');
+        } else {
+          showNotification(result.error || 'Failed to sign out', 'error');
+        }
+      } catch (error) {
+        showNotification('Error signing out', 'error');
+      }
     }
   };
 
@@ -254,6 +267,15 @@ export default function AppHeader() {
                 >
                   <span className="menu-icon">⚙️</span>
                   <span>Settings</span>
+                </button>
+                <div className="avatar-menu-divider"></div>
+                <button
+                  className="avatar-menu-item"
+                  onClick={() => handleMenuClick('logout')}
+                  style={{ color: '#f44336' }}
+                >
+                  <span className="menu-icon">🚪</span>
+                  <span>Sign Out</span>
                 </button>
               </div>
             )}

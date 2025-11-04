@@ -1,13 +1,47 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../services/firebaseConfig';
+import { authService } from '../services/authService';
 
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Removed auto-login in development to match production behavior
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const value = useMemo(() => ({ user, setUser, loading, setLoading }), [user, loading]);
+  // Listen to Firebase auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // User is signed in
+        const accountType = localStorage.getItem('echochat_account_type') || 'personal';
+        const userData = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          photoURL: firebaseUser.photoURL,
+          accountType: accountType,
+          isBusinessAccount: accountType === 'business',
+          emailVerified: firebaseUser.emailVerified
+        };
+        setUser(userData);
+      } else {
+        // User is signed out
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const value = useMemo(() => ({ 
+    user, 
+    setUser, 
+    loading, 
+    setLoading,
+    signOut: authService.signOut
+  }), [user, loading]);
 
   return (
     <AuthContext.Provider value={value}>
