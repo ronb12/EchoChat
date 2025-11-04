@@ -85,13 +85,14 @@ export default function ChatArea() {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
         setShowEmojiPicker(false);
       }
-      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target) && showMoreMenu) {
         setShowMoreMenu(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    // Use click event instead of mousedown to avoid conflicts with button clicks
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showMoreMenu]);
 
   // Subscribe to real-time messages
   useRealtimeMessages(currentChatId);
@@ -393,18 +394,21 @@ export default function ChatArea() {
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
               </svg>
             </button>
-            <button 
-              className="action-btn action-btn-more" 
-              title="More options"
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
-              ref={moreMenuRef}
-              style={{ position: 'relative' }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="1"/>
-                <circle cx="19" cy="12" r="1"/>
-                <circle cx="5" cy="12" r="1"/>
-              </svg>
+            <div className="action-btn-wrapper" ref={moreMenuRef} style={{ position: 'relative' }}>
+              <button 
+                className="action-btn action-btn-more" 
+                title="More options"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMoreMenu(!showMoreMenu);
+                }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="1"/>
+                  <circle cx="19" cy="12" r="1"/>
+                  <circle cx="5" cy="12" r="1"/>
+                </svg>
+              </button>
               {showMoreMenu && (
                 <div className="more-menu" style={{
                   position: 'absolute',
@@ -419,9 +423,10 @@ export default function ChatArea() {
                   zIndex: 1000,
                   overflow: 'hidden'
                 }}>
-                                    <button
+                  <button
                     className="more-menu-item"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       openMediaGallery();
                       setShowMoreMenu(false);
                     }}
@@ -601,7 +606,7 @@ export default function ChatArea() {
                   </button>
                 </div>
               )}
-            </button>
+            </div>
           </div>
         </div>
 
