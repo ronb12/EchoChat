@@ -6,6 +6,9 @@ import { useRealtimeMessages, useTypingIndicator } from '../hooks/useRealtime';
 import { chatService } from '../services/chatService';
 import { validationService } from '../services/validationService';
 import { firestoreService } from '../services/firestoreService';
+import { videoMessageService } from '../services/videoMessageService';
+import { stickersService } from '../services/stickersService';
+import { groupPollsService } from '../services/groupPollsService';
 import MessageBubble from './MessageBubble';
 import VoiceRecorder from './VoiceRecorder';
 import MessageSearch from './MessageSearch';
@@ -18,16 +21,7 @@ import { EMOJI_LIST } from '../data/emojis';
 export default function ChatArea() {
   const { messages, currentChatId, setCurrentChatId } = useChat();
   const { user } = useAuth();
-  const { 
-    openNewChatModal, 
-    openCallModal, 
-    toggleSidebar, 
-    openSettingsModal, 
-    openGroupChatModal,
-    openMediaGallery,
-    openStatusModal,
-    showNotification
-  } = useUI();
+  const { openNewChatModal, openCallModal, toggleSidebar, openSettingsModal } = useUI();
   const [messageText, setMessageText] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
@@ -36,10 +30,13 @@ export default function ChatArea() {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showSendMoneyModal, setShowSendMoneyModal] = useState(false);
-  const [showQuickReplyModal, setShowQuickReplyModal] = useState(false);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [showPollCreator, setShowPollCreator] = useState(false);
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
+  const [videoStream, setVideoStream] = useState(null);
+  const [availableStickers, setAvailableStickers] = useState([]);
   const [isMobile, setIsMobile] = useState(false);
-  const [isBusinessAccount, setIsBusinessAccount] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -55,15 +52,6 @@ export default function ChatArea() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  
-  // Check if business account
-  useEffect(() => {
-    if (user) {
-      const accountType = localStorage.getItem('echochat_account_type') || user.accountType;
-      const isBusiness = accountType === 'business' || user.isBusinessAccount === true;
-      setIsBusinessAccount(isBusiness);
-    }
-  }, [user]);
 
   // Close emoji picker and more menu when clicking outside
   useEffect(() => {
@@ -109,16 +97,6 @@ export default function ChatArea() {
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
     setSelectedFiles(files);
-
-    // Clear the input value immediately to prevent any visible state on iOS
-    if (fileInputRef.current) {
-      // Use setTimeout to clear after the event has processed
-      setTimeout(() => {
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      }, 0);
-    }
 
     // Create previews for images
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
@@ -171,7 +149,7 @@ export default function ChatArea() {
           audioName: `voice_${Date.now()}.webm`,
           senderId: user.uid,
           senderName: user.displayName || user.email || 'User'
-        }, user.uid);
+        });
       };
       reader.readAsDataURL(audioBlob);
     } catch (error) {
@@ -212,16 +190,16 @@ export default function ChatArea() {
           continue;
         }
 
-                  try {
-            await chatService.sendMessage(currentChatId, {
-              text: '',
-              image: preview.url,
-              imageName: preview.file.name,
-              fileSize: preview.file.size,
-              fileType: preview.file.type,
-              senderId: user.uid,
-              senderName: user.displayName || user.email || 'User'
-            }, user.uid);
+        try {
+          await chatService.sendMessage(currentChatId, {
+            text: '',
+            image: preview.url,
+            imageName: preview.file.name,
+            fileSize: preview.file.size,
+            fileType: preview.file.type,
+            senderId: user.uid,
+            senderName: user.displayName || user.email || 'User'
+          });
         } catch (error) {
           alert(`Error sending image: ${error.message || 'Unknown error'}`);
         }
@@ -250,7 +228,7 @@ export default function ChatArea() {
               fileName: file.name,
               senderId: user.uid,
               senderName: user.displayName || user.email || 'User'
-            }, user.uid);
+            });
           } catch (error) {
             alert(`Error sending file: ${error.message || 'Unknown error'}`);
           }
@@ -264,7 +242,7 @@ export default function ChatArea() {
             text: validationService.sanitizeInput(messageText.trim()),
             senderId: user.uid,
             senderName: user.displayName || user.email || 'User'
-          }, user.uid);
+          });
         } catch (error) {
           alert(`Error sending message: ${error.message || 'Unknown error'}`);
           return;
@@ -300,8 +278,8 @@ export default function ChatArea() {
     }
   };
 
-  // Show welcome screen only if no current chat is selected
-  if (!currentChatId) {
+  // Show welcome screen if no messages and no current chat
+  if (messages.length === 0 && !currentChatId) {
     return (
       <div 
         className="chat-area"
@@ -361,7 +339,7 @@ export default function ChatArea() {
           </div>
           <div className="chat-actions">
             <button
-              className="action-btn action-btn-search"
+              className="action-btn"
               title="Search messages"
               onClick={() => setShowSearch((prev) => !prev)}
             >
@@ -389,42 +367,36 @@ export default function ChatArea() {
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
               </svg>
             </button>
-            <div 
-              className="action-btn-wrapper"
+            <button 
+              className="action-btn action-btn-more" 
+              title="More options"
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
               ref={moreMenuRef}
               style={{ position: 'relative' }}
             >
-              <button 
-                className="action-btn action-btn-more" 
-                title="More options"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowMoreMenu(!showMoreMenu);
-                }}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="1"/>
-                  <circle cx="19" cy="12" r="1"/>
-                  <circle cx="5" cy="12" r="1"/>
-                </svg>
-              </button>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="1"/>
+                <circle cx="19" cy="12" r="1"/>
+                <circle cx="5" cy="12" r="1"/>
+              </svg>
               {showMoreMenu && (
-                <>
-                  <div 
-                    className="more-menu-backdrop"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowMoreMenu(false);
-                    }}
-                  />
-                  <div 
-                    className="more-menu"
-                    onClick={(e) => e.stopPropagation()}
-                  >
+                <div className="more-menu" style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  right: 0,
+                  marginBottom: '8px',
+                  background: 'var(--surface-color)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  minWidth: '160px',
+                  zIndex: 1000,
+                  overflow: 'hidden'
+                }}>
                   <button
                     className="more-menu-item"
                     onClick={() => {
-                      openMediaGallery();
+                      openSettingsModal();
                       setShowMoreMenu(false);
                     }}
                     style={{
@@ -440,11 +412,9 @@ export default function ChatArea() {
                       color: 'var(--text-color)',
                       transition: 'background 0.2s'
                     }}
-                    onMouseEnter={(e) => e.target.style.background = 'var(--border-color)'}
-                    onMouseLeave={(e) => e.target.style.background = 'none'}
                   >
-                    <span>🖼️</span>
-                    <span>View Media & Files</span>
+                    <span>⚙️</span>
+                    <span>Settings</span>
                   </button>
                   <button
                     className="more-menu-item"
@@ -466,8 +436,6 @@ export default function ChatArea() {
                       transition: 'background 0.2s',
                       borderTop: '1px solid var(--border-color)'
                     }}
-                    onMouseEnter={(e) => e.target.style.background = 'var(--border-color)'}
-                    onMouseLeave={(e) => e.target.style.background = 'none'}
                   >
                     <span>🔍</span>
                     <span>Search Messages</span>
@@ -475,223 +443,9 @@ export default function ChatArea() {
                   <button
                     className="more-menu-item"
                     onClick={() => {
-                      openGroupChatModal();
-                      setShowMoreMenu(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      color: 'var(--text-color)',
-                      transition: 'background 0.2s',
-                      borderTop: '1px solid var(--border-color)'
-                    }}
-                    onMouseEnter={(e) => e.target.style.background = 'var(--border-color)'}
-                    onMouseLeave={(e) => e.target.style.background = 'none'}
-                  >
-                    <span>👥</span>
-                    <span>Create Group Chat</span>
-                  </button>
-                  <button
-                    className="more-menu-item"
-                    onClick={() => {
-                      openStatusModal();
-                      setShowMoreMenu(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      color: 'var(--text-color)',
-                      transition: 'background 0.2s',
-                      borderTop: '1px solid var(--border-color)'
-                    }}
-                    onMouseEnter={(e) => e.target.style.background = 'var(--border-color)'}
-                    onMouseLeave={(e) => e.target.style.background = 'none'}
-                  >
-                    <span>✏️</span>
-                    <span>Status Updates</span>
-                  </button>
-                  {isBusinessAccount && (
-                    <button
-                      className="more-menu-item"
-                      onClick={() => {
-                        setShowQuickReplyModal(true);
-                        setShowMoreMenu(false);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        background: 'none',
-                        border: 'none',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        color: 'var(--text-color)',
-                        transition: 'background 0.2s',
-                        borderTop: '1px solid var(--border-color)'
-                      }}
-                      onMouseEnter={(e) => e.target.style.background = 'var(--border-color)'}
-                      onMouseLeave={(e) => e.target.style.background = 'none'}
-                    >
-                      <span>💬</span>
-                      <span>Quick Reply</span>
-                    </button>
-                  )}
-                  <button
-                    className="more-menu-item"
-                    onClick={() => {
-                      setShowSendMoneyModal(true);
-                      setShowMoreMenu(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      color: '#4caf50',
-                      transition: 'background 0.2s',
-                      borderTop: '1px solid var(--border-color)'
-                    }}
-                    onMouseEnter={(e) => e.target.style.background = 'rgba(76, 175, 80, 0.1)'}
-                    onMouseLeave={(e) => e.target.style.background = 'none'}
-                  >
-                    <span>💵</span>
-                    <span>Send Money</span>
-                  </button>
-                  <button
-                    className="more-menu-item"
-                    onClick={async () => {
-                      if (currentChatId && messages.length > 0) {
-                        if (window.confirm(`Are you sure you want to clear all ${messages.length} messages from this chat? This action cannot be undone.`)) {
-                          try {
-                            // Clear messages locally
-                            await chatService.clearChatHistory(currentChatId);
-                            showNotification('Chat history cleared', 'success');
-                          } catch (error) {
-                            showNotification('Failed to clear chat history', 'error');
-                            console.error('Error clearing chat:', error);
-                          }
-                        }
-                      }
-                      setShowMoreMenu(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      color: 'var(--text-color)',
-                      transition: 'background 0.2s',
-                      borderTop: '1px solid var(--border-color)'
-                    }}
-                    onMouseEnter={(e) => e.target.style.background = 'var(--border-color)'}
-                    onMouseLeave={(e) => e.target.style.background = 'none'}
-                  >
-                    <span>🗑️</span>
-                    <span>Clear Chat History</span>
-                  </button>
-                  <button
-                    className="more-menu-item"
-                    onClick={() => {
-                      try {
-                        const chatData = {
-                          chatId: currentChatId,
-                          messages: messages,
-                          timestamp: new Date().toISOString()
-                        };
-                        const dataStr = JSON.stringify(chatData, null, 2);
-                        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                        const url = URL.createObjectURL(dataBlob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = `chat-export-${currentChatId || 'chat'}-${Date.now()}.json`;
-                        link.click();
-                        URL.revokeObjectURL(url);
-                        showNotification('Chat exported successfully', 'success');
-                      } catch (error) {
-                        showNotification('Failed to export chat', 'error');
-                        console.error('Error exporting chat:', error);
-                      }
-                      setShowMoreMenu(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      color: 'var(--text-color)',
-                      transition: 'background 0.2s',
-                      borderTop: '1px solid var(--border-color)'
-                    }}
-                    onMouseEnter={(e) => e.target.style.background = 'var(--border-color)'}
-                    onMouseLeave={(e) => e.target.style.background = 'none'}
-                  >
-                    <span>💾</span>
-                    <span>Export Chat</span>
-                  </button>
-                  <button
-                    className="more-menu-item"
-                    onClick={() => {
-                      openSettingsModal();
-                      setShowMoreMenu(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      color: 'var(--text-color)',
-                      transition: 'background 0.2s',
-                      borderTop: '1px solid var(--border-color)'
-                    }}
-                    onMouseEnter={(e) => e.target.style.background = 'var(--border-color)'}
-                    onMouseLeave={(e) => e.target.style.background = 'none'}
-                  >
-                    <span>⚙️</span>
-                    <span>Settings</span>
-                  </button>
-                  <button
-                    className="more-menu-item"
-                    onClick={() => {
                       if (currentChatId) {
                         if (window.confirm('Are you sure you want to leave this chat?')) {
                           setCurrentChatId(null);
-                          showNotification('Left chat', 'info');
                         }
                       }
                       setShowMoreMenu(false);
@@ -710,36 +464,19 @@ export default function ChatArea() {
                       transition: 'background 0.2s',
                       borderTop: '1px solid var(--border-color)'
                     }}
-                    onMouseEnter={(e) => e.target.style.background = 'rgba(244, 67, 54, 0.1)'}
-                    onMouseLeave={(e) => e.target.style.background = 'none'}
                   >
                     <span>🚪</span>
                     <span>Leave Chat</span>
                   </button>
-                  </div>
-                </>
+                </div>
               )}
-            </div>
+            </button>
           </div>
         </div>
 
         {/* Message Search */}
         {showSearch && (
           <MessageSearch />
-        )}
-
-        {/* Send Money Modal */}
-        {showSendMoneyModal && (
-          <SendMoneyModal
-            recipientId={currentChatId}
-            recipientName="Demo Chat"
-            onClose={() => setShowSendMoneyModal(false)}
-          />
-        )}
-
-        {/* Quick Reply Modal */}
-        {showQuickReplyModal && (
-          <QuickReplyModal onClose={() => setShowQuickReplyModal(false)} />
         )}
 
         {/* Messages Container */}
@@ -817,24 +554,158 @@ export default function ChatArea() {
             >
               😀
             </button>
-            <VoiceRecorder onRecordingComplete={handleVoiceRecordingComplete} />
+                        <VoiceRecorder onRecordingComplete={handleVoiceRecordingComplete} />
             <button
-              className="input-action-btn money-btn"
-              title="Send Money"
-              onClick={() => {
-                if (currentChatId) {
-                  setShowSendMoneyModal(true);
-                } else {
-                  showNotification('Please select a chat first', 'info');
+              className="input-action-btn"
+              title="Record video message"
+              onClick={async () => {
+                if (!videoMessageService.isSupported()) {
+                  alert('Video recording is not supported on this device');
+                  return;
+                }
+                try {
+                  const stream = await videoMessageService.startRecording(currentChatId, user?.uid, (size) => {
+                    // Progress callback
+                    console.log('Recording size:', size);
+                  });
+                  setVideoStream(stream);
+                  setIsRecordingVideo(true);
+                  setShowVideoRecorder(true);
+                } catch (error) {
+                  alert(`Error starting video recording: ${error.message}`);
                 }
               }}
-              style={{ color: '#4caf50' }}
+              disabled={isRecordingVideo}
             >
-              💵
+              📹
             </button>
-            {showGifPicker && (
-              <GifPicker
-                onSelectGif={async (gifUrl) => {
+            <button
+              className="input-action-btn"
+              title="Send sticker"
+              onClick={() => {
+                setShowStickerPicker(!showStickerPicker);
+                setShowEmojiPicker(false);
+                setShowGifPicker(false);
+              }}
+            >
+              😊
+            </button>
+            <button
+              className="input-action-btn"
+              title="Create poll"
+              onClick={() => {
+                const question = prompt('Enter poll question:');
+                if (!question) return;
+                const options = [];
+                for (let i = 0; i < 4; i++) {
+                  const opt = prompt(`Enter option ${i + 1} (or leave empty to finish):`);
+                  if (!opt) break;
+                  options.push(opt);
+                }
+                if (options.length < 2) {
+                  alert('Poll must have at least 2 options');
+                  return;
+                }
+                groupPollsService.createPoll(
+                  currentChatId,
+                  user?.uid,
+                  user?.displayName || user?.email || 'User',
+                  question,
+                  options
+                ).then(() => {
+                  alert('Poll created!');
+                }).catch((error) => {
+                  alert(`Error creating poll: ${error.message}`);
+                });
+              }}
+            >
+              📊
+            </button>
+                            {showStickerPicker && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '100%',
+                  left: 0,
+                  right: 0,
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  background: 'var(--background-color)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px 8px 0 0',
+                  padding: '12px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
+                  gap: '8px',
+                  zIndex: 1000
+                }}>
+                  {availableStickers.map((sticker, idx) => (
+                    <button
+                      key={sticker.id || idx}
+                      onClick={async () => {
+                        try {
+                          await stickersService.sendSticker(
+                            currentChatId,
+                            user?.uid,
+                            user?.displayName || user?.email || 'User',
+                            sticker
+                          );
+                          setShowStickerPicker(false);
+                        } catch (error) {
+                          alert(`Error sending sticker: ${error.message}`);
+                        }
+                      }}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        padding: '8px',
+                        cursor: 'pointer',
+                        fontSize: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {sticker.emoji || '😊'}
+                    </button>
+                  ))}
+                  {/* Fallback static stickers if none loaded */}
+                  {availableStickers.length === 0 && ['😊', '❤️', '😂', '👍', '🎉', '🔥', '💯', '🎈', '🎁', '🎂', '🎃', '🎄', '🎅', '🤖', '👾', '🦄'].map((emoji, idx) => (
+                    <button
+                      key={`fallback-${idx}`}
+                      onClick={async () => {
+                        try {
+                          await stickersService.sendSticker(
+                            currentChatId,
+                            user?.uid,
+                            user?.displayName || user?.email || 'User',
+                            { emoji, id: `sticker-${idx}`, packId: 'default' }
+                          );
+                          setShowStickerPicker(false);
+                        } catch (error) {
+                          alert(`Error sending sticker: ${error.message}`);
+                        }
+                      }}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        padding: '8px',
+                        cursor: 'pointer',
+                        fontSize: '40px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {showGifPicker && (
+                <GifPicker
+                  onSelectGif={async (gifUrl) => {
                   try {
                     await chatService.sendMessage(currentChatId, {
                       text: '',

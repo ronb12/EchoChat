@@ -393,6 +393,12 @@ body {
   object-fit: cover;
 }
 
+/* Business account indicator on avatar */
+.user-avatar[data-account-type="business"] {
+  border-color: rgba(0, 132, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 132, 255, 0.3), 0 0 0 2px rgba(0, 132, 255, 0.5);
+}
+
 .avatar-upload-overlay {
   position: absolute;
   inset: 0;
@@ -1681,7 +1687,8 @@ body {
 
 /* Voice Recorder */
 .voice-record-btn {
-  background: none;
+  background: transparent !important;
+  background-color: transparent !important;
   border: none;
   cursor: pointer;
   font-size: 24px;
@@ -1691,7 +1698,40 @@ body {
 }
 
 .voice-record-btn:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="dark"] .voice-record-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+[data-theme="dark"] .voice-record-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.record-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.record-btn:hover {
   background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .record-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+[data-theme="dark"] .record-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
 .voice-recording {
@@ -2652,6 +2692,7 @@ button:has-text("Browse") {
   
   .app-header {
     padding: var(--spacing-md);
+    padding-top: calc(var(--spacing-md) + env(safe-area-inset-top, 0px)) !important;
     position: relative;
     z-index: calc(var(--z-fixed) + 2);
     flex-shrink: 0;
@@ -2680,6 +2721,7 @@ button:has-text("Browse") {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px) !important;
   }
   
   /* Hide sidebar when a chat is selected (showing chat view instead) */
@@ -2697,12 +2739,12 @@ button:has-text("Browse") {
     transform: translateX(0) !important;
   }
   
-  /* Sidebar header - compact on mobile */
+  /* Sidebar header - compact on mobile, account for safe area */
   .sidebar .sidebar-header {
     flex-shrink: 0;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    min-height: 44px;
-    max-height: 44px;
+    padding: calc(var(--spacing-xs) + env(safe-area-inset-top, 0px)) var(--spacing-sm) var(--spacing-xs) var(--spacing-sm);
+    min-height: calc(44px + env(safe-area-inset-top, 0px));
+    max-height: calc(52px + env(safe-area-inset-top, 0px));
   }
   
   /* Sidebar nav - scrollable on mobile, takes remaining space but respects footer */
@@ -2800,6 +2842,7 @@ button:has-text("Browse") {
     will-change: transform;
     overflow: hidden !important;
     padding: 0 !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
     margin: 0 !important;
     box-sizing: border-box !important;
     border: none !important;
@@ -2818,9 +2861,11 @@ button:has-text("Browse") {
     position: relative !important;
     box-sizing: border-box !important;
     width: 100% !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
   }
   
   /* Chat header should not grow - compact on mobile, keep horizontal like WhatsApp */
+  /* Account for iPhone notch/safe area at top */
   .chat-area.has-chat .chat-header,
   .chat-area[data-has-chat="true"] .chat-header {
     flex-shrink: 0 !important;
@@ -2828,10 +2873,12 @@ button:has-text("Browse") {
     z-index: 10;
     min-height: 44px !important;
     max-height: 52px;
-    padding: 4px 12px !important;
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 12px 4px 12px !important;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: space-between !important;
+    background: var(--background-color) !important;
   }
   
   /* Ensure chat info stays horizontal */
@@ -3394,12 +3441,182 @@ button:has-text("Browse") {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    background: transparent !important;
+    border: none !important;
+  }
+  
+  /* Fix mic icon white background in dark mode */
+  [data-theme="dark"] .record-btn {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+  
+  [data-theme="dark"] .voice-recorder .record-btn {
+    background: transparent !important;
+    background-color: transparent !important;
   }
   
   .recording-controls {
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
+  }
+}
+
+/* Landscape orientation fixes for mobile devices */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* iPhone XS Max Landscape: 896x414 */
+  .app-container {
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+  
+  .main-content {
+    display: flex !important;
+    flex-direction: row !important;
+    height: calc(100vh - 60px) !important;
+    height: calc(100dvh - 60px) !important;
+    overflow: hidden !important;
+  }
+  
+  /* Sidebar should be side-by-side in landscape */
+  .sidebar {
+    position: relative !important;
+    width: clamp(280px, 35vw, 350px) !important;
+    max-width: 350px !important;
+    transform: translateX(0) !important;
+    flex-shrink: 0 !important;
+    border-right: 1px solid var(--border-color) !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+  }
+  
+  .sidebar-backdrop {
+    display: none !important;
+  }
+  
+  /* Chat area takes remaining space */
+  .chat-area {
+    flex: 1 !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Chat header compact in landscape */
+  .chat-header {
+    padding: 8px 12px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* Messages container scrollable */
+  .messages-container {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  
+  /* Message input container stays at bottom */
+  .message-input-container {
+    flex-shrink: 0 !important;
+    padding: 8px 12px !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    border-top: 1px solid var(--border-color) !important;
+  }
+  
+  /* Action buttons visible and compact */
+  .input-actions {
+    display: flex !important;
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+    max-width: 160px !important;
+  }
+  
+  .input-action-btn {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 6px !important;
+    font-size: 18px !important;
+  }
+  
+  /* Message input uses available horizontal space */
+  .message-input-wrapper {
+    flex: 1 1 auto !important;
+    min-width: 200px !important;
+    max-width: none !important;
+  }
+  
+  #message-input {
+    min-width: 150px !important;
+    font-size: 14px !important;
+    padding: 8px 10px !important;
+  }
+  
+  /* Send button compact */
+  .send-btn {
+    min-width: 32px !important;
+    min-height: 32px !important;
+    width: 32px !important;
+    height: 32px !important;
+    padding: 4px !important;
+  }
+  
+  /* App header compact */
+  .app-header {
+    padding: 8px 16px !important;
+    height: 50px !important;
+    min-height: 50px !important;
+  }
+  
+  .app-title h1 {
+    font-size: 1.1rem !important;
+  }
+  
+  /* Hide menu toggle in landscape - sidebar always visible */
+  .menu-toggle {
+    display: none !important;
+  }
+}
+
+/* Specific fix for iPhone XS Max landscape (896x414) */
+@media (min-width: 800px) and (max-width: 900px) and (max-height: 450px) {
+  .main-content {
+    display: flex !important;
+    flex-direction: row !important;
+    height: calc(100vh - 60px) !important;
+    height: calc(100dvh - 60px) !important;
+    overflow: hidden !important;
+  }
+  
+  .sidebar {
+    width: 320px !important;
+    position: relative !important;
+    transform: translateX(0) !important;
+    flex-shrink: 0 !important;
+    border-right: 1px solid var(--border-color) !important;
+  }
+  
+  .chat-area {
+    flex: 1 !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+  
+  .messages-container {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+  }
+  
+  .message-input-container {
+    flex-shrink: 0 !important;
   }
 }
 
