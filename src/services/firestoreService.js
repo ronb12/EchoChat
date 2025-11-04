@@ -297,6 +297,7 @@ class FirestoreService {
   }
 
   subscribeToUserChats(userId, callback) {
+    // Try with orderBy first (requires index)
     const q = query(
       collection(this.db, 'chats'),
       where('participants', 'array-contains', userId),
@@ -312,7 +313,36 @@ class FirestoreService {
       }));
       callback(chats);
     }, (error) => {
-      console.error('Error subscribing to chats:', error);
+      // If index error, try query without orderBy and sort client-side
+      if (error.code === 'failed-precondition' && (error.message.includes('index') || error.message.includes('requires an index'))) {
+        console.warn('Firestore index not ready, using client-side sorting:', error.message);
+        const qWithoutOrder = query(
+          collection(this.db, 'chats'),
+          where('participants', 'array-contains', userId)
+        );
+        
+        const unsubscribeFallback = onSnapshot(qWithoutOrder, (snapshot) => {
+          let chats = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toMillis() || Date.now(),
+            lastMessageAt: doc.data().lastMessageAt?.toMillis() || Date.now()
+          }));
+          // Sort client-side by lastMessageAt
+          chats = chats.sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0));
+          callback(chats);
+        }, (fallbackError) => {
+          console.error('Error subscribing to chats (fallback):', fallbackError);
+        });
+        
+        this.unsubscribes.set(`chats_${userId}`, unsubscribeFallback);
+        return () => {
+          unsubscribeFallback();
+          this.unsubscribes.delete(`chats_${userId}`);
+        };
+      } else {
+        console.error('Error subscribing to chats:', error);
+      }
     });
 
     this.unsubscribes.set(`chats_${userId}`, unsubscribe);
