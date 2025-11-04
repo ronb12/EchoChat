@@ -22,7 +22,10 @@ export default function SignUpModal() {
     }
   }, []);
 
-  const handleGoogleSignUp = async () => {
+  const handleGoogleSignUp = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!accountType) {
       setError('Please select an account type first');
       setShowAccountTypeSelection(true);

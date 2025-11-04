@@ -11,7 +11,10 @@ export default function LoginModal() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     console.log('Google sign-in button clicked');
     setIsLoading(true);
     setError('');
