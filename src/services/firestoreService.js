@@ -68,6 +68,11 @@ class FirestoreService {
         image: imageUrl || null,
         audio: audioUrl || null,
         file: fileUrl || null,
+        sticker: messageData.sticker || null,
+        stickerId: messageData.stickerId || null,
+        stickerPackId: messageData.stickerPackId || null,
+        video: messageData.video || null,
+        videoName: messageData.videoName || null,
         imageName: messageData.imageName || null,
         audioName: messageData.audioName || null,
         fileName: messageData.fileName || null,
@@ -76,7 +81,15 @@ class FirestoreService {
       };
 
       const docRef = await addDoc(collection(this.db, 'messages'), message);
-      return { id: docRef.id, ...message };
+      // Return message with Firestore document ID, preserving all fields including sticker
+      return { 
+        id: docRef.id, 
+        ...message,
+        // Ensure sticker fields are preserved
+        sticker: message.sticker || null,
+        stickerId: message.stickerId || null,
+        stickerPackId: message.stickerPackId || null
+      };
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;

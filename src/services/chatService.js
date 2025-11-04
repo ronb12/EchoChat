@@ -191,6 +191,21 @@ class ChatService {
       deleted: false,
       deletedAt: null,
       deletedForEveryone: false,
+      // Preserve media fields
+      sticker: message.sticker || null,
+      stickerId: message.stickerId || null,
+      stickerPackId: message.stickerPackId || null,
+      image: message.image || null,
+      audio: message.audio || null,
+      video: message.video || null,
+      videoName: message.videoName || null,
+      file: message.file || null,
+      imageName: message.imageName || null,
+      audioName: message.audioName || null,
+      fileName: message.fileName || null,
+      fileSize: message.fileSize || null,
+      fileType: message.fileType || null,
+      // Spread rest of message fields
       ...message
     };
 
