@@ -64,10 +64,10 @@ class AuthService {
     }
   }
 
-  async signOut() {
+  signOut = async () => {
     try {
       // Use this.auth if available, otherwise fall back to direct auth import
-      const authInstance = this.auth || auth;
+      const authInstance = (this && this.auth) || auth;
       if (!authInstance) {
         console.error('Auth object is not initialized');
         return { success: false, error: 'Authentication service not initialized' };
