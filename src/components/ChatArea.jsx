@@ -32,6 +32,7 @@ export default function ChatArea() {
   const [showSearch, setShowSearch] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showSendMoneyModal, setShowSendMoneyModal] = useState(false);
+  const [showRequestMoneyModal, setShowRequestMoneyModal] = useState(false);
   const [showQuickReplyModal, setShowQuickReplyModal] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
@@ -542,6 +543,17 @@ export default function ChatArea() {
                   </button>
                   <button
                     className="more-menu-item"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowRequestMoneyModal(true);
+                      setShowMoreMenu(false);
+                    }}
+                  >
+                    <span>📥</span>
+                    <span>Request Money</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
                     onClick={async (e) => {
                       e.stopPropagation();
                       if (currentChatId && messages.length > 0) {
@@ -634,7 +646,18 @@ export default function ChatArea() {
           <SendMoneyModal
             recipientId={currentChatId}
             recipientName="Demo Chat"
+            initialMode="send"
             onClose={() => setShowSendMoneyModal(false)}
+          />
+        )}
+
+        {/* Request Money Modal */}
+        {showRequestMoneyModal && (
+          <SendMoneyModal
+            recipientId={currentChatId}
+            recipientName="Demo Chat"
+            initialMode="request"
+            onClose={() => setShowRequestMoneyModal(false)}
           />
         )}
 
