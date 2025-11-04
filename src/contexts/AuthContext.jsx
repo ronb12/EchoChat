@@ -96,19 +96,19 @@ export function AuthProvider({ children }) {
       // We need to await this first, then set up the listener
       let unsubscribeFn = null;
       
-      (async () => {
-        await checkRedirectResult();
-        
-        // Set up auth state listener AFTER checking redirect result
-        // This ensures any redirect result is processed first
-        if (mounted) {
-          unsubscribeFn = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (!mounted) return;
-            console.log('Auth state changed:', firebaseUser ? firebaseUser.email : 'null');
-            setUserFromFirebase(firebaseUser);
-          });
-        }
-      })();
+      // Set up auth state listener first (it will fire immediately with current state)
+      unsubscribeFn = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!mounted) return;
+        console.log('Auth state changed:', firebaseUser ? firebaseUser.email : 'null');
+        setUserFromFirebase(firebaseUser);
+      });
+      
+      // Check for redirect result AFTER setting up listener
+      // This ensures we catch any redirect that happened
+      // The listener will fire when the redirect result is processed
+      checkRedirectResult().catch((err) => {
+        console.error('Failed to check redirect result:', err);
+      });
 
       // Safety timeout - ensure loading state doesn't persist too long
       // If auth hasn't initialized after 1 second, show landing page (no user)

@@ -56,12 +56,16 @@ class AuthService {
       provider.addScope('email');
       
       console.log('Calling signInWithRedirect...');
-      // Use redirect instead of popup to avoid COOP (Cross-Origin-Opener-Policy) issues
-      await signInWithRedirect(authInstance, provider);
-      console.log('signInWithRedirect completed - redirect should happen');
+      console.log('Auth domain:', authInstance.config?.authDomain || 'not set');
+      console.log('Current URL:', window.location.href);
       
-      // Note: signInWithRedirect will navigate away, so we return a pending state
-      // This line may not execute if redirect happens immediately
+      // Use redirect instead of popup to avoid COOP (Cross-Origin-Opener-Policy) issues
+      // This will navigate the entire page to Google
+      await signInWithRedirect(authInstance, provider);
+      
+      // Note: signInWithRedirect will navigate away, so this line should not execute
+      // If we get here, something went wrong
+      console.warn('signInWithRedirect returned - redirect may have failed');
       return { success: true, pending: true };
     } catch (error) {
       console.error('Error during Google sign-in redirect:', error);

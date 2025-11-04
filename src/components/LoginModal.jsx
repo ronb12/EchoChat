@@ -116,7 +116,7 @@ export default function LoginModal() {
           <button
             className="btn btn-secondary"
             onClick={(e) => {
-              e.preventDefault();
+              // Don't prevent default - let the redirect happen naturally
               e.stopPropagation();
               console.log('Button clicked directly');
               handleGoogleSignIn();
