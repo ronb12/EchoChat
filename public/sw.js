@@ -93,9 +93,14 @@ self.addEventListener('activate', (event) => {
 function getCacheStrategy(request) {
   const url = new URL(request.url);
   
-  // Static assets - cache first
+  // JavaScript and CSS files - network first to ensure fresh code
+  if (url.pathname.match(/\.(js|css)$/i) || 
+      url.pathname.startsWith('/assets/')) {
+    return CACHE_STRATEGIES.NETWORK_FIRST;
+  }
+  
+  // Icons and manifest - cache first (these don't change often)
   if (url.pathname.startsWith('/icons/') || 
-      url.pathname.startsWith('/assets/') ||
       url.pathname === '/manifest.json') {
     return CACHE_STRATEGIES.CACHE_FIRST;
   }
