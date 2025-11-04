@@ -36,30 +36,47 @@ class AuthService {
     }
   }
 
-  async signInWithGoogle() {
+  signInWithGoogle = async () => {
     try {
+      // Use this.auth if available, otherwise fall back to direct auth import
+      const authInstance = (this && this.auth) || auth;
+      if (!authInstance) {
+        console.error('Auth object is not initialized');
+        return { success: false, error: 'Authentication service not initialized' };
+      }
+      
       const provider = new GoogleAuthProvider();
       // Use redirect instead of popup to avoid COOP (Cross-Origin-Opener-Policy) issues
-      await signInWithRedirect(this.auth, provider);
+      await signInWithRedirect(authInstance, provider);
       // Note: signInWithRedirect will navigate away, so we return a pending state
       return { success: true, pending: true };
     } catch (error) {
+      console.error('Error during Google sign-in redirect:', error);
       // If redirect is blocked, try to check if user is already signed in
-      if (this.auth.currentUser) {
-        return { success: true, user: this.auth.currentUser };
+      const authInstance = (this && this.auth) || auth;
+      if (authInstance && authInstance.currentUser) {
+        return { success: true, user: authInstance.currentUser };
       }
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Failed to sign in with Google' };
     }
   }
 
-  async getRedirectResult() {
+  getRedirectResult = async () => {
     try {
-      const result = await getRedirectResult(this.auth);
+      // Use this.auth if available, otherwise fall back to direct auth import
+      const authInstance = (this && this.auth) || auth;
+      if (!authInstance) {
+        console.error('Auth object is not initialized');
+        return { success: false, error: 'Authentication service not initialized' };
+      }
+      
+      const result = await getRedirectResult(authInstance);
       if (result && result.user) {
         return { success: true, user: result.user };
       }
       return { success: false, user: null };
     } catch (error) {
+      console.error('Error getting redirect result:', error);
       return { success: false, error: error.message };
     }
   }

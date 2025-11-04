@@ -60,6 +60,16 @@ export function AuthProvider({ children }) {
         }
       };
 
+      // Check for redirect result from Google sign-in (must be done before onAuthStateChanged)
+      authService.getRedirectResult().then((result) => {
+        if (mounted && result.success && result.user) {
+          // Redirect result found - user will be set by onAuthStateChanged
+          console.log('Google sign-in redirect result:', result);
+        }
+      }).catch((error) => {
+        console.error('Error checking redirect result:', error);
+      });
+
       // Wait for onAuthStateChanged to fire - it will fire immediately with current state
       // This is more reliable than checking auth.currentUser directly
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {

@@ -35,12 +35,19 @@ export default function SignUpModal() {
     try {
       const result = await authService.signInWithGoogle();
       if (result.success) {
-        // Store account type
-        localStorage.setItem('echochat_account_type', accountType);
-        showNotification('Account created with Google successfully!', 'success');
-        closeSignUpModal();
+        if (result.pending) {
+          // Redirect is happening - store account type before redirect
+          localStorage.setItem('echochat_account_type', accountType);
+          // Page will navigate away, auth state will be updated after redirect
+        } else {
+          // User is already signed in
+          localStorage.setItem('echochat_account_type', accountType);
+          showNotification('Account created with Google successfully!', 'success');
+          closeSignUpModal();
+        }
       } else {
         setError(result.error || 'Failed to sign up with Google');
+        setIsLoading(false);
       }
     } catch (err) {
       setError(err.message || 'An error occurred');

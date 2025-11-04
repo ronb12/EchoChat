@@ -18,14 +18,22 @@ export default function LoginModal() {
     try {
       const result = await authService.signInWithGoogle();
       if (result.success) {
-        showNotification('Signed in with Google successfully!', 'success');
-        closeLoginModal();
+        if (result.pending) {
+          // Redirect is happening - page will navigate away
+          // Don't show notification or close modal as page will redirect
+          // The auth state will be updated after redirect
+        } else {
+          // User is already signed in
+          showNotification('Signed in with Google successfully!', 'success');
+          closeLoginModal();
+        }
       } else {
         setError(result.error || 'Failed to sign in with Google');
+        setIsLoading(false);
       }
     } catch (err) {
-      setError(err.message || 'An error occurred');
-    } finally {
+      console.error('Google sign-in error:', err);
+      setError(err.message || 'An error occurred during Google sign-in');
       setIsLoading(false);
     }
   };
