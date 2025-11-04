@@ -420,8 +420,10 @@ export default function ChatArea() {
                   borderRadius: '8px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   minWidth: '160px',
-                  zIndex: 1000,
-                  overflow: 'hidden'
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  zIndex: 1000
                 }}>
                   <button
                     className="more-menu-item"

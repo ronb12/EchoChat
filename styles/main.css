@@ -1159,10 +1159,39 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   min-width: 200px;
   z-index: 1000;
-  overflow: hidden;
   max-height: 400px;
   overflow-y: auto;
+  overflow-x: hidden;
   animation: fadeInUp 0.15s ease;
+  /* Smooth scrolling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+/* WebKit scrollbar styling for more menu */
+.more-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.more-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.more-menu::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.more-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .more-menu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .more-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 @keyframes fadeInUp {
