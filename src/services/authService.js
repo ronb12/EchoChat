@@ -83,6 +83,7 @@ class AuthService {
 
   getRedirectResult = async () => {
     try {
+      console.log('getRedirectResult called');
       // Use this.auth if available, otherwise fall back to direct auth import
       const authInstance = (this && this.auth) || auth;
       if (!authInstance) {
@@ -90,14 +91,25 @@ class AuthService {
         return { success: false, error: 'Authentication service not initialized' };
       }
       
+      console.log('Calling Firebase getRedirectResult...');
       const result = await getRedirectResult(authInstance);
+      console.log('Firebase getRedirectResult returned:', result);
+      
       if (result && result.user) {
+        console.log('✅ Redirect result has user:', result.user.email);
         return { success: true, user: result.user };
       }
+      
+      console.log('⚠️ No redirect result found (null or no user)');
       return { success: false, user: null };
     } catch (error) {
-      console.error('Error getting redirect result:', error);
-      return { success: false, error: error.message };
+      console.error('❌ Error getting redirect result:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        name: error.name
+      });
+      return { success: false, error: error.message || 'Unknown error' };
     }
   }
 

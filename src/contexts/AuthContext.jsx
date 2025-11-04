@@ -62,37 +62,53 @@ export function AuthProvider({ children }) {
 
       // Check for redirect result from Google sign-in FIRST
       // This is critical - getRedirectResult must be called to complete the sign-in flow
-      // It should be called on every page load to check if we're returning from a redirect
-      // We need to await this before setting up onAuthStateChanged to ensure proper ordering
+      // It MUST be called before onAuthStateChanged to ensure redirect result is processed
       const checkRedirectResult = async () => {
         try {
+          console.log('Checking for redirect result...');
           const result = await authService.getRedirectResult();
+          console.log('Redirect result:', result);
+          
           if (mounted) {
             if (result.success && result.user) {
               // Redirect result found - Firebase will update auth state
-              console.log('Google sign-in redirect result found:', result.user.email);
+              console.log('✅ Google sign-in redirect result found:', result.user.email);
               // The onAuthStateChanged listener will handle setting the user
             } else if (result.error) {
-              console.error('Redirect result error:', result.error);
+              console.error('❌ Redirect result error:', result.error);
             } else {
               // No redirect result - this is normal for regular page loads
-              console.log('No redirect result (normal page load)');
+              console.log('ℹ️ No redirect result (normal page load)');
             }
           }
         } catch (error) {
-          console.error('Error checking redirect result:', error);
+          console.error('❌ Error checking redirect result:', error);
+          console.error('Error details:', {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+          });
         }
       };
       
-      // Set up auth state listener
-      // Note: onAuthStateChanged will fire after getRedirectResult completes the sign-in
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (!mounted) return;
-        setUserFromFirebase(firebaseUser);
-      });
-
-      // Check for redirect result (this will trigger onAuthStateChanged if a redirect happened)
-      checkRedirectResult();
+      // IMPORTANT: Check redirect result BEFORE setting up onAuthStateChanged
+      // This ensures the redirect result is processed and auth state is updated
+      // We need to await this first, then set up the listener
+      let unsubscribeFn = null;
+      
+      (async () => {
+        await checkRedirectResult();
+        
+        // Set up auth state listener AFTER checking redirect result
+        // This ensures any redirect result is processed first
+        if (mounted) {
+          unsubscribeFn = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (!mounted) return;
+            console.log('Auth state changed:', firebaseUser ? firebaseUser.email : 'null');
+            setUserFromFirebase(firebaseUser);
+          });
+        }
+      })();
 
       // Safety timeout - ensure loading state doesn't persist too long
       // If auth hasn't initialized after 1 second, show landing page (no user)
@@ -115,7 +131,9 @@ export function AuthProvider({ children }) {
       return () => {
         mounted = false;
         clearTimeout(timeout);
-        unsubscribe();
+        if (unsubscribeFn) {
+          unsubscribeFn();
+        }
       };
     } catch (error) {
       console.error('Error setting up auth listener:', error);
