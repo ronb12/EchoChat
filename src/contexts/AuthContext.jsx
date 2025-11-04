@@ -50,19 +50,10 @@ export function AuthProvider({ children }) {
         }
       };
 
-      // Check current user immediately (in case auth is already initialized)
-      if (auth.currentUser) {
-        setUserFromFirebase(auth.currentUser);
-      } else {
-        // Clear demo user if no Firebase user
-        localStorage.removeItem('echochat_user');
-        setUser(null);
-        authInitialized = true;
-        setLoading(false);
-      }
-
-      // Set up listener for future auth state changes
+      // Wait for onAuthStateChanged to fire - it will fire immediately with current state
+      // This is more reliable than checking auth.currentUser directly
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!mounted) return;
         setUserFromFirebase(firebaseUser);
       });
 
