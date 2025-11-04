@@ -1,5 +1,5 @@
 // Enhanced Service Worker for EchoChat PWA - Advanced Offline Support
-const CACHE_VERSION = 'v2.1.0';
+const CACHE_VERSION = 'v2.1.1';
 const CACHE_NAME = `echochat-${CACHE_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const DYNAMIC_CACHE = `${CACHE_NAME}-dynamic`;
