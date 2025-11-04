@@ -289,6 +289,21 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
           </div>
         ) : (
           <>
+            {/* Show sticker first if it exists */}
+            {message.sticker && (
+              <div className="message-sticker" style={{
+                fontSize: '64px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '12px',
+                background: 'transparent',
+                minHeight: '80px'
+              }}>
+                {message.sticker}
+              </div>
+            )}
+            {/* Show text if it exists */}
             {(decryptedText || message.text) && (
               <div className="message-text">
                 {isDecrypting ? (
@@ -308,18 +323,6 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
             {message.image && (
               <div className="message-media">
                 <img src={message.image} alt="Shared" className="message-image" />
-              </div>
-            )}
-            {message.sticker && (
-              <div className="message-sticker" style={{
-                fontSize: '64px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '12px',
-                background: 'transparent'
-              }}>
-                {message.sticker}
               </div>
             )}
             {message.file && (
