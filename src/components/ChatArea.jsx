@@ -412,9 +412,9 @@ export default function ChatArea() {
               {showMoreMenu && (
                 <div className="more-menu" style={{
                   position: 'absolute',
-                  bottom: '100%',
+                  top: '100%',
                   right: 0,
-                  marginBottom: '8px',
+                  marginTop: '8px',
                   background: 'var(--surface-color)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '8px',
