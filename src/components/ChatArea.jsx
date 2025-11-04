@@ -16,12 +16,13 @@ import GifPicker from './GifPicker';
 import MediaGallery from './MediaGallery';
 import SendMoneyModal from './SendMoneyModal';
 import QuickReplyModal from './QuickReplyModal';
+import PollCreatorModal from './PollCreatorModal';
 import { EMOJI_LIST } from '../data/emojis';
 
 export default function ChatArea() {
   const { messages, currentChatId, setCurrentChatId } = useChat();
   const { user } = useAuth();
-  const { openNewChatModal, openCallModal, toggleSidebar, openSettingsModal } = useUI();
+  const { openNewChatModal, openCallModal, toggleSidebar, openSettingsModal, openGroupChatModal, openMediaGallery, openStatusModal, showNotification } = useUI();
   const [messageText, setMessageText] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
@@ -30,9 +31,12 @@ export default function ChatArea() {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showSendMoneyModal, setShowSendMoneyModal] = useState(false);
+  const [showQuickReplyModal, setShowQuickReplyModal] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showPollCreator, setShowPollCreator] = useState(false);
+  const [isBusinessAccount, setIsBusinessAccount] = useState(false);
   const [isRecordingVideo, setIsRecordingVideo] = useState(false);
   const [videoStream, setVideoStream] = useState(null);
   const [availableStickers, setAvailableStickers] = useState([]);
@@ -52,6 +56,15 @@ export default function ChatArea() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Check if business account
+  useEffect(() => {
+    if (user) {
+      const accountType = localStorage.getItem('echochat_account_type') || user.accountType;
+      const isBusiness = accountType === 'business' || user.isBusinessAccount === true;
+      setIsBusinessAccount(isBusiness);
+    }
+  }, [user]);
 
   // Load stickers when picker is shown
   useEffect(() => {
@@ -406,48 +419,21 @@ export default function ChatArea() {
                   zIndex: 1000,
                   overflow: 'hidden'
                 }}>
-                  <button
+                                    <button
                     className="more-menu-item"
                     onClick={() => {
-                      openSettingsModal();
+                      openMediaGallery();
                       setShowMoreMenu(false);
                     }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      color: 'var(--text-color)',
-                      transition: 'background 0.2s'
-                    }}
                   >
-                    <span>⚙️</span>
-                    <span>Settings</span>
+                    <span>🖼️</span>
+                    <span>View Media & Files</span>
                   </button>
                   <button
                     className="more-menu-item"
                     onClick={() => {
                       setShowSearch(true);
                       setShowMoreMenu(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      color: 'var(--text-color)',
-                      transition: 'background 0.2s',
-                      borderTop: '1px solid var(--border-color)'
                     }}
                   >
                     <span>🔍</span>
@@ -456,27 +442,159 @@ export default function ChatArea() {
                   <button
                     className="more-menu-item"
                     onClick={() => {
-                      if (currentChatId) {
-                        if (window.confirm('Are you sure you want to leave this chat?')) {
-                          setCurrentChatId(null);
+                      openGroupChatModal();
+                      setShowMoreMenu(false);
+                    }}
+                  >
+                    <span>👥</span>
+                    <span>Create Group Chat</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      openStatusModal();
+                      setShowMoreMenu(false);
+                    }}
+                  >
+                    <span>✏️</span>
+                    <span>Status Updates</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={async () => {
+                      if (!videoMessageService.isSupported()) {
+                        showNotification('Video recording is not supported on this device', 'error');
+                        setShowMoreMenu(false);
+                        return;
+                      }
+                      try {
+                        await videoMessageService.startRecording(currentChatId, user?.uid, (size) => {
+                          console.log('Recording size:', size);
+                        });
+                        setIsRecordingVideo(true);
+                        setShowVideoRecorder(true);
+                        showNotification('Video recording started', 'success');
+                      } catch (error) {
+                        showNotification(`Error starting video recording: ${error.message}`, 'error');
+                      }
+                      setShowMoreMenu(false);
+                    }}
+                  >
+                    <span>📹</span>
+                    <span>Video Message</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      setShowStickerPicker(!showStickerPicker);
+                      setShowMoreMenu(false);
+                    }}
+                  >
+                    <span>😊</span>
+                    <span>Stickers</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      setShowPollCreator(true);
+                      setShowMoreMenu(false);
+                    }}
+                  >
+                    <span>📊</span>
+                    <span>Create Poll</span>
+                  </button>
+                  {isBusinessAccount && (
+                    <button
+                      className="more-menu-item"
+                      onClick={() => {
+                        setShowQuickReplyModal(true);
+                        setShowMoreMenu(false);
+                      }}
+                    >
+                      <span>💬</span>
+                      <span>Quick Reply</span>
+                    </button>
+                  )}
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      setShowSendMoneyModal(true);
+                      setShowMoreMenu(false);
+                    }}
+                  >
+                    <span>💵</span>
+                    <span>Send Money</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={async () => {
+                      if (currentChatId && messages.length > 0) {
+                        if (window.confirm(`Are you sure you want to clear all ${messages.length} messages from this chat? This action cannot be undone.`)) {
+                          try {
+                            await chatService.clearChatHistory(currentChatId);
+                            showNotification('Chat history cleared', 'success');
+                          } catch (error) {
+                            showNotification('Failed to clear chat history', 'error');
+                            console.error('Error clearing chat:', error);
+                          }
                         }
                       }
                       setShowMoreMenu(false);
                     }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      background: 'none',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      color: '#f44336',
-                      transition: 'background 0.2s',
-                      borderTop: '1px solid var(--border-color)'
+                  >
+                    <span>🗑️</span>
+                    <span>Clear Chat History</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      try {
+                        const chatData = {
+                          chatId: currentChatId,
+                          messages: messages,
+                          timestamp: new Date().toISOString()
+                        };
+                        const dataStr = JSON.stringify(chatData, null, 2);
+                        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                        const url = URL.createObjectURL(dataBlob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `chat-export-${currentChatId || 'chat'}-${Date.now()}.json`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                        showNotification('Chat exported successfully', 'success');
+                      } catch (error) {
+                        showNotification('Failed to export chat', 'error');
+                        console.error('Error exporting chat:', error);
+                      }
+                      setShowMoreMenu(false);
                     }}
+                  >
+                    <span>💾</span>
+                    <span>Export Chat</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      openSettingsModal();
+                      setShowMoreMenu(false);
+                    }}
+                  >
+                    <span>⚙️</span>
+                    <span>Settings</span>
+                  </button>
+                  <button
+                    className="more-menu-item"
+                    onClick={() => {
+                      if (currentChatId) {
+                        if (window.confirm('Are you sure you want to leave this chat?')) {
+                          setCurrentChatId(null);
+                          showNotification('Left chat', 'info');
+                        }
+                      }
+                      setShowMoreMenu(false);
+                    }}
+                    style={{ color: '#f44336' }}
                   >
                     <span>🚪</span>
                     <span>Leave Chat</span>
@@ -490,6 +608,151 @@ export default function ChatArea() {
         {/* Message Search */}
         {showSearch && (
           <MessageSearch />
+        )}
+
+        {/* Send Money Modal */}
+        {showSendMoneyModal && (
+          <SendMoneyModal
+            recipientId={currentChatId}
+            recipientName="Demo Chat"
+            onClose={() => setShowSendMoneyModal(false)}
+          />
+        )}
+
+        {/* Quick Reply Modal */}
+        {showQuickReplyModal && (
+          <QuickReplyModal onClose={() => setShowQuickReplyModal(false)} />
+        )}
+
+        {/* Sticker Picker */}
+        {showStickerPicker && (
+          <div style={{
+            position: 'fixed',
+            bottom: '80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            maxWidth: '400px',
+            width: '90%',
+            maxHeight: '400px',
+            overflowY: 'auto',
+            background: 'var(--background-color)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '12px',
+            padding: '16px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
+            gap: '12px',
+            zIndex: 2000,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+          }}>
+            {availableStickers.length > 0 ? (
+              availableStickers.map((sticker, idx) => (
+                <button
+                  key={sticker.id || idx}
+                  onClick={async () => {
+                    try {
+                      await stickersService.sendSticker(
+                        currentChatId,
+                        user?.uid,
+                        user?.displayName || user?.email || 'User',
+                        sticker
+                      );
+                      setShowStickerPicker(false);
+                      showNotification('Sticker sent!', 'success');
+                    } catch (error) {
+                      showNotification(`Error sending sticker: ${error.message}`, 'error');
+                    }
+                  }}
+                  style={{
+                    background: 'var(--surface-color)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    cursor: 'pointer',
+                    fontSize: '48px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  {sticker.emoji || '😊'}
+                </button>
+              ))
+            ) : (
+              ['😊', '❤️', '😂', '👍', '🎉', '🔥', '💯', '🎈', '🎁', '🎂', '🎃', '🎄', '🎅', '🤖', '👾', '🦄'].map((emoji, idx) => (
+                <button
+                  key={`fallback-${idx}`}
+                  onClick={async () => {
+                    try {
+                      await stickersService.sendSticker(
+                        currentChatId,
+                        user?.uid,
+                        user?.displayName || user?.email || 'User',
+                        { emoji, id: `sticker-${idx}`, packId: 'default' }
+                      );
+                      setShowStickerPicker(false);
+                      showNotification('Sticker sent!', 'success');
+                    } catch (error) {
+                      showNotification(`Error sending sticker: ${error.message}`, 'error');
+                    }
+                  }}
+                  style={{
+                    background: 'var(--surface-color)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    cursor: 'pointer',
+                    fontSize: '48px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  {emoji}
+                </button>
+              ))
+            )}
+            <button
+              onClick={() => setShowStickerPicker(false)}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'var(--border-color)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        {/* Poll Creator Modal */}
+        {showPollCreator && (
+          <PollCreatorModal
+            chatId={currentChatId}
+            userId={user?.uid}
+            userName={user?.displayName || user?.email || 'User'}
+            onClose={() => setShowPollCreator(false)}
+            onSuccess={() => {
+              setShowPollCreator(false);
+              showNotification('Poll created!', 'success');
+            }}
+          />
         )}
 
         {/* Messages Container */}
@@ -569,156 +832,22 @@ export default function ChatArea() {
             </button>
                         <VoiceRecorder onRecordingComplete={handleVoiceRecordingComplete} />
             <button
-              className="input-action-btn"
-              title="Record video message"
-              onClick={async () => {
-                if (!videoMessageService.isSupported()) {
-                  alert('Video recording is not supported on this device');
-                  return;
-                }
-                try {
-                  const stream = await videoMessageService.startRecording(currentChatId, user?.uid, (size) => {
-                    // Progress callback
-                    console.log('Recording size:', size);
-                  });
-                  setVideoStream(stream);
-                  setIsRecordingVideo(true);
-                  setShowVideoRecorder(true);
-                } catch (error) {
-                  alert(`Error starting video recording: ${error.message}`);
-                }
-              }}
-              disabled={isRecordingVideo}
-            >
-              📹
-            </button>
-            <button
-              className="input-action-btn"
-              title="Send sticker"
+              className="input-action-btn money-btn"
+              title="Send Money"
               onClick={() => {
-                setShowStickerPicker(!showStickerPicker);
-                setShowEmojiPicker(false);
-                setShowGifPicker(false);
-              }}
-            >
-              😊
-            </button>
-            <button
-              className="input-action-btn"
-              title="Create poll"
-              onClick={() => {
-                const question = prompt('Enter poll question:');
-                if (!question) return;
-                const options = [];
-                for (let i = 0; i < 4; i++) {
-                  const opt = prompt(`Enter option ${i + 1} (or leave empty to finish):`);
-                  if (!opt) break;
-                  options.push(opt);
+                if (currentChatId) {
+                  setShowSendMoneyModal(true);
+                } else {
+                  showNotification('Please select a chat first', 'info');
                 }
-                if (options.length < 2) {
-                  alert('Poll must have at least 2 options');
-                  return;
-                }
-                groupPollsService.createPoll(
-                  currentChatId,
-                  user?.uid,
-                  user?.displayName || user?.email || 'User',
-                  question,
-                  options
-                ).then(() => {
-                  alert('Poll created!');
-                }).catch((error) => {
-                  alert(`Error creating poll: ${error.message}`);
-                });
               }}
+              style={{ color: '#4caf50' }}
             >
-              📊
+              💵
             </button>
-                            {showStickerPicker && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: '100%',
-                  left: 0,
-                  right: 0,
-                  maxHeight: '300px',
-                  overflowY: 'auto',
-                  background: 'var(--background-color)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px 8px 0 0',
-                  padding: '12px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))',
-                  gap: '8px',
-                  zIndex: 1000
-                }}>
-                  {availableStickers.map((sticker, idx) => (
-                    <button
-                      key={sticker.id || idx}
-                      onClick={async () => {
-                        try {
-                          await stickersService.sendSticker(
-                            currentChatId,
-                            user?.uid,
-                            user?.displayName || user?.email || 'User',
-                            sticker
-                          );
-                          setShowStickerPicker(false);
-                        } catch (error) {
-                          alert(`Error sending sticker: ${error.message}`);
-                        }
-                      }}
-                      style={{
-                        background: 'none',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px',
-                        padding: '8px',
-                        cursor: 'pointer',
-                        fontSize: '40px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      {sticker.emoji || '😊'}
-                    </button>
-                  ))}
-                  {/* Fallback static stickers if none loaded */}
-                  {availableStickers.length === 0 && ['😊', '❤️', '😂', '👍', '🎉', '🔥', '💯', '🎈', '🎁', '🎂', '🎃', '🎄', '🎅', '🤖', '👾', '🦄'].map((emoji, idx) => (
-                    <button
-                      key={`fallback-${idx}`}
-                      onClick={async () => {
-                        try {
-                          await stickersService.sendSticker(
-                            currentChatId,
-                            user?.uid,
-                            user?.displayName || user?.email || 'User',
-                            { emoji, id: `sticker-${idx}`, packId: 'default' }
-                          );
-                          setShowStickerPicker(false);
-                        } catch (error) {
-                          alert(`Error sending sticker: ${error.message}`);
-                        }
-                      }}
-                      style={{
-                        background: 'none',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px',
-                        padding: '8px',
-                        cursor: 'pointer',
-                        fontSize: '40px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {showGifPicker && (
-                <GifPicker
-                  onSelectGif={async (gifUrl) => {
+            {showGifPicker && (
+              <GifPicker
+                onSelectGif={async (gifUrl) => {
                   try {
                     await chatService.sendMessage(currentChatId, {
                       text: '',
