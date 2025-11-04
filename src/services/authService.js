@@ -66,11 +66,13 @@ class AuthService {
 
   async signOut() {
     try {
-      if (!this.auth) {
+      // Use this.auth if available, otherwise fall back to direct auth import
+      const authInstance = this.auth || auth;
+      if (!authInstance) {
         console.error('Auth object is not initialized');
         return { success: false, error: 'Authentication service not initialized' };
       }
-      await firebaseSignOut(this.auth);
+      await firebaseSignOut(authInstance);
       return { success: true };
     } catch (error) {
       console.error('Error signing out:', error);
