@@ -73,7 +73,18 @@ self.addEventListener('activate', (event) => {
       })
       .then(() => {
         console.log('[SW] Service worker activated');
-        return self.clients.claim(); // Take control of all pages
+        // Claim clients - handle errors gracefully
+        if (self.clients && self.clients.claim) {
+          return self.clients.claim().catch((error) => {
+            // Only log if it's not the expected "only active worker can claim" error
+            if (!error.message.includes('Only the active worker')) {
+              console.warn('[SW] Could not claim clients:', error.message);
+            }
+            // Return resolved promise to continue activation
+            return Promise.resolve();
+          });
+        }
+        return Promise.resolve();
       })
   );
 });
