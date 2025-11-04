@@ -53,6 +53,19 @@ export default function ChatArea() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Load stickers when picker is shown
+  useEffect(() => {
+    if (showStickerPicker) {
+      stickersService.getStickerPacks().then(packs => {
+        const allStickers = packs.flatMap(pack => pack.stickers || []);
+        setAvailableStickers(allStickers.slice(0, 30));
+      }).catch(() => {
+        // Fallback to default emojis
+        setAvailableStickers([]);
+      });
+    }
+  }, [showStickerPicker]);
+
   // Close emoji picker and more menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
