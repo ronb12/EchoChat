@@ -109,6 +109,20 @@
           "arrayConfig": "CONTAINS"
         },
         {
+          "fieldPath": "lastMessageAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "chats",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "participants",
+          "arrayConfig": "CONTAINS"
+        },
+        {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
