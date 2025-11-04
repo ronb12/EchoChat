@@ -17,8 +17,11 @@ import PollCreatorModal from './PollCreatorModal';
 import { EMOJI_LIST } from '../data/emojis';
 
 export default function ChatArea() {
-  const { messages, currentChatId, setCurrentChatId } = useChat();
+  const { messages, currentChatId, setCurrentChatId, chats } = useChat();
   const { user } = useAuth();
+  
+  // Get current chat details
+  const currentChat = chats.find(chat => chat.id === currentChatId);
   const { openNewChatModal, openCallModal, toggleSidebar, openSettingsModal, openGroupChatModal, openMediaGallery, openStatusModal, showNotification } = useUI();
   const [messageText, setMessageText] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -367,10 +370,14 @@ export default function ChatArea() {
               </button>
             )}
             <div className="chat-avatar">
-              <img src="/icons/default-avatar.png" alt="Chat" />
+              <img 
+                src={currentChat?.avatar || '/icons/default-avatar.png'} 
+                alt={currentChat?.name || 'Chat'} 
+                onError={(e) => { e.target.src = '/icons/default-avatar.png'; }}
+              />
             </div>
             <div className="chat-details">
-              <h3>Demo Chat</h3>
+              <h3>{currentChat?.name || 'Select a chat'}</h3>
               <div className="chat-status">
                 {Object.keys(typingUsers).length > 0
                   ? `${Object.values(typingUsers)[0]?.displayName || 'Someone'} is typing...`
@@ -659,7 +666,7 @@ export default function ChatArea() {
         {showSendMoneyModal && (
           <SendMoneyModal
             recipientId={currentChatId}
-            recipientName="Demo Chat"
+            recipientName={currentChat?.name || 'Chat'}
             initialMode="send"
             onClose={() => setShowSendMoneyModal(false)}
           />
@@ -669,7 +676,7 @@ export default function ChatArea() {
         {showRequestMoneyModal && (
           <SendMoneyModal
             recipientId={currentChatId}
-            recipientName="Demo Chat"
+            recipientName={currentChat?.name || 'Chat'}
             initialMode="request"
             onClose={() => setShowRequestMoneyModal(false)}
           />

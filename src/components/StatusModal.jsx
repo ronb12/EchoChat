@@ -128,7 +128,7 @@ export default function StatusModal() {
                   }}
                 >
                   <span style={{ fontSize: '1.5rem' }}>{s.emoji}</span>
-                  <span>{s.text}</span>
+                  <span style={{ color: 'var(--text-color)' }}>{s.text}</span>
                 </button>
               ))}
             </div>

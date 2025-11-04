@@ -473,11 +473,33 @@ class ChatService {
 
   // Chats list per user
   subscribeToUserChats(userId, callback) {
+    // Use Firestore if available
+    if (this.useFirestore) {
+      try {
+        const unsubscribe = firestoreService.subscribeToUserChats(userId, (chats) => {
+          // Update local cache
+          this.userIdToChats.set(userId, chats);
+          callback(chats);
+        });
+        
+        this.firestoreUnsubscribes.set(`chats_${userId}`, unsubscribe);
+        return () => {
+          if (this.firestoreUnsubscribes.has(`chats_${userId}`)) {
+            this.firestoreUnsubscribes.get(`chats_${userId}`)();
+            this.firestoreUnsubscribes.delete(`chats_${userId}`);
+          }
+        };
+      } catch (error) {
+        console.warn('Firestore subscription failed, falling back to localStorage:', error);
+        this.useFirestore = false;
+        // Fall through to localStorage mode
+      }
+    }
+
+    // Fallback: localStorage mode
     if (!this.userIdToChats.has(userId)) {
-      // Provide a default sample chat for demo
-      this.userIdToChats.set(userId, [
-        { id: 'demo', name: 'Demo Chat', lastMessageAt: Date.now(), type: 'direct' }
-      ]);
+      // Initialize with empty array for real users - no demo chat
+      this.userIdToChats.set(userId, []);
     }
     // Immediately deliver current state
     callback(this.userIdToChats.get(userId));

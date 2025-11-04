@@ -1076,6 +1076,11 @@ body {
 .chat-status {
   font-size: var(--font-size-sm);
   opacity: 0.7;
+  color: var(--text-color-secondary);
+}
+
+[data-theme="dark"] .chat-status {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .chat-actions {
