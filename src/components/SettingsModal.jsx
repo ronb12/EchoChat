@@ -61,7 +61,9 @@ function SettingsModal() {
     sunday: { open: '09:00', close: '17:00', closed: false }
   });
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
 
   // Check if this is test business account for sample data fallback
   const isTestBusinessAccount = () => {
@@ -69,6 +71,24 @@ function SettingsModal() {
     return user.uid === 'test-business-1' ||
            user.email === 'business@echochat.com' ||
            user.uid?.includes('test-business');
+  };
+
+  // Check if business features should be enabled (active subscription or trialing)
+  const hasActiveBusinessSubscription = () => {
+    if (isTestBusinessAccount()) return true; // Test accounts always have access
+    if (!subscription) return false;
+    return subscription.status === 'active' || subscription.status === 'trialing';
+  };
+
+  // Check if business features are locked (payment failed or subscription cancelled)
+  const isBusinessFeaturesLocked = () => {
+    if (isTestBusinessAccount()) return false; // Test accounts never locked
+    if (!subscription) return true; // No subscription = locked
+    return subscription.status === 'past_due' || 
+           subscription.status === 'unpaid' || 
+           subscription.status === 'incomplete' ||
+           subscription.status === 'incomplete_expired' ||
+           subscription.status === 'canceled';
   };
 
   useEffect(() => {
@@ -88,6 +108,20 @@ function SettingsModal() {
       }
     }
   }, [user]);
+
+  // Listen for checkout success event to reload subscription
+  useEffect(() => {
+    const handleCheckoutSuccess = () => {
+      if (isBusinessAccount && user) {
+        loadSubscription();
+      }
+    };
+    window.addEventListener('checkoutSuccess', handleCheckoutSuccess);
+    
+    return () => {
+      window.removeEventListener('checkoutSuccess', handleCheckoutSuccess);
+    };
+  }, [isBusinessAccount, user]);
 
   const loadStripeAccount = async () => {
     if (!user) {return;}
@@ -1220,16 +1254,15 @@ function SettingsModal() {
                       });
                       if (response.ok) {
                         const data = await response.json();
-                        if (data.onboardingUrl) {
+                        // For business accounts, redirect to checkout to collect payment method
+                        if (isBusinessAccount && data.checkoutUrl) {
+                          showNotification('Redirecting to checkout to start your 7-day free trial...', 'info');
+                          window.location.href = data.checkoutUrl;
+                        } else if (data.onboardingUrl) {
                           window.location.href = data.onboardingUrl;
                         } else {
                           showNotification('Account created. You can now send and receive money.', 'success');
                           loadStripeAccount();
-                          // If business account, subscription was automatically created
-                          if (isBusinessAccount && data.subscription) {
-                            showNotification(`Business subscription created! 7-day free trial started.`, 'success');
-                            loadSubscription();
-                          }
                         }
                       }
                     } catch (error) {
@@ -1276,12 +1309,16 @@ function SettingsModal() {
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-color-secondary)' }}>
                           Status: <span style={{
                             fontWeight: '600',
-                            color: subscription.status === 'active' || subscription.status === 'trialing' ? '#4caf50' : '#f44336'
+                            color: subscription.status === 'active' || subscription.status === 'trialing' ? '#4caf50' : 
+                                   subscription.status === 'past_due' || subscription.status === 'unpaid' || subscription.status === 'incomplete' ? '#f44336' : '#9e9e9e'
                           }}>
                             {subscription.status === 'trialing' ? 'Free Trial' :
                              subscription.status === 'active' ? 'Active' :
                              subscription.status === 'canceled' ? 'Cancelled' :
                              subscription.status === 'past_due' ? 'Past Due' :
+                             subscription.status === 'unpaid' ? 'Unpaid' :
+                             subscription.status === 'incomplete' ? 'Incomplete' :
+                             subscription.status === 'incomplete_expired' ? 'Expired' :
                              subscription.status}
                           </span>
                         </div>
@@ -1293,11 +1330,20 @@ function SettingsModal() {
                         fontSize: '0.85rem',
                         color: 'var(--text-color-secondary)',
                         marginBottom: '0.75rem',
-                        padding: '0.5rem',
+                        padding: '0.75rem',
                         background: 'rgba(255, 193, 7, 0.1)',
-                        borderRadius: '4px'
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255, 193, 7, 0.3)'
                       }}>
-                        ⏰ Trial ends: {new Date(subscription.trialEnd).toLocaleDateString()} ({Math.ceil((new Date(subscription.trialEnd) - new Date()) / (1000 * 60 * 60 * 24))} days remaining)
+                        <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
+                          ⏰ Free Trial Active
+                        </div>
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          Trial ends: {new Date(subscription.trialEnd).toLocaleDateString()} ({Math.ceil((new Date(subscription.trialEnd) - new Date()) / (1000 * 60 * 60 * 24))} days remaining)
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255, 193, 7, 0.2)' }}>
+                          💡 <strong>Not planning to continue?</strong> Cancel anytime during your trial - you won't be charged. Just click "Cancel Subscription" below.
+                        </div>
                       </div>
                     )}
 
@@ -1320,15 +1366,130 @@ function SettingsModal() {
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '0.75rem' }}>
-                      {(subscription.status === 'active' || subscription.status === 'trialing') && !subscription.cancelAtPeriodEnd && (
+                    {/* Payment Failed / Past Due Status */}
+                    {(subscription.status === 'past_due' || subscription.status === 'unpaid' || subscription.status === 'incomplete' || subscription.status === 'incomplete_expired') && (
+                      <div style={{
+                        fontSize: '0.85rem',
+                        color: '#f44336',
+                        marginBottom: '0.75rem',
+                        padding: '0.75rem',
+                        background: 'rgba(244, 67, 54, 0.15)',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(244, 67, 54, 0.3)'
+                      }}>
+                        <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>
+                          🔴 Payment Failed
+                        </div>
+                        <div style={{ marginBottom: '0.5rem' }}>
+                          Your payment method was declined. Stripe attempted to charge your card multiple times but the payment failed.
+                        </div>
+                        <div style={{ marginBottom: '0.75rem', fontSize: '0.8rem' }}>
+                          <strong>What happens next:</strong>
+                          <ul style={{ margin: '0.25rem 0 0 1.25rem', padding: 0 }}>
+                            <li>Your subscription is currently <strong>past due</strong></li>
+                            <li>You may lose access to business features if payment isn't updated</li>
+                            <li>Update your payment method to reactivate your subscription</li>
+                          </ul>
+                        </div>
                         <button
-                          className="btn btn-secondary"
-                          onClick={() => handleCancelSubscription(false)}
-                          style={{ flex: 1, fontSize: '0.9rem' }}
+                          className="btn btn-primary"
+                          onClick={async () => {
+                            try {
+                              showNotification('Opening payment settings...', 'info');
+                              
+                              if (isTestBusinessAccount()) {
+                                showNotification('Test account - payment update skipped. In production, this opens Stripe Customer Portal.', 'info');
+                                return;
+                              }
+
+                              const response = await fetch(`${API_BASE_URL}/api/stripe/create-portal-session`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  userId: user.uid
+                                })
+                              });
+
+                              if (response.ok) {
+                                const data = await response.json();
+                                if (data.url) {
+                                  window.location.href = data.url;
+                                } else {
+                                  showNotification('Failed to open payment settings', 'error');
+                                }
+                              } else {
+                                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                                showNotification(errorData.error || 'Failed to open payment settings', 'error');
+                              }
+                            } catch (error) {
+                              console.error('Error opening portal:', error);
+                              showNotification('Failed to open payment settings', 'error');
+                            }
+                          }}
+                          style={{ width: '100%', fontSize: '0.9rem', fontWeight: '600' }}
                         >
-                          Cancel Subscription
+                          Update Payment Method
                         </button>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                      {(subscription.status === 'active' || subscription.status === 'trialing') && !subscription.cancelAtPeriodEnd && (
+                        <>
+                          <button
+                            className="btn btn-secondary"
+                            onClick={async () => {
+                              try {
+                                showNotification('Opening payment settings...', 'info');
+                                
+                                if (isTestBusinessAccount()) {
+                                  showNotification('Test account - payment settings skipped. In production, this opens Stripe Customer Portal.', 'info');
+                                  return;
+                                }
+
+                                const response = await fetch(`${API_BASE_URL}/api/stripe/create-portal-session`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    userId: user.uid
+                                  })
+                                });
+
+                                if (response.ok) {
+                                  const data = await response.json();
+                                  if (data.url) {
+                                    window.location.href = data.url;
+                                  } else {
+                                    showNotification('Failed to open payment settings', 'error');
+                                  }
+                                } else {
+                                  const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                                  showNotification(errorData.error || 'Failed to open payment settings', 'error');
+                                }
+                              } catch (error) {
+                                console.error('Error opening portal:', error);
+                                showNotification('Failed to open payment settings', 'error');
+                              }
+                            }}
+                            style={{ flex: 1, fontSize: '0.9rem', minWidth: '140px' }}
+                          >
+                            Manage Payment
+                          </button>
+                          <button
+                            className="btn btn-secondary"
+                            onClick={() => {
+                              const message = subscription.status === 'trialing'
+                                ? 'Are you sure you want to cancel your subscription? You can continue using business features until the trial ends, and you won\'t be charged. Business features will be locked after the trial ends.'
+                                : 'Are you sure you want to cancel your subscription? You will continue to have access until the end of your billing period.';
+                              if (confirm(message)) {
+                                handleCancelSubscription(false);
+                              }
+                            }}
+                            style={{ flex: 1, fontSize: '0.9rem', minWidth: '140px' }}
+                          >
+                            Cancel Subscription
+                          </button>
+                        </>
                       )}
                       {subscription.cancelAtPeriodEnd && (
                         <button
@@ -1379,28 +1540,107 @@ function SettingsModal() {
                 )}
               </div>
 
+              {/* Feature Lock Warning */}
+              {isBusinessFeaturesLocked() && (
+                <div style={{
+                  padding: '1rem',
+                  marginBottom: '1.5rem',
+                  background: 'rgba(255, 193, 7, 0.15)',
+                  border: '1px solid rgba(255, 193, 7, 0.3)',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.75rem'
+                }}>
+                  <span style={{ fontSize: '1.5rem' }}>🔒</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', marginBottom: '0.5rem', color: '#f57c00' }}>
+                      Business Features Locked
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
+                      {subscription?.status === 'past_due' || subscription?.status === 'unpaid' 
+                        ? 'Your payment failed. Update your payment method to unlock business features.'
+                        : subscription?.status === 'canceled'
+                        ? 'Your subscription has been cancelled. Resubscribe to access business features.'
+                        : 'Subscribe to access business features.'}
+                    </div>
+                    {subscription?.status === 'past_due' || subscription?.status === 'unpaid' ? (
+                      <button
+                        className="btn btn-primary"
+                        onClick={async () => {
+                          try {
+                            showNotification('Opening payment settings...', 'info');
+                            const response = await fetch(`${API_BASE_URL}/api/stripe/create-portal-session`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ userId: user.uid })
+                            });
+                            if (response.ok) {
+                              const data = await response.json();
+                              if (data.url) window.location.href = data.url;
+                            }
+                          } catch (error) {
+                            showNotification('Failed to open payment settings', 'error');
+                          }
+                        }}
+                        style={{ fontSize: '0.9rem', padding: '0.5rem 1rem' }}
+                      >
+                        Update Payment Method
+                      </button>
+                    ) : subscription?.status === 'canceled' ? (
+                      <button
+                        className="btn btn-primary"
+                        onClick={(e) => handleSubscribe(e)}
+                        style={{ fontSize: '0.9rem', padding: '0.5rem 1rem' }}
+                      >
+                        Resubscribe
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-primary"
+                        onClick={(e) => handleSubscribe(e)}
+                        style={{ fontSize: '0.9rem', padding: '0.5rem 1rem' }}
+                      >
+                        Subscribe Now
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Business Name */}
-              <div className="setting-item" style={{ marginBottom: '1rem' }}>
-                <label htmlFor="business-name">Business Name</label>
+              <div className="setting-item" style={{ marginBottom: '1rem', position: 'relative' }}>
+                <label htmlFor="business-name">Business Name {!hasActiveBusinessSubscription() && <span style={{ color: '#9e9e9e' }}>🔒</span>}</label>
                 <input
                   id="business-name"
                   type="text"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   placeholder="Enter business name"
-                  disabled={loading}
+                  disabled={loading || !hasActiveBusinessSubscription()}
+                  style={{
+                    opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
+                    cursor: hasActiveBusinessSubscription() ? 'text' : 'not-allowed'
+                  }}
                 />
               </div>
 
               {/* Business Status */}
               <div className="setting-item" style={{ marginBottom: '1rem' }}>
-                <label htmlFor="business-status">Business Status</label>
+                <label htmlFor="business-status">Business Status {!hasActiveBusinessSubscription() && <span style={{ color: '#9e9e9e' }}>🔒</span>}</label>
                 <select
                   id="business-status"
                   value={businessStatus}
                   onChange={(e) => setBusinessStatus(e.target.value)}
-                  disabled={loading}
-                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}
+                  disabled={loading || !hasActiveBusinessSubscription()}
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.75rem', 
+                    borderRadius: '8px', 
+                    border: '1px solid var(--border-color)',
+                    opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
+                    cursor: hasActiveBusinessSubscription() ? 'pointer' : 'not-allowed'
+                  }}
                 >
                   <option value="open">🟢 Open</option>
                   <option value="closed">🔴 Closed</option>
@@ -1410,15 +1650,24 @@ function SettingsModal() {
 
               {/* Auto-Reply */}
               <div className="setting-item" style={{ marginBottom: '1rem' }}>
-                <label htmlFor="auto-reply">Auto-Reply Message</label>
+                <label htmlFor="auto-reply">Auto-Reply Message {!hasActiveBusinessSubscription() && <span style={{ color: '#9e9e9e' }}>🔒</span>}</label>
                 <textarea
                   id="auto-reply"
                   value={autoReply}
                   onChange={(e) => setAutoReply(e.target.value)}
                   placeholder="Message sent when business is closed or away"
                   rows={3}
-                  disabled={loading}
-                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)', fontFamily: 'inherit', resize: 'vertical' }}
+                  disabled={loading || !hasActiveBusinessSubscription()}
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.75rem', 
+                    borderRadius: '8px', 
+                    border: '1px solid var(--border-color)', 
+                    fontFamily: 'inherit', 
+                    resize: 'vertical',
+                    opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
+                    cursor: hasActiveBusinessSubscription() ? 'text' : 'not-allowed'
+                  }}
                 />
                 <small style={{ color: 'var(--text-color-secondary)', marginTop: '4px', display: 'block' }}>
                   This message will be sent automatically when your business is closed or away.
@@ -1427,7 +1676,7 @@ function SettingsModal() {
 
               {/* Business Hours */}
               <div className="setting-item" style={{ marginBottom: '1rem' }}>
-                <label>Business Hours</label>
+                <label>Business Hours {!hasActiveBusinessSubscription() && <span style={{ color: '#9e9e9e' }}>🔒</span>}</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
                   {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
                     <div key={day} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', background: 'var(--surface-color)', borderRadius: '6px' }}>
@@ -1435,9 +1684,14 @@ function SettingsModal() {
                         type="checkbox"
                         checked={!businessHours[day]?.closed}
                         onChange={() => handleToggleDayClosed(day)}
-                        style={{ marginRight: '8px' }}
+                        disabled={!hasActiveBusinessSubscription()}
+                        style={{ 
+                          marginRight: '8px',
+                          opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
+                          cursor: hasActiveBusinessSubscription() ? 'pointer' : 'not-allowed'
+                        }}
                       />
-                      <span style={{ minWidth: '80px', textTransform: 'capitalize' }}>{day}</span>
+                      <span style={{ minWidth: '80px', textTransform: 'capitalize', opacity: hasActiveBusinessSubscription() ? 1 : 0.6 }}>{day}</span>
                       {!businessHours[day]?.closed ? (
                         <>
                           <input
@@ -1447,9 +1701,16 @@ function SettingsModal() {
                               ...businessHours,
                               [day]: { ...businessHours[day], open: e.target.value, closed: false }
                             })}
-                            style={{ padding: '4px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                            disabled={!hasActiveBusinessSubscription()}
+                            style={{ 
+                              padding: '4px', 
+                              borderRadius: '4px', 
+                              border: '1px solid var(--border-color)',
+                              opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
+                              cursor: hasActiveBusinessSubscription() ? 'text' : 'not-allowed'
+                            }}
                           />
-                          <span>to</span>
+                          <span style={{ opacity: hasActiveBusinessSubscription() ? 1 : 0.6 }}>to</span>
                           <input
                             type="time"
                             value={businessHours[day]?.close || '17:00'}
@@ -1457,11 +1718,18 @@ function SettingsModal() {
                               ...businessHours,
                               [day]: { ...businessHours[day], close: e.target.value, closed: false }
                             })}
-                            style={{ padding: '4px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                            disabled={!hasActiveBusinessSubscription()}
+                            style={{ 
+                              padding: '4px', 
+                              borderRadius: '4px', 
+                              border: '1px solid var(--border-color)',
+                              opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
+                              cursor: hasActiveBusinessSubscription() ? 'text' : 'not-allowed'
+                            }}
                           />
                         </>
                       ) : (
-                        <span style={{ color: 'var(--text-color-secondary)' }}>Closed</span>
+                        <span style={{ color: 'var(--text-color-secondary)', opacity: hasActiveBusinessSubscription() ? 1 : 0.6 }}>Closed</span>
                       )}
                     </div>
                   ))}
@@ -1470,7 +1738,7 @@ function SettingsModal() {
 
               {/* Quick Replies */}
               <div className="setting-item" style={{ marginBottom: '1rem' }}>
-                <label>Quick Reply Templates</label>
+                <label>Quick Reply Templates {!hasActiveBusinessSubscription() && <span style={{ color: '#9e9e9e' }}>🔒</span>}</label>
                 <div style={{ marginTop: '0.5rem' }}>
                   {quickReplies.length > 0 && (
                     <div style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1526,10 +1794,15 @@ function SettingsModal() {
               <button
                 className="btn btn-primary"
                 onClick={handleSaveBusinessSettings}
-                disabled={saving || loading}
-                style={{ marginTop: '1rem', width: '100%' }}
+                disabled={saving || loading || !hasActiveBusinessSubscription()}
+                style={{ 
+                  marginTop: '1rem', 
+                  width: '100%',
+                  opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
+                  cursor: hasActiveBusinessSubscription() ? 'pointer' : 'not-allowed'
+                }}
               >
-                {saving ? 'Saving...' : 'Save Business Settings'}
+                {saving ? 'Saving...' : hasActiveBusinessSubscription() ? 'Save Business Settings' : '🔒 Subscribe to Save Settings'}
               </button>
 
               {/* Business Analytics */}

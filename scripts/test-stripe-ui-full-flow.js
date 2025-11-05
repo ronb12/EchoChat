@@ -81,8 +81,13 @@ async function testFullStripeFlow() {
   try {
     // Navigate to app
     log('\n📱 Navigating to EchoChat...', 'cyan');
-    await page.goto('http://localhost:3002', { waitUntil: 'networkidle2', timeout: 30000 });
-    await page.waitForTimeout(2000);
+    try {
+      await page.goto('http://localhost:3002', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    } catch (e) {
+      log('⚠️  Port 3002 not available, trying port 5173...', 'yellow');
+      await page.goto('http://localhost:5173', { waitUntil: 'domcontentloaded', timeout: 15000 });
+    }
+    await new Promise(resolve => setTimeout(resolve,  2000));
     
     log('✅ Page loaded', 'green');
     
@@ -95,7 +100,7 @@ async function testFullStripeFlow() {
     if (!isLoggedIn) {
       log('⚠️  Not logged in - Please login manually', 'yellow');
       log('   Waiting for manual login (2 minutes)...', 'yellow');
-      await page.waitForTimeout(120000);
+      await new Promise(resolve => setTimeout(resolve,  120000));
       
       // Check again
       const stillLoggedIn = await page.evaluate(() => {
@@ -113,7 +118,7 @@ async function testFullStripeFlow() {
     
     // Wait for chat list to load
     log('\n📋 Waiting for chat list...', 'cyan');
-    await page.waitForTimeout(2000);
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Try to find and click a chat
     log('\n💬 Looking for a chat to select...', 'cyan');
@@ -132,12 +137,12 @@ async function testFullStripeFlow() {
       await page.click('[data-testid="new-chat-button"], .new-chat-btn, button:has-text("New Chat")').catch(() => {
         log('   Could not find new chat button - please select a chat manually', 'yellow');
       });
-      await page.waitForTimeout(2000);
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
     
     // Look for 3-dots menu
     log('\n🔍 Looking for 3-dots menu (⋮)...', 'cyan');
-    await page.waitForTimeout(2000);
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Try multiple selectors for the menu
     const menuClicked = await page.evaluate(() => {
@@ -166,15 +171,15 @@ async function testFullStripeFlow() {
       log('⚠️  Could not find 3-dots menu automatically', 'yellow');
       log('   Please click the 3-dots menu (⋮) manually in the chat header', 'yellow');
       log('   Waiting 30 seconds...', 'yellow');
-      await page.waitForTimeout(30000);
+      await new Promise(resolve => setTimeout(resolve, 30000));
     } else {
       log('✅ Clicked 3-dots menu', 'green');
-      await page.waitForTimeout(1000);
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     // Look for Send Money option
     log('\n💵 Looking for "Send Money" option...', 'cyan');
-    await page.waitForTimeout(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     const sendMoneyClicked = await page.evaluate(() => {
       const options = Array.from(document.querySelectorAll('.more-menu-item, [role="menuitem"]'));
@@ -193,10 +198,10 @@ async function testFullStripeFlow() {
       log('⚠️  Could not find "Send Money" option automatically', 'yellow');
       log('   Please click "Send Money" manually', 'yellow');
       log('   Waiting 30 seconds...', 'yellow');
-      await page.waitForTimeout(30000);
+      await new Promise(resolve => setTimeout(resolve, 30000));
     } else {
       log('✅ Clicked "Send Money"', 'green');
-      await page.waitForTimeout(2000);
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
     
     // Wait for modal to appear
@@ -204,7 +209,7 @@ async function testFullStripeFlow() {
     await page.waitForSelector('#send-money-modal, .modal.active', { timeout: 10000 }).catch(() => {
       log('⚠️  Modal not found - waiting longer...', 'yellow');
     });
-    await page.waitForTimeout(2000);
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Fill in amount
     log('\n💰 Entering amount: $10.00', 'cyan');
@@ -226,7 +231,7 @@ async function testFullStripeFlow() {
     } else {
       log('✅ Amount entered', 'green');
     }
-    await page.waitForTimeout(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Select reason
     log('\n📝 Selecting reason...', 'cyan');
@@ -245,7 +250,7 @@ async function testFullStripeFlow() {
     } else {
       log('✅ Reason selected', 'green');
     }
-    await page.waitForTimeout(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Click Continue to Payment
     log('\n➡️  Clicking "Continue to Payment"...', 'cyan');
@@ -264,14 +269,14 @@ async function testFullStripeFlow() {
     if (!continueClicked) {
       log('⚠️  Could not click continue button - please click manually', 'yellow');
       log('   Waiting 30 seconds...', 'yellow');
-      await page.waitForTimeout(30000);
+      await new Promise(resolve => setTimeout(resolve, 30000));
     } else {
       log('✅ Clicked continue button', 'green');
     }
     
     // Wait for Stripe card form
     log('\n💳 Waiting for Stripe card form...', 'cyan');
-    await page.waitForTimeout(3000);
+    await new Promise(resolve => setTimeout(resolve, 3000));
     
     // Check if Stripe Elements loaded
     const stripeFormExists = await page.evaluate(() => {
@@ -285,7 +290,7 @@ async function testFullStripeFlow() {
       log('   - Stripe Elements not loaded', 'blue');
       log('   - Check browser console for errors', 'blue');
       log('   Waiting 30 seconds for manual intervention...', 'yellow');
-      await page.waitForTimeout(30000);
+      await new Promise(resolve => setTimeout(resolve, 30000));
     } else {
       log('✅ Stripe card form found', 'green');
     }
@@ -295,7 +300,7 @@ async function testFullStripeFlow() {
     log('   This may take a moment as Stripe Elements loads...', 'yellow');
     
     // Wait a bit more for iframe to be ready
-    await page.waitForTimeout(2000);
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     // Try to find and fill Stripe Elements iframe
     const frames = await page.frames();
@@ -310,19 +315,19 @@ async function testFullStripeFlow() {
         await stripeFrame.type('input[name="cardnumber"], input[placeholder*="Card number"]', TEST_CARD.number, { delay: 50 });
         log('✅ Card number entered', 'green');
         
-        await page.waitForTimeout(500);
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Try to fill expiry
         await stripeFrame.type('input[name="exp-date"], input[placeholder*="MM / YY"]', TEST_CARD.expiry, { delay: 50 });
         log('✅ Expiry entered', 'green');
         
-        await page.waitForTimeout(500);
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Try to fill CVC
         await stripeFrame.type('input[name="cvc"], input[placeholder*="CVC"]', TEST_CARD.cvc, { delay: 50 });
         log('✅ CVC entered', 'green');
         
-        await page.waitForTimeout(500);
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Try to fill ZIP
         const zipInput = await stripeFrame.$('input[name="postal"], input[placeholder*="ZIP"]').catch(() => null);
@@ -331,7 +336,7 @@ async function testFullStripeFlow() {
           log('✅ ZIP entered', 'green');
         }
         
-        await page.waitForTimeout(2000);
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Click Pay button
         log('\n💳 Clicking Pay button...', 'cyan');
@@ -355,7 +360,7 @@ async function testFullStripeFlow() {
         
         // Wait for payment processing
         log('\n⏳ Waiting for payment to process...', 'cyan');
-        await page.waitForTimeout(5000);
+        await new Promise(resolve => setTimeout(resolve, 5000));
         
         // Check for success
         const success = await page.evaluate(() => {
@@ -382,7 +387,7 @@ async function testFullStripeFlow() {
         log(`   CVC: ${TEST_CARD.cvc}`, 'blue');
         log(`   ZIP: ${TEST_CARD.zip}`, 'blue');
         log('   Waiting 60 seconds...', 'yellow');
-        await page.waitForTimeout(60000);
+        await new Promise(resolve => setTimeout(resolve, 60000));
       }
     } else {
       log('⚠️  Stripe iframe not found', 'yellow');
@@ -392,7 +397,7 @@ async function testFullStripeFlow() {
       log(`   CVC: ${TEST_CARD.cvc}`, 'blue');
       log(`   ZIP: ${TEST_CARD.zip}`, 'blue');
       log('   Waiting 60 seconds...', 'yellow');
-      await page.waitForTimeout(60000);
+      await new Promise(resolve => setTimeout(resolve, 60000));
     }
     
     log('\n📊 Test Summary', 'bold');
@@ -405,7 +410,7 @@ async function testFullStripeFlow() {
     log('   3. Verify payment intent was created', 'blue');
     
     log('\n⏳ Keeping browser open for 30 seconds for review...', 'cyan');
-    await page.waitForTimeout(30000);
+    await new Promise(resolve => setTimeout(resolve, 30000));
     
   } catch (error) {
     log(`\n❌ Test error: ${error.message}`, 'red');

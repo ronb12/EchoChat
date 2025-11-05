@@ -28,7 +28,7 @@ import { usePresenceStatus, useNotifications } from './hooks/useRealtime';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const { showLoginModal, showSignUpModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, showGroupChatModal, showMediaGallery, closeMediaGallery, showPrivacyModal, showTermsModal, showSupportModal, callModalType, blockUserId, blockUserName } = useUI();
+  const { showLoginModal, showSignUpModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, showGroupChatModal, showMediaGallery, closeMediaGallery, showPrivacyModal, showTermsModal, showSupportModal, callModalType, blockUserId, blockUserName, showNotification } = useUI();
   const { messages } = useChat();
   const { currentChatId } = useChat();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -45,6 +45,55 @@ function AppContent() {
   // Initialize real-time features
   usePresenceStatus();
   useNotifications();
+
+  // Handle Stripe checkout redirects
+  useEffect(() => {
+    if (loading || !user) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    const checkoutStatus = urlParams.get('checkout_status');
+    
+    // Handle subscription success - Stripe redirects with session_id
+    if (sessionId && checkoutStatus === 'success') {
+      showNotification('✅ Payment method saved! Your 7-day free trial has started. You will be charged $30 at the end of the trial.', 'success');
+      
+      // Clean URL
+      window.history.replaceState({}, '', '/');
+      
+      // Trigger subscription reload in SettingsModal
+      setTimeout(() => {
+        const event = new CustomEvent('checkoutSuccess', { detail: { tab: 'subscription' } });
+        window.dispatchEvent(event);
+      }, 1000);
+      return;
+    }
+    
+    // Handle subscription cancel
+    if (checkoutStatus === 'cancel') {
+      showNotification('Checkout was cancelled. You can set up your subscription later in Settings.', 'info');
+      
+      // Clean URL
+      window.history.replaceState({}, '', '/');
+      return;
+    }
+
+    // Handle portal return (after updating payment method)
+    const portalReturn = urlParams.get('portal_return');
+    if (portalReturn === 'success') {
+      showNotification('Payment method updated successfully! Your subscription will be reactivated.', 'success');
+      
+      // Clean URL
+      window.history.replaceState({}, '', '/');
+      
+      // Trigger subscription reload
+      setTimeout(() => {
+        const event = new CustomEvent('checkoutSuccess', { detail: { tab: 'subscription' } });
+        window.dispatchEvent(event);
+      }, 1000);
+      return;
+    }
+  }, [user, loading, showNotification]);
 
   // Initialize app
   useEffect(() => {

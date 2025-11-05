@@ -95,12 +95,14 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
 
     setSending(true);
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+      // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+      const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
 
       if (mode === 'send') {
         // Send money flow
         try {
-          const response = await fetch(`${API_BASE_URL}/stripe/create-payment-intent`, {
+          const response = await fetch(`${API_BASE_URL}/api/stripe/create-payment-intent`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

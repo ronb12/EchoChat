@@ -41,16 +41,24 @@ const stripe = stripeKey ? new Stripe(stripeKey, {
 }) : null;
 
 // Middleware
-// CORS configuration - allow multiple origins
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:3002,http://localhost:5173').split(',');
+// CORS configuration - allow multiple origins including Firebase hosting
+const defaultOrigins = 'http://localhost:3000,http://localhost:3002,http://localhost:5173,https://echochat-messaging.web.app,https://echochat-messaging.firebaseapp.com';
+const allowedOrigins = (process.env.CORS_ORIGIN || defaultOrigins).split(',');
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+    // Check if origin is in allowed list or if it's a Firebase hosting domain
+    if (allowedOrigins.indexOf(origin) !== -1 || 
+        allowedOrigins.includes('*') ||
+        origin.includes('echochat-messaging.web.app') ||
+        origin.includes('echochat-messaging.firebaseapp.com') ||
+        origin.includes('localhost')) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow all for development
+      // Allow all for development (but log it)
+      console.log(`⚠️  CORS: Allowing origin ${origin} (not in allowed list)`);
+      callback(null, true);
     }
   },
   credentials: true
@@ -119,8 +127,9 @@ app.post('/api/stripe/create-account', async (req, res) => {
       type: 'account_onboarding',
     });
 
-    // If business account, create subscription
-    let subscription = null;
+    // If business account, create Stripe Checkout session to collect payment method upfront
+    // Industry standard: Collect payment method before trial starts for automatic charging
+    let checkoutSession = null;
     if (isBusinessAccount) {
       try {
         // Create or get customer
@@ -163,21 +172,47 @@ app.post('/api/stripe/create-account', async (req, res) => {
           priceId = price.id;
         }
 
-        // Create subscription with 7-day trial
-        subscription = await stripe.subscriptions.create({
+        // Create Stripe Checkout session to collect payment method upfront
+        // Payment method is collected but NOT charged - trial starts immediately
+        // Customer is charged at the END of 7-day trial automatically
+        checkoutSession = await stripe.checkout.sessions.create({
           customer: customer.id,
-          items: [{ price: priceId }],
-          trial_period_days: 7,
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price: priceId,
+              quantity: 1
+            }
+          ],
+          mode: 'subscription',
+          subscription_data: {
+            trial_period_days: 7,
+            metadata: {
+              userId: userId,
+              accountType: 'business',
+              app: 'EchoChat',
+              stripeAccountId: account.id
+            }
+          },
+          success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}?session_id={CHECKOUT_SESSION_ID}&checkout_status=success&account_id=${account.id}`,
+          cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}?checkout_status=cancel&account_id=${account.id}`,
           metadata: {
             userId: userId,
-            accountType: 'business',
-            app: 'EchoChat',
-            stripeAccountId: account.id
-          }
+            accountId: account.id,
+            accountType: 'business'
+          },
+          allow_promotion_codes: true
         });
-      } catch (subError) {
-        console.error('Error creating subscription:', subError);
-        // Don't fail account creation if subscription fails
+        
+        console.log(`✅ Business checkout session created: ${checkoutSession.id}`);
+        console.log(`   Customer must complete checkout to start 7-day free trial`);
+        console.log(`   Payment method will be collected but NOT charged during trial`);
+        console.log(`   Customer will be charged $30 at the END of 7-day trial`);
+      } catch (checkoutError) {
+        console.error('Error creating checkout session:', checkoutError);
+        console.error('Checkout error details:', checkoutError.message);
+        // Don't fail account creation if checkout fails, but log the error
+        checkoutSession = null;
       }
     }
 
@@ -187,11 +222,13 @@ app.post('/api/stripe/create-account', async (req, res) => {
       onboardingUrl: accountLink.url,
       chargesEnabled: account.charges_enabled,
       payoutsEnabled: account.payouts_enabled,
-      subscription: subscription ? {
-        id: subscription.id,
-        status: subscription.status,
-        trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null
-      } : null
+      // For business accounts, return checkout URL instead of subscription
+      checkoutUrl: checkoutSession ? checkoutSession.url : null,
+      checkoutSessionId: checkoutSession ? checkoutSession.id : null,
+      requiresCheckout: isBusinessAccount, // Frontend should redirect to checkout
+      message: isBusinessAccount && checkoutSession 
+        ? 'Please complete checkout to start your 7-day free trial. Payment method will be saved but not charged until trial ends.'
+        : null
     });
   } catch (error) {
     console.error('Error creating Stripe account:', error);
@@ -298,29 +335,61 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
       });
     }
 
-    // Create payment intent with destination
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Check if recipient account has transfers enabled
+    let transfersEnabled = false;
+    let accountReady = false;
+    try {
+      const account = await stripe.accounts.retrieve(recipientAccountId);
+      transfersEnabled = account.capabilities?.transfers === 'active';
+      accountReady = account.charges_enabled && (transfersEnabled || account.capabilities?.transfers === 'pending');
+    } catch (accountError) {
+      console.warn('Could not retrieve account:', accountError.message);
+    }
+
+    // Build payment intent options
+    const paymentIntentOptions = {
       amount: amountInCents,
       currency: 'usd',
-      application_fee_amount: Math.round(amountInCents * 0.029 + 30), // 2.9% + $0.30
-      transfer_data: {
-        destination: recipientAccountId,
-      },
       metadata: {
         ...metadata,
         type: 'send_money',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        recipientAccountId: recipientAccountId
       },
       automatic_payment_methods: {
         enabled: true,
       },
-    });
+    };
+
+    // Only add transfer_data if account has transfers enabled
+    // For test accounts that aren't fully onboarded, create payment intent without transfer
+    // The transfer can be done separately after payment is confirmed
+    if (transfersEnabled) {
+      paymentIntentOptions.application_fee_amount = Math.round(amountInCents * 0.029 + 30); // 2.9% + $0.30
+      paymentIntentOptions.transfer_data = {
+        destination: recipientAccountId,
+      };
+    } else {
+      // For accounts without transfers enabled, store the recipient in metadata
+      // The frontend can handle the transfer separately after payment confirmation
+      paymentIntentOptions.metadata.needsTransfer = 'true';
+      paymentIntentOptions.metadata.recipientAccountId = recipientAccountId;
+    }
+
+    // Create payment intent
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentOptions);
 
     res.json({
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
       amount: paymentIntent.amount / 100,
-      status: paymentIntent.status
+      status: paymentIntent.status,
+      transfersEnabled: transfersEnabled,
+      accountReady: accountReady,
+      needsTransfer: !transfersEnabled,
+      message: transfersEnabled 
+        ? 'Payment intent created with direct transfer' 
+        : 'Payment intent created. Transfer will be completed after account onboarding.'
     });
   } catch (error) {
     console.error('Error creating payment intent:', error);
@@ -1152,12 +1221,23 @@ app.get('/api/stripe/subscription/:userId', async (req, res) => {
     const subscription = subscriptions.data[0];
     const price = subscription.items.data[0]?.price;
 
+    // For trialing subscriptions, current_period_end equals trial_end
+    // Calculate next billing date: if trialing, it's trial_end + 1 billing interval
+    let nextBillingDate = subscription.current_period_end;
+    if (subscription.status === 'trialing' && subscription.trial_end) {
+      // Next billing starts after trial ends, so add one month to trial_end
+      const trialEndTime = subscription.trial_end * 1000;
+      const oneMonth = 30 * 24 * 60 * 60 * 1000; // Approximate month
+      nextBillingDate = Math.floor((trialEndTime + oneMonth) / 1000);
+    }
+
     res.json({
       subscriptionId: subscription.id,
       customerId: customer.id,
       status: subscription.status,
       trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
       currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+      nextBillingDate: nextBillingDate ? new Date(nextBillingDate * 1000).toISOString() : new Date(subscription.current_period_end * 1000).toISOString(),
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
       amount: (price?.unit_amount || 0) / 100,
       currency: price?.currency || 'usd',
@@ -1251,6 +1331,58 @@ app.post('/api/stripe/cancel-subscription/:userId', async (req, res) => {
 });
 
 /**
+ * Create Customer Portal session for managing subscription and payment method
+ * POST /api/stripe/create-portal-session
+ */
+app.post('/api/stripe/create-portal-session', async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ 
+        error: 'userId is required' 
+      });
+    }
+
+    if (!stripe) {
+      return res.status(503).json({ 
+        error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY' 
+      });
+    }
+
+    // Find customer by userId metadata
+    const customers = await stripe.customers.list({
+      limit: 100
+    });
+
+    const customer = customers.data.find(c => c.metadata?.userId === userId);
+
+    if (!customer) {
+      return res.status(404).json({ 
+        error: 'Customer not found. Please create a subscription first.' 
+      });
+    }
+
+    // Create Customer Portal session
+    // This allows customers to update payment method, view invoices, and manage subscription
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: customer.id,
+      return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}?portal_return=success`,
+    });
+
+    res.json({
+      success: true,
+      url: portalSession.url
+    });
+  } catch (error) {
+    console.error('Error creating portal session:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to create portal session' 
+    });
+  }
+});
+
+/**
  * Create checkout session for subscription
  * POST /api/stripe/create-checkout-session
  */
@@ -1325,8 +1457,8 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
           accountType: 'business'
         }
       },
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/stripe/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/stripe/subscription-cancel`,
+      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}?session_id={CHECKOUT_SESSION_ID}&checkout_status=success`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}?checkout_status=cancel`,
       metadata: {
         userId: userId,
         accountType: 'business'
@@ -1424,14 +1556,55 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
     case 'invoice.payment_failed':
       const failedInvoice = event.data.object;
-      console.log('Invoice payment failed:', failedInvoice.id);
-      // Notify user, update subscription status
+      console.log('❌ Invoice payment failed:', failedInvoice.id);
+      console.log('   Amount:', failedInvoice.amount_due / 100, failedInvoice.currency);
+      console.log('   Customer:', failedInvoice.customer);
+      console.log('   Subscription:', failedInvoice.subscription);
+      console.log('   Attempt Count:', failedInvoice.attempt_count);
+      
+      // Retrieve subscription to get status
+      if (failedInvoice.subscription) {
+        try {
+          const subscription = await stripe.subscriptions.retrieve(failedInvoice.subscription);
+          console.log(`   Subscription Status: ${subscription.status}`);
+          console.log(`   ⚠️  Subscription is now: ${subscription.status}`);
+          
+          // Stripe automatically retries failed payments
+          // After 3 failed attempts, subscription becomes 'unpaid' or 'past_due'
+          // Customer needs to update payment method via Customer Portal
+          if (subscription.status === 'past_due' || subscription.status === 'unpaid') {
+            console.log(`   🔴 Action Required: Customer must update payment method`);
+            console.log(`   📧 Send notification to customer to update payment method`);
+            // In production: Send email notification, push notification, etc.
+          }
+        } catch (err) {
+          console.error('Error retrieving subscription:', err);
+        }
+      }
+      // Notify user, update subscription status in database
       break;
 
     case 'checkout.session.completed':
       const session = event.data.object;
-      console.log('Checkout session completed:', session.id);
-      // Subscription activated, update database
+      console.log('✅ Checkout session completed:', session.id);
+      console.log('   Customer:', session.customer);
+      console.log('   Subscription:', session.subscription);
+      console.log('   Mode:', session.mode);
+      
+      // For subscription mode, the subscription is automatically created
+      // with payment method attached and trial period started
+      if (session.mode === 'subscription' && session.subscription) {
+        try {
+          const subscription = await stripe.subscriptions.retrieve(session.subscription);
+          console.log(`   Subscription Status: ${subscription.status}`);
+          console.log(`   Trial End: ${subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : 'N/A'}`);
+          console.log(`   Payment Method: ${subscription.default_payment_method ? 'Attached' : 'Not attached'}`);
+          console.log(`   ✅ Customer will be charged $30 at the end of 7-day trial`);
+        } catch (err) {
+          console.error('Error retrieving subscription:', err);
+        }
+      }
+      // Subscription activated, update database if needed
       break;
 
     default:

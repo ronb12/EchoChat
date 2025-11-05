@@ -388,7 +388,7 @@ export default function ChatArea() {
           </div>
           <div className="chat-actions">
             <button
-              className="action-btn"
+              className="action-btn action-btn-search"
               title="Search messages"
               onClick={() => setShowSearch((prev) => !prev)}
             >
@@ -541,8 +541,32 @@ export default function ChatArea() {
                   {isBusinessAccount && (
                     <button
                       className="more-menu-item"
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
+                        // Check subscription status before allowing Quick Reply
+                        try {
+                          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+                          const response = await fetch(`${API_BASE_URL}/api/stripe/subscription/${user?.uid}`);
+                          if (response.ok) {
+                            const subscription = await response.json();
+                            const hasActiveSubscription = subscription.status === 'active' || subscription.status === 'trialing';
+                            if (!hasActiveSubscription) {
+                              showNotification('🔒 Business features are locked. Please update your payment method or subscribe to access Quick Reply.', 'error');
+                              openSettingsModal();
+                              setShowMoreMenu(false);
+                              return;
+                            }
+                          } else if (response.status === 404) {
+                            // No subscription - locked
+                            showNotification('🔒 Business features are locked. Please subscribe to access Quick Reply.', 'error');
+                            openSettingsModal();
+                            setShowMoreMenu(false);
+                            return;
+                          }
+                        } catch (error) {
+                          console.error('Error checking subscription:', error);
+                          // Allow access if check fails (graceful degradation)
+                        }
                         setShowQuickReplyModal(true);
                         setShowMoreMenu(false);
                       }}
