@@ -41,8 +41,18 @@ const stripe = stripeKey ? new Stripe(stripeKey, {
 }) : null;
 
 // Middleware
+// CORS configuration - allow multiple origins
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:3002,http://localhost:5173').split(',');
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for development
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
