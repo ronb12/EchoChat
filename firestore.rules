@@ -54,17 +54,30 @@ service cloud.firestore {
     
     // Contact requests collection
     match /contactRequests/{requestId} {
+      // Helper function to check if user is sender or receiver (by UID or email)
+      function isSenderOrReceiver() {
+        let userEmail = request.auth.token.email;
+        return isAuthenticated() && (
+          // Check by UID (primary method)
+          request.auth.uid == resource.data.fromUserId || 
+          request.auth.uid == resource.data.toUserId ||
+          // Fallback: Check by email (handles UID mismatches)
+          (userEmail != null && (
+            userEmail == resource.data.fromUserEmail ||
+            userEmail == resource.data.toUserEmail
+          ))
+        );
+      }
+      
       // Allow list queries for authenticated users (needed for getPendingRequests)
       allow list: if isAuthenticated();
-      // Allow read if user is sender or receiver
-      allow read: if isAuthenticated() && 
-        (request.auth.uid == resource.data.fromUserId || 
-         request.auth.uid == resource.data.toUserId);
+      // Allow read if user is sender or receiver (by UID or email)
+      allow read: if isSenderOrReceiver();
+      // Allow create if user is the sender
       allow create: if isAuthenticated() && 
         request.auth.uid == request.resource.data.fromUserId;
-      allow update, delete: if isAuthenticated() && 
-        (request.auth.uid == resource.data.fromUserId || 
-         request.auth.uid == resource.data.toUserId);
+      // Allow update/delete if user is sender or receiver (by UID or email)
+      allow update, delete: if isSenderOrReceiver();
     }
     
     // Chats collection
