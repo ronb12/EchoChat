@@ -23,12 +23,14 @@ export default function AppHeader() {
   const [userProfile, setUserProfile] = useState(null);
   const [isBusinessAccount, setIsBusinessAccount] = useState(false);
   const [stripeMode, setStripeMode] = useState(null);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const avatarMenuRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (user) {
       loadUserProfile();
+      loadPendingRequests();
       // Check if business account
       const accountType = localStorage.getItem('echochat_account_type') || user.accountType;
       const isBusiness = accountType === 'business' || user.isBusinessAccount === true;
@@ -37,8 +39,51 @@ export default function AppHeader() {
     // Check Stripe mode
     const stripeInfo = getStripeMode();
     setStripeMode(stripeInfo);
+    
+    // Debug logging for Stripe mode detection
+    if (stripeInfo.mode === 'live') {
+      console.log('🔴 LIVE MODE detected - Stripe indicator will show LIVE');
+    } else if (stripeInfo.mode === 'test') {
+      console.log('🟢 TEST MODE detected - Stripe indicator will show TEST');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Listen for contact request events
+  useEffect(() => {
+    const handleShowContactRequests = () => {
+      // Open contact requests modal
+      const event = new CustomEvent('openContactRequestModal');
+      window.dispatchEvent(event);
+    };
+
+    window.addEventListener('showContactRequests', handleShowContactRequests);
+    return () => window.removeEventListener('showContactRequests', handleShowContactRequests);
+  }, []);
+
+  const loadPendingRequests = async () => {
+    if (!user) return;
+    
+    try {
+      const { contactService } = await import('../services/contactService');
+      const requests = await contactService.getPendingRequests(user.uid);
+      setPendingRequestsCount(requests?.length || 0);
+      
+      // Refresh every 30 seconds
+      const interval = setInterval(async () => {
+        try {
+          const updatedRequests = await contactService.getPendingRequests(user.uid);
+          setPendingRequestsCount(updatedRequests?.length || 0);
+        } catch (error) {
+          console.error('Error refreshing pending requests:', error);
+        }
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    } catch (error) {
+      console.error('Error loading pending requests:', error);
+    }
+  };
 
   const loadUserProfile = async () => {
     if (!user) {return;}
@@ -183,14 +228,14 @@ export default function AppHeader() {
               fontWeight: '600',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
-              backgroundColor: stripeMode.isLive 
-                ? 'rgba(244, 67, 54, 0.9)' 
-                : 'rgba(76, 175, 80, 0.9)',
+              backgroundColor: stripeMode.mode === 'live' || stripeMode.mode === 'test'
+                ? 'rgba(76, 175, 80, 0.9)' // Green for working (both LIVE and TEST)
+                : 'rgba(244, 67, 54, 0.9)', // Red for problems (mismatch, unknown, not_configured)
               color: 'white',
-              boxShadow: stripeMode.isLive 
-                ? '0 0 8px rgba(244, 67, 54, 0.6)' 
-                : '0 0 8px rgba(76, 175, 80, 0.6)',
-              animation: stripeMode.isLive ? 'pulse 2s infinite' : 'none',
+              boxShadow: stripeMode.mode === 'live' || stripeMode.mode === 'test'
+                ? '0 0 8px rgba(76, 175, 80, 0.6)'
+                : '0 0 8px rgba(244, 67, 54, 0.6)',
+              animation: stripeMode.mode === 'mismatch' || stripeMode.mode === 'unknown' ? 'pulse 2s infinite' : 'none',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
@@ -199,15 +244,63 @@ export default function AppHeader() {
             }}
           >
             <span style={{ fontSize: '10px' }}>
-              {stripeMode.isLive ? '⚠️' : '✅'}
+              {stripeMode.mode === 'live' || stripeMode.mode === 'test' ? '✅' : '⚠️'}
             </span>
             <span>
-              {stripeMode.isLive ? 'LIVE' : 'TEST'}
+              {stripeMode.mode === 'live' ? 'LIVE' : 
+               stripeMode.mode === 'test' ? 'TEST' : 
+               stripeMode.mode === 'mismatch' ? 'MISMATCH' :
+               stripeMode.mode === 'unknown' ? 'UNKNOWN' : 'ERROR'}
             </span>
           </div>
         )}
       </div>
       <div className="header-right">
+        {user && pendingRequestsCount > 0 && (
+          <button
+            className="contact-requests-button"
+            onClick={() => {
+              const event = new CustomEvent('openContactRequestModal');
+              window.dispatchEvent(event);
+            }}
+            style={{
+              position: 'relative',
+              padding: '8px 16px',
+              marginRight: '12px',
+              background: 'var(--primary-color, #0084ff)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 8px rgba(0, 132, 255, 0.3)'
+            }}
+            title={`${pendingRequestsCount} pending contact request${pendingRequestsCount > 1 ? 's' : ''}`}
+          >
+            <span>📬</span>
+            <span>Requests</span>
+            <span
+              style={{
+                background: 'rgba(255, 255, 255, 0.3)',
+                borderRadius: '50%',
+                minWidth: '20px',
+                height: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '12px',
+                fontWeight: '700',
+                padding: '0 6px'
+              }}
+            >
+              {pendingRequestsCount}
+            </span>
+          </button>
+        )}
         {user && (
           <div className="avatar-menu-container" ref={avatarMenuRef} style={{ position: 'relative' }}>
             <input

@@ -22,6 +22,10 @@ export function UIProvider({ children }) {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showParentDashboard, setShowParentDashboard] = useState(false);
+  const [showParentApprovalModal, setShowParentApprovalModal] = useState(false);
+  const [showLinkChildModal, setShowLinkChildModal] = useState(false);
+  const [showContactRequestModal, setShowContactRequestModal] = useState(false);
   const [callModalType, setCallModalType] = useState('video');
   const [blockUserId, setBlockUserId] = useState(null);
   const [blockUserName, setBlockUserName] = useState(null);
@@ -115,6 +119,14 @@ export function UIProvider({ children }) {
   const closeTermsModal = () => setShowTermsModal(false);
   const openSupportModal = () => setShowSupportModal(true);
   const closeSupportModal = () => setShowSupportModal(false);
+  const openParentDashboard = () => setShowParentDashboard(true);
+  const closeParentDashboard = () => setShowParentDashboard(false);
+  const openParentApprovalModal = () => setShowParentApprovalModal(true);
+  const closeParentApprovalModal = () => setShowParentApprovalModal(false);
+  const openLinkChildModal = () => setShowLinkChildModal(true);
+  const closeLinkChildModal = () => setShowLinkChildModal(false);
+  const openContactRequestModal = () => setShowContactRequestModal(true);
+  const closeContactRequestModal = () => setShowContactRequestModal(false);
 
   const value = {
     theme,
@@ -132,6 +144,10 @@ export function UIProvider({ children }) {
     showPrivacyModal,
     showTermsModal,
     showSupportModal,
+    showParentDashboard,
+    showParentApprovalModal,
+    showLinkChildModal,
+    showContactRequestModal,
     callModalType,
     blockUserId,
     blockUserName,
@@ -166,7 +182,15 @@ export function UIProvider({ children }) {
     openTermsModal,
     closeTermsModal,
     openSupportModal,
-    closeSupportModal
+    closeSupportModal,
+    openParentDashboard,
+    closeParentDashboard,
+    openParentApprovalModal,
+    closeParentApprovalModal,
+    openLinkChildModal,
+    closeLinkChildModal,
+    openContactRequestModal,
+    closeContactRequestModal
   };
 
   return (
