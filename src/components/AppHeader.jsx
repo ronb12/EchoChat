@@ -16,7 +16,7 @@ const getDisplayName = (user, profile = null) => {
 };
 
 export default function AppHeader() {
-  const { toggleSidebar, openSettingsModal, openStatusModal, showNotification } = useUI();
+  const { toggleSidebar, openSettingsModal, openStatusModal, openContactRequestModal, showNotification } = useUI();
   const { user, signOut, setUser } = useAuth();
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -267,12 +267,12 @@ export default function AppHeader() {
         )}
       </div>
       <div className="header-right">
-        {user && pendingRequestsCount > 0 && (
+        {user && (
           <button
             className="contact-requests-button"
             onClick={() => {
-              const event = new CustomEvent('openContactRequestModal');
-              window.dispatchEvent(event);
+              console.log('📬 Opening contact requests modal');
+              openContactRequestModal();
             }}
             style={{
               position: 'relative',
@@ -290,26 +290,30 @@ export default function AppHeader() {
               gap: '8px',
               boxShadow: '0 2px 8px rgba(0, 132, 255, 0.3)'
             }}
-            title={`${pendingRequestsCount} pending contact request${pendingRequestsCount > 1 ? 's' : ''}`}
+            title={pendingRequestsCount > 0 
+              ? `${pendingRequestsCount} pending contact request${pendingRequestsCount > 1 ? 's' : ''}`
+              : 'View contact requests'}
           >
             <span>📬</span>
             <span>Requests</span>
-            <span
-              style={{
-                background: 'rgba(255, 255, 255, 0.3)',
-                borderRadius: '50%',
-                minWidth: '20px',
-                height: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '12px',
-                fontWeight: '700',
-                padding: '0 6px'
-              }}
-            >
-              {pendingRequestsCount}
-            </span>
+            {pendingRequestsCount > 0 && (
+              <span
+                style={{
+                  background: 'rgba(255, 255, 255, 0.3)',
+                  borderRadius: '50%',
+                  minWidth: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  padding: '0 6px'
+                }}
+              >
+                {pendingRequestsCount}
+              </span>
+            )}
           </button>
         )}
         {user && (
