@@ -15,18 +15,31 @@ export default function SupportTicketModal() {
   if (!showSupportTicketModal) return null;
 
   const priorities = [
-    { value: 'low', label: 'Low', color: '#4CAF50' },
-    { value: 'medium', label: 'Medium', color: '#FF9800' },
-    { value: 'high', label: 'High', color: '#F44336' },
-    { value: 'urgent', label: 'Urgent', color: '#9C27B0' }
+    { value: 'low', label: 'Low - Minor issue, not urgent', color: '#4CAF50' },
+    { value: 'medium', label: 'Medium - Standard priority', color: '#FF9800' },
+    { value: 'high', label: 'High - Important issue', color: '#F44336' },
+    { value: 'urgent', label: 'Urgent - Critical issue', color: '#9C27B0' }
   ];
 
   const categories = [
-    { value: 'bug', label: 'Bug Report' },
-    { value: 'account', label: 'Account Issue' },
-    { value: 'payment', label: 'Payment Issue' },
-    { value: 'security', label: 'Security Concern' },
-    { value: 'other', label: 'Other' }
+    { value: 'bug', label: '🐛 Bug Report' },
+    { value: 'messaging', label: '💬 Messaging Issue' },
+    { value: 'calls', label: '📞 Call/Video Issue' },
+    { value: 'account', label: '👤 Account Issue' },
+    { value: 'login', label: '🔑 Login/Authentication' },
+    { value: 'payment', label: '💳 Payment Issue' },
+    { value: 'security', label: '🔒 Security Concern' },
+    { value: 'encryption', label: '🔐 Encryption Issue' },
+    { value: 'file-sharing', label: '📎 File Sharing Issue' },
+    { value: 'notifications', label: '🔔 Notification Issue' },
+    { value: 'group-chat', label: '👥 Group Chat Issue' },
+    { value: 'parental-controls', label: '👨‍👩‍👧 Parental Controls' },
+    { value: 'business-features', label: '💼 Business Features' },
+    { value: 'ui', label: '🎨 User Interface Issue' },
+    { value: 'performance', label: '⚡ Performance Issue' },
+    { value: 'mobile', label: '📱 Mobile App Issue' },
+    { value: 'data', label: '💾 Data/Sync Issue' },
+    { value: 'other', label: '❓ Other' }
   ];
 
   const handleSubmit = async (e) => {
@@ -106,7 +119,9 @@ export default function SupportTicketModal() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
-                <label htmlFor="ticket-category">Category</label>
+                <label htmlFor="ticket-category">
+                  Category <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 'normal' }}>(What area is affected?)</span>
+                </label>
                 <select
                   id="ticket-category"
                   value={category}
@@ -117,7 +132,9 @@ export default function SupportTicketModal() {
                     padding: '0.75rem',
                     borderRadius: '8px',
                     border: '1px solid var(--border-color)',
-                    fontSize: '0.95rem'
+                    fontSize: '0.95rem',
+                    backgroundColor: 'var(--background-color, #fff)',
+                    cursor: submitting ? 'not-allowed' : 'pointer'
                   }}
                 >
                   {categories.map(cat => (
@@ -126,10 +143,15 @@ export default function SupportTicketModal() {
                     </option>
                   ))}
                 </select>
+                <small style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>
+                  Select the area where you're experiencing the issue
+                </small>
               </div>
 
               <div className="form-group">
-                <label htmlFor="ticket-priority">Priority</label>
+                <label htmlFor="ticket-priority">
+                  Priority <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 'normal' }}>(How urgent is this?)</span>
+                </label>
                 <select
                   id="ticket-priority"
                   value={priority}
@@ -140,7 +162,9 @@ export default function SupportTicketModal() {
                     padding: '0.75rem',
                     borderRadius: '8px',
                     border: '1px solid var(--border-color)',
-                    fontSize: '0.95rem'
+                    fontSize: '0.95rem',
+                    backgroundColor: 'var(--background-color, #fff)',
+                    cursor: submitting ? 'not-allowed' : 'pointer'
                   }}
                 >
                   {priorities.map(pri => (
@@ -149,6 +173,9 @@ export default function SupportTicketModal() {
                     </option>
                   ))}
                 </select>
+                <small style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>
+                  Choose based on how this issue impacts your use of the app
+                </small>
               </div>
             </div>
 

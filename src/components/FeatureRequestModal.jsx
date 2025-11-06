@@ -8,19 +8,27 @@ export default function FeatureRequestModal() {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('general');
+  const [category, setCategory] = useState('messaging');
   const [submitting, setSubmitting] = useState(false);
 
   if (!showFeatureRequestModal) return null;
 
   const categories = [
-    { value: 'general', label: 'General' },
-    { value: 'messaging', label: 'Messaging' },
-    { value: 'security', label: 'Security & Privacy' },
-    { value: 'ui', label: 'User Interface' },
-    { value: 'performance', label: 'Performance' },
-    { value: 'integration', label: 'Integrations' },
-    { value: 'other', label: 'Other' }
+    { value: 'messaging', label: '💬 Messaging Features' },
+    { value: 'calls', label: '📞 Voice/Video Calls' },
+    { value: 'security', label: '🔒 Security & Privacy' },
+    { value: 'ui', label: '🎨 User Interface' },
+    { value: 'notifications', label: '🔔 Notifications' },
+    { value: 'file-sharing', label: '📎 File Sharing' },
+    { value: 'group-chat', label: '👥 Group Chat' },
+    { value: 'encryption', label: '🔐 Encryption' },
+    { value: 'parental-controls', label: '👨‍👩‍👧 Parental Controls' },
+    { value: 'business-features', label: '💼 Business Features' },
+    { value: 'payments', label: '💳 Payments & Money' },
+    { value: 'performance', label: '⚡ Performance' },
+    { value: 'accessibility', label: '♿ Accessibility' },
+    { value: 'mobile', label: '📱 Mobile Experience' },
+    { value: 'other', label: '❓ Other' }
   ];
 
   const handleSubmit = async (e) => {
@@ -97,7 +105,9 @@ export default function FeatureRequestModal() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="feature-category">Category</label>
+              <label htmlFor="feature-category">
+                Category <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 'normal' }}>(Select the area this feature relates to)</span>
+              </label>
               <select
                 id="feature-category"
                 value={category}
@@ -108,7 +118,9 @@ export default function FeatureRequestModal() {
                   padding: '0.75rem',
                   borderRadius: '8px',
                   border: '1px solid var(--border-color)',
-                  fontSize: '0.95rem'
+                  fontSize: '0.95rem',
+                  backgroundColor: 'var(--background-color, #fff)',
+                  cursor: submitting ? 'not-allowed' : 'pointer'
                 }}
               >
                 {categories.map(cat => (
@@ -117,6 +129,9 @@ export default function FeatureRequestModal() {
                   </option>
                 ))}
               </select>
+              <small style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>
+                Choose the category that best matches your feature request
+              </small>
             </div>
 
             <div className="form-group">
