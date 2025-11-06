@@ -30,7 +30,6 @@ export default function AppHeader() {
   useEffect(() => {
     if (user) {
       loadUserProfile();
-      loadPendingRequests();
       // Check if business account
       const accountType = localStorage.getItem('echochat_account_type') || user.accountType;
       const isBusiness = accountType === 'business' || user.isBusinessAccount === true;
@@ -61,29 +60,41 @@ export default function AppHeader() {
     return () => window.removeEventListener('showContactRequests', handleShowContactRequests);
   }, []);
 
-  const loadPendingRequests = async () => {
-    if (!user) return;
-    
-    try {
-      const { contactService } = await import('../services/contactService');
-      const requests = await contactService.getPendingRequests(user.uid);
-      setPendingRequestsCount(requests?.length || 0);
-      
-      // Refresh every 30 seconds
-      const interval = setInterval(async () => {
-        try {
-          const updatedRequests = await contactService.getPendingRequests(user.uid);
-          setPendingRequestsCount(updatedRequests?.length || 0);
-        } catch (error) {
-          console.error('Error refreshing pending requests:', error);
-        }
-      }, 30000);
-      
-      return () => clearInterval(interval);
-    } catch (error) {
-      console.error('Error loading pending requests:', error);
+  // Load and refresh pending requests
+  useEffect(() => {
+    if (!user) {
+      setPendingRequestsCount(0);
+      return;
     }
-  };
+
+    let intervalId = null;
+
+    const loadPendingRequests = async () => {
+      try {
+        const { contactService } = await import('../services/contactService');
+        const requests = await contactService.getPendingRequests(user.uid);
+        const count = requests?.length || 0;
+        setPendingRequestsCount(count);
+        console.log('📬 Pending contact requests:', count);
+      } catch (error) {
+        console.error('Error loading pending requests:', error);
+        setPendingRequestsCount(0);
+      }
+    };
+
+    // Load immediately
+    loadPendingRequests();
+
+    // Refresh every 30 seconds
+    intervalId = setInterval(loadPendingRequests, 30000);
+
+    // Cleanup on unmount or user change
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [user]);
 
   const loadUserProfile = async () => {
     if (!user) {return;}

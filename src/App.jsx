@@ -56,8 +56,10 @@ function AppContent() {
 
     const checkPendingRequests = async () => {
       try {
+        console.log('🔍 Checking for pending contact requests...');
         const { contactService } = await import('./services/contactService');
         const pendingRequests = await contactService.getPendingRequests(user.uid);
+        console.log('📬 Found pending requests:', pendingRequests?.length || 0);
         
         if (pendingRequests && pendingRequests.length > 0) {
           // Show notification about pending requests
@@ -66,16 +68,20 @@ function AppContent() {
             ? `You have 1 pending contact request. Click to view.`
             : `You have ${count} pending contact requests. Click to view.`;
           
+          console.log('✅ Showing notification for pending requests');
           showNotification(message, 'info', {
             duration: 10000,
             onClick: () => {
-              // Open contact requests modal
+              console.log('📬 Opening contact request modal');
               openContactRequestModal();
             }
           });
+        } else {
+          console.log('ℹ️ No pending contact requests');
         }
       } catch (error) {
-        console.error('Error checking pending contact requests:', error);
+        console.error('❌ Error checking pending contact requests:', error);
+        console.error('Error details:', error.message, error.stack);
       }
     };
 
