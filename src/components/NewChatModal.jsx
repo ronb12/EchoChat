@@ -114,6 +114,9 @@ export default function NewChatModal() {
         const usersSnapshot = await getDocs(usersRef);
         console.log('📊 Total users in database:', usersSnapshot.size);
         
+        // Collect all matching users first, then pick the best one
+        const matchingUsers = [];
+        
         usersSnapshot.forEach((docSnap) => {
           const userData = docSnap.data();
           const userId = docSnap.id;
@@ -153,15 +156,49 @@ export default function NewChatModal() {
             });
             
             const isContact = contacts.includes(userId);
-            foundUser = {
+            
+            // Check if document ID looks like a Firebase Auth UID (28 chars, alphanumeric)
+            // Firebase Auth UIDs are typically 28 characters
+            const looksLikeAuthUID = userId.length === 28 && /^[A-Za-z0-9]+$/.test(userId);
+            
+            // Check if document has a uid field that matches the document ID
+            const hasMatchingUID = userData.uid === userId;
+            
+            matchingUsers.push({
               id: userId,
               name: userData.displayName || userData.name || userData.email || 'Unknown User',
               email: userData.email || '',
               avatar: userData.photoURL || userData.avatar || '/icons/default-avatar.png',
-              isContact: isContact
-            };
+              isContact: isContact,
+              // Priority: prefer documents where ID looks like Auth UID and has matching uid field
+              priority: (looksLikeAuthUID ? 2 : 0) + (hasMatchingUID ? 1 : 0),
+              looksLikeAuthUID,
+              hasMatchingUID
+            });
           }
         });
+        
+        // If multiple matches, prefer the one that looks most like a Firebase Auth UID
+        if (matchingUsers.length > 0) {
+          // Sort by priority (highest first)
+          matchingUsers.sort((a, b) => b.priority - a.priority);
+          
+          if (matchingUsers.length > 1) {
+            console.log(`⚠️ Multiple users found with email "${queryLower}". Selecting best match:`, {
+              total: matchingUsers.length,
+              selected: matchingUsers[0].id,
+              allMatches: matchingUsers.map(u => ({
+                id: u.id,
+                email: u.email,
+                priority: u.priority,
+                looksLikeAuthUID: u.looksLikeAuthUID,
+                hasMatchingUID: u.hasMatchingUID
+              }))
+            });
+          }
+          
+          foundUser = matchingUsers[0];
+        }
         
       console.log('📋 All users checked:', allUsers.length);
       console.log('✅ Found user:', foundUser ? 'YES' : 'NO');
