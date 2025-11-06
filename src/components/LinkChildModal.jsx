@@ -95,10 +95,10 @@ export default function LinkChildModal() {
                 marginBottom: '1rem',
                 color: 'var(--text-primary, #333)'
               }}>
-                <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--text-primary, #333)' }}>
+                <p style={{ margin: 0, fontWeight: 'bold', color: 'white' }}>
                   Link Your Child's Account
                 </p>
-                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: 'var(--text-primary, #333)' }}>
+                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.875rem', color: 'white' }}>
                   Enter your child's email address to link their account. A verification code will be sent to confirm.
                 </p>
               </div>
