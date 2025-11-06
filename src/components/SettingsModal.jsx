@@ -17,10 +17,11 @@ const getRealName = (user, profile = null) => {
   return user.displayName || null;
 };
 import { businessService } from '../services/businessService';
+import { biometricService } from '../services/biometricService';
 import CashoutModal from './CashoutModal';
 
 function SettingsModal() {
-  const { closeSettingsModal, theme, toggleTheme, showNotification, showCashoutModal, openCashoutModal, closeCashoutModal } = useUI();
+  const { closeSettingsModal, theme, toggleTheme, showNotification, showCashoutModal, openCashoutModal, closeCashoutModal, openParentDashboard, openLinkChildModal, openRatingModal, openFeatureRequestModal, openSupportTicketModal, openAdminDashboard } = useUI();
   const { user } = useAuth();
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
@@ -42,6 +43,9 @@ function SettingsModal() {
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [subscription, setSubscription] = useState(null);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricRegistered, setBiometricRegistered] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
   // Business account state
   const [isBusinessAccount, setIsBusinessAccount] = useState(false);
@@ -62,8 +66,15 @@ function SettingsModal() {
   });
 
   // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+  // In production, use VITE_API_BASE_URL, fallback to localhost only in development
+  const isProduction = import.meta.env.PROD;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || (isProduction ? '' : 'http://localhost:3001');
   const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
+
+  // Warn if API URL not set in production
+  if (isProduction && !import.meta.env.VITE_API_BASE_URL) {
+    console.error('❌ CRITICAL: VITE_API_BASE_URL not set in production! API calls will fail.');
+  }
 
   // Check if this is test business account for sample data fallback
   const isTestBusinessAccount = () => {
@@ -75,17 +86,25 @@ function SettingsModal() {
 
   // Check if business features should be enabled (active subscription or trialing)
   const hasActiveBusinessSubscription = () => {
-    if (isTestBusinessAccount()) return true; // Test accounts always have access
-    if (!subscription) return false;
+    if (isTestBusinessAccount()) {
+      return true;
+    } // Test accounts always have access
+    if (!subscription) {
+      return false;
+    }
     return subscription.status === 'active' || subscription.status === 'trialing';
   };
 
   // Check if business features are locked (payment failed or subscription cancelled)
   const isBusinessFeaturesLocked = () => {
-    if (isTestBusinessAccount()) return false; // Test accounts never locked
-    if (!subscription) return true; // No subscription = locked
-    return subscription.status === 'past_due' || 
-           subscription.status === 'unpaid' || 
+    if (isTestBusinessAccount()) {
+      return false;
+    } // Test accounts never locked
+    if (!subscription) {
+      return true;
+    } // No subscription = locked
+    return subscription.status === 'past_due' ||
+           subscription.status === 'unpaid' ||
            subscription.status === 'incomplete' ||
            subscription.status === 'incomplete_expired' ||
            subscription.status === 'canceled';
@@ -101,6 +120,7 @@ function SettingsModal() {
       twoFactorService.is2FAEnabled(user.uid).then(setTwoFactorEnabled);
       loadProfile();
       loadStripeAccount();
+      checkBiometricAvailability();
 
       if (isBusiness) {
         loadBusinessProfile();
@@ -117,7 +137,7 @@ function SettingsModal() {
       }
     };
     window.addEventListener('checkoutSuccess', handleCheckoutSuccess);
-    
+
     return () => {
       window.removeEventListener('checkoutSuccess', handleCheckoutSuccess);
     };
@@ -822,6 +842,54 @@ function SettingsModal() {
     setQuickReplies(quickReplies.filter(r => r.id !== id));
   };
 
+  const checkBiometricAvailability = async () => {
+    if (!user) return;
+    
+    try {
+      const available = await biometricService.isAvailable();
+      setBiometricAvailable(available);
+      
+      if (available) {
+        const registered = biometricService.isRegistered(user.uid);
+        setBiometricRegistered(registered);
+      }
+    } catch (error) {
+      console.error('Error checking biometric availability:', error);
+      setBiometricAvailable(false);
+    }
+  };
+
+  const handleRegisterBiometric = async () => {
+    if (!user) return;
+    
+    setBiometricLoading(true);
+    try {
+      const result = await biometricService.register(user.uid, user.email || user.displayName || 'User');
+      
+      if (result.success) {
+        setBiometricRegistered(true);
+        showNotification('Biometric authentication registered successfully!', 'success');
+      } else {
+        showNotification(result.error || 'Failed to register biometric authentication', 'error');
+      }
+    } catch (error) {
+      console.error('Error registering biometric:', error);
+      showNotification('Failed to register biometric authentication', 'error');
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  const handleUnregisterBiometric = () => {
+    if (!user) return;
+    
+    if (window.confirm('Are you sure you want to remove biometric authentication?')) {
+      biometricService.unregister(user.uid);
+      setBiometricRegistered(false);
+      showNotification('Biometric authentication removed', 'success');
+    }
+  };
+
   const handleToggleDayClosed = (day) => {
     setBusinessHours({
       ...businessHours,
@@ -843,7 +911,9 @@ function SettingsModal() {
           <div className="settings-section">
             <h3>Profile & Privacy</h3>
             <div className="setting-item">
-              <label htmlFor="alias-input">Display Alias (Optional)</label>
+              <label htmlFor="alias-input">
+                Display Alias <span style={{ color: 'var(--error-color, #f44336)' }}>*</span>
+              </label>
               <input
                 id="alias-input"
                 type="text"
@@ -851,6 +921,7 @@ function SettingsModal() {
                 onChange={(e) => setAlias(e.target.value)}
                 placeholder="Enter an alias to display instead of your real name"
                 maxLength={50}
+                required
                 disabled={loading}
               />
               <small style={{ color: 'var(--text-color-secondary)', marginTop: '4px', display: 'block' }}>
@@ -1309,7 +1380,7 @@ function SettingsModal() {
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-color-secondary)' }}>
                           Status: <span style={{
                             fontWeight: '600',
-                            color: subscription.status === 'active' || subscription.status === 'trialing' ? '#4caf50' : 
+                            color: subscription.status === 'active' || subscription.status === 'trialing' ? '#4caf50' :
                                    subscription.status === 'past_due' || subscription.status === 'unpaid' || subscription.status === 'incomplete' ? '#f44336' : '#9e9e9e'
                           }}>
                             {subscription.status === 'trialing' ? 'Free Trial' :
@@ -1396,7 +1467,7 @@ function SettingsModal() {
                           onClick={async () => {
                             try {
                               showNotification('Opening payment settings...', 'info');
-                              
+
                               if (isTestBusinessAccount()) {
                                 showNotification('Test account - payment update skipped. In production, this opens Stripe Customer Portal.', 'info');
                                 return;
@@ -1441,7 +1512,7 @@ function SettingsModal() {
                             onClick={async () => {
                               try {
                                 showNotification('Opening payment settings...', 'info');
-                                
+
                                 if (isTestBusinessAccount()) {
                                   showNotification('Test account - payment settings skipped. In production, this opens Stripe Customer Portal.', 'info');
                                   return;
@@ -1558,7 +1629,7 @@ function SettingsModal() {
                       Business Features Locked
                     </div>
                     <div style={{ fontSize: '0.9rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
-                      {subscription?.status === 'past_due' || subscription?.status === 'unpaid' 
+                      {subscription?.status === 'past_due' || subscription?.status === 'unpaid'
                         ? 'Your payment failed. Update your payment method to unlock business features.'
                         : subscription?.status === 'canceled'
                         ? 'Your subscription has been cancelled. Resubscribe to access business features.'
@@ -1577,7 +1648,7 @@ function SettingsModal() {
                             });
                             if (response.ok) {
                               const data = await response.json();
-                              if (data.url) window.location.href = data.url;
+                              if (data.url) {window.location.href = data.url;}
                             }
                           } catch (error) {
                             showNotification('Failed to open payment settings', 'error');
@@ -1633,10 +1704,10 @@ function SettingsModal() {
                   value={businessStatus}
                   onChange={(e) => setBusinessStatus(e.target.value)}
                   disabled={loading || !hasActiveBusinessSubscription()}
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.75rem', 
-                    borderRadius: '8px', 
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
                     border: '1px solid var(--border-color)',
                     opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
                     cursor: hasActiveBusinessSubscription() ? 'pointer' : 'not-allowed'
@@ -1658,12 +1729,12 @@ function SettingsModal() {
                   placeholder="Message sent when business is closed or away"
                   rows={3}
                   disabled={loading || !hasActiveBusinessSubscription()}
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.75rem', 
-                    borderRadius: '8px', 
-                    border: '1px solid var(--border-color)', 
-                    fontFamily: 'inherit', 
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-color)',
+                    fontFamily: 'inherit',
                     resize: 'vertical',
                     opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
                     cursor: hasActiveBusinessSubscription() ? 'text' : 'not-allowed'
@@ -1685,7 +1756,7 @@ function SettingsModal() {
                         checked={!businessHours[day]?.closed}
                         onChange={() => handleToggleDayClosed(day)}
                         disabled={!hasActiveBusinessSubscription()}
-                        style={{ 
+                        style={{
                           marginRight: '8px',
                           opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
                           cursor: hasActiveBusinessSubscription() ? 'pointer' : 'not-allowed'
@@ -1702,9 +1773,9 @@ function SettingsModal() {
                               [day]: { ...businessHours[day], open: e.target.value, closed: false }
                             })}
                             disabled={!hasActiveBusinessSubscription()}
-                            style={{ 
-                              padding: '4px', 
-                              borderRadius: '4px', 
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
                               border: '1px solid var(--border-color)',
                               opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
                               cursor: hasActiveBusinessSubscription() ? 'text' : 'not-allowed'
@@ -1719,9 +1790,9 @@ function SettingsModal() {
                               [day]: { ...businessHours[day], close: e.target.value, closed: false }
                             })}
                             disabled={!hasActiveBusinessSubscription()}
-                            style={{ 
-                              padding: '4px', 
-                              borderRadius: '4px', 
+                            style={{
+                              padding: '4px',
+                              borderRadius: '4px',
                               border: '1px solid var(--border-color)',
                               opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
                               cursor: hasActiveBusinessSubscription() ? 'text' : 'not-allowed'
@@ -1795,8 +1866,8 @@ function SettingsModal() {
                 className="btn btn-primary"
                 onClick={handleSaveBusinessSettings}
                 disabled={saving || loading || !hasActiveBusinessSubscription()}
-                style={{ 
-                  marginTop: '1rem', 
+                style={{
+                  marginTop: '1rem',
                   width: '100%',
                   opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
                   cursor: hasActiveBusinessSubscription() ? 'pointer' : 'not-allowed'
@@ -1913,6 +1984,36 @@ function SettingsModal() {
           )}
 
           <div className="settings-section">
+            <h3>🔒 Parent Controls</h3>
+            <div className="setting-item">
+              <label>Link Child Account</label>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-primary, #333)', marginBottom: '0.5rem' }}>
+                Link your child's account to monitor and manage their activity
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={openLinkChildModal}
+                style={{ marginTop: '0.5rem', marginRight: '0.5rem' }}
+              >
+                Link Child Account
+              </button>
+            </div>
+            <div className="setting-item" style={{ marginTop: '1rem' }}>
+              <label>Monitor Child's Activity</label>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-color-secondary)', marginBottom: '0.5rem' }}>
+                View and manage your child's contacts, messages, and safety settings
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={openParentDashboard}
+                style={{ marginTop: '0.5rem' }}
+              >
+                Open Parent Dashboard
+              </button>
+            </div>
+          </div>
+
+          <div className="settings-section">
             <h3>Security</h3>
             <div className="setting-item">
               <label htmlFor="two-factor-toggle">Two-Factor Authentication</label>
@@ -1934,6 +2035,43 @@ function SettingsModal() {
                 />
                 <span>{twoFactorEnabled ? 'Enabled' : 'Disabled'}</span>
               </div>
+            </div>
+            <div className="setting-item" style={{ marginTop: '1rem' }}>
+              <label>Biometric Authentication (Touch ID / Face ID)</label>
+              {biometricAvailable ? (
+                <div style={{ marginTop: '0.5rem' }}>
+                  {biometricRegistered ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+                      <span style={{ color: 'var(--success-color, #4caf50)' }}>✓ Registered</span>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={handleUnregisterBiometric}
+                        style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleRegisterBiometric}
+                      disabled={biometricLoading}
+                      style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                    >
+                      {biometricLoading ? 'Registering...' : 'Register Biometric'}
+                    </button>
+                  )}
+                  <small style={{ display: 'block', color: 'var(--text-color-secondary)', marginTop: '0.5rem' }}>
+                    Use your fingerprint or face to quickly unlock the app
+                  </small>
+                </div>
+              ) : (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <span style={{ color: 'var(--text-color-secondary)', fontSize: '0.875rem' }}>
+                    Biometric authentication is not available on this device
+                  </span>
+                </div>
+              )}
               {show2FAForm && !twoFactorEnabled && (
                 <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--surface-color)', borderRadius: '8px' }}>
                   <div className="form-group">
@@ -2002,6 +2140,64 @@ function SettingsModal() {
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>📝 Feedback & Support</h3>
+            <div className="setting-item">
+              <label>Rate EchoChat</label>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-color-secondary)', marginBottom: '0.5rem' }}>
+                Share your experience and help us improve
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={openRatingModal}
+                style={{ marginTop: '0.5rem', marginRight: '0.5rem' }}
+              >
+                ⭐ Rate App
+              </button>
+            </div>
+            <div className="setting-item" style={{ marginTop: '1rem' }}>
+              <label>Request a Feature</label>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-color-secondary)', marginBottom: '0.5rem' }}>
+                Have an idea? Let us know what you'd like to see
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={openFeatureRequestModal}
+                style={{ marginTop: '0.5rem', marginRight: '0.5rem' }}
+              >
+                💡 Request Feature
+              </button>
+            </div>
+            <div className="setting-item" style={{ marginTop: '1rem' }}>
+              <label>Report an Issue</label>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-color-secondary)', marginBottom: '0.5rem' }}>
+                Found a bug or need help? Submit a support ticket
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={openSupportTicketModal}
+                style={{ marginTop: '0.5rem', marginRight: '0.5rem' }}
+              >
+                🎫 Submit Ticket
+              </button>
+            </div>
+            {(user?.email === 'ronellbradley@bradleyvs.com' || user?.isAdmin) && (
+              <div className="setting-item" style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+                <label>🔐 Admin Dashboard</label>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-color-secondary)', marginBottom: '0.5rem' }}>
+                  View all ratings, feature requests, and support tickets
+                </p>
+                <button
+                  className="btn btn-primary"
+                  onClick={openAdminDashboard}
+                  style={{ marginTop: '0.5rem', background: 'var(--error-color, #f44336)' }}
+                >
+                  🔐 Open Admin Dashboard
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
