@@ -87,8 +87,12 @@ export default function ContactRequestModal() {
       showNotification('Contact request accepted', 'success');
       loadPendingRequests();
     } catch (error) {
-      console.error('Error accepting request:', error);
-      showNotification('Error accepting request', 'error');
+      console.error('❌ Error accepting request:', error);
+      console.error('   Error message:', error?.message || 'No message');
+      console.error('   Error code:', error?.code || 'No code');
+      console.error('   Error name:', error?.name || 'No name');
+      const errorMessage = error?.message || error?.code || 'Unknown error';
+      showNotification(`Error accepting request: ${errorMessage}`, 'error');
     }
   };
 

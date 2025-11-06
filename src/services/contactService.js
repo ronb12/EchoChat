@@ -240,18 +240,38 @@ class ContactService {
    */
   async acceptContactRequest(userId, requestId) {
     try {
+      console.log('📥 acceptContactRequest called:', {
+        userId,
+        requestId,
+        userIdType: typeof userId,
+        userIdLength: userId?.length
+      });
+      
       const requestRef = doc(db, 'contactRequests', requestId);
       const requestSnap = await getDoc(requestRef);
 
       if (!requestSnap.exists()) {
+        console.error('❌ Request document does not exist:', requestId);
         throw new Error('Request not found');
       }
 
       const requestData = requestSnap.data();
+      console.log('📄 Request data retrieved:', {
+        toUserId: requestData.toUserId,
+        toUserEmail: requestData.toUserEmail,
+        fromUserId: requestData.fromUserId,
+        status: requestData.status
+      });
       
       // Normalize user IDs for comparison
       const normalizedUserId = String(userId).trim();
       const normalizedToUserId = String(requestData.toUserId || '').trim();
+      
+      console.log('🔍 Authorization check:', {
+        normalizedUserId,
+        normalizedToUserId,
+        uidMatch: normalizedToUserId === normalizedUserId
+      });
       
       // Check authorization: UID must match OR email must match (fallback for UID mismatches)
       let isAuthorized = normalizedToUserId === normalizedUserId;
@@ -280,27 +300,46 @@ class ContactService {
       }
       
       if (!isAuthorized) {
+        console.error('❌ Authorization failed:', {
+          normalizedUserId,
+          normalizedToUserId,
+          requestEmail: requestData.toUserEmail
+        });
         throw new Error('Not authorized to accept this request');
       }
 
+      console.log('✅ Authorization passed, proceeding with accept');
+
       if (requestData.status !== 'pending') {
+        console.error('❌ Request already processed:', requestData.status);
         throw new Error('Request already processed');
       }
 
+      console.log('📝 Updating request status to accepted...');
       // Update request status
       await updateDoc(requestRef, {
         status: 'accepted',
         updatedAt: Date.now()
       });
+      console.log('✅ Request status updated successfully');
 
+      console.log('👥 Adding contact:', {
+        fromUserId: requestData.fromUserId,
+        toUserId: normalizedUserId
+      });
       // Add both users as contacts
       // Use the actual userId (receiver's Firebase Auth UID) instead of the stored toUserId
       // This ensures the contact is created with the correct UID
       await this.addContact(requestData.fromUserId, normalizedUserId);
+      console.log('✅ Contact added successfully');
 
       return { success: true };
     } catch (error) {
-      console.error('Error accepting contact request:', error);
+      console.error('❌ Error accepting contact request:', error);
+      console.error('   Error message:', error.message);
+      console.error('   Error code:', error.code);
+      console.error('   Error name:', error.name);
+      console.error('   Error stack:', error.stack);
       throw error;
     }
   }
