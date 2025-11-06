@@ -53,21 +53,68 @@ class ContactService {
         status: 'pending'
       });
       
-      await setDoc(requestRef, requestData);
+      try {
+        await setDoc(requestRef, requestData);
+        console.log('✅ setDoc() completed successfully');
+      } catch (setDocError) {
+        console.error('❌ Error calling setDoc():', setDocError);
+        console.error('Error code:', setDocError.code);
+        console.error('Error message:', setDocError.message);
+        throw setDocError;
+      }
       
-      // Verify the request was saved correctly
-      const verifyDoc = await getDoc(requestRef);
-      if (verifyDoc.exists()) {
+      // Verify the request was saved correctly - try multiple times
+      let verifyDoc = null;
+      let verificationAttempts = 0;
+      const maxAttempts = 3;
+      
+      while (verificationAttempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+        verifyDoc = await getDoc(requestRef);
+        
+        if (verifyDoc.exists()) {
+          break;
+        }
+        
+        verificationAttempts++;
+        if (verificationAttempts < maxAttempts) {
+          console.log(`⚠️ Document not found yet, retrying... (attempt ${verificationAttempts + 1}/${maxAttempts})`);
+        }
+      }
+      
+      if (verifyDoc && verifyDoc.exists()) {
         const savedData = verifyDoc.data();
-        console.log('✅ Contact request created and verified:', {
+        console.log('✅ Contact request created and verified in Firestore:', {
           requestId,
+          documentPath: `contactRequests/${requestId}`,
           savedFromUserId: savedData.fromUserId,
           savedToUserId: savedData.toUserId,
           savedStatus: savedData.status,
-          toUserIdMatch: savedData.toUserId === toUserId
+          createdAt: savedData.createdAt,
+          updatedAt: savedData.updatedAt,
+          toUserIdMatch: savedData.toUserId === toUserId,
+          fromUserIdMatch: savedData.fromUserId === fromUserId
         });
+        
+        // Additional verification: Check if document can be queried
+        const testQuery = query(
+          collection(db, 'contactRequests'),
+          where('toUserId', '==', toUserId),
+          where('status', '==', 'pending')
+        );
+        const testSnapshot = await getDocs(testQuery);
+        const foundInQuery = testSnapshot.docs.some(doc => doc.id === requestId);
+        
+        if (foundInQuery) {
+          console.log('✅ Document is queryable (can be found by receiver)');
+        } else {
+          console.warn('⚠️ Document exists but not found in query - may be a Firestore rules or index issue');
+        }
       } else {
-        console.error('❌ Contact request was not saved!');
+        console.error('❌ Contact request was NOT saved to Firestore!');
+        console.error('Document ID:', requestId);
+        console.error('Collection: contactRequests');
+        console.error('This may be a Firestore rules issue or network error');
       }
       
       return { success: true, requestId };
