@@ -82,8 +82,8 @@ class FirestoreService {
 
       const docRef = await addDoc(collection(this.db, 'messages'), message);
       // Return message with Firestore document ID, preserving all fields including sticker
-      return { 
-        id: docRef.id, 
+      return {
+        id: docRef.id,
         ...message,
         // Ensure sticker fields are preserved
         sticker: message.sticker || null,
@@ -320,7 +320,7 @@ class FirestoreService {
           collection(this.db, 'chats'),
           where('participants', 'array-contains', userId)
         );
-        
+
         const unsubscribeFallback = onSnapshot(qWithoutOrder, (snapshot) => {
           let chats = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -334,7 +334,7 @@ class FirestoreService {
         }, (fallbackError) => {
           console.error('Error subscribing to chats (fallback):', fallbackError);
         });
-        
+
         this.unsubscribes.set(`chats_${userId}`, unsubscribeFallback);
         return () => {
           unsubscribeFallback();
@@ -424,92 +424,5 @@ class FirestoreService {
   // Typing indicators
   subscribeToTypingIndicators(chatId, callback) {
     const typingRef = collection(this.db, 'chats', chatId, 'typing');
-    const unsubscribe = onSnapshot(typingRef, (snapshot) => {
-      const typingUsers = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.timestamp?.toMillis() > Date.now() - 3000) {
-          typingUsers[data.userId] = {
-            userId: data.userId,
-            displayName: data.displayName,
-            ts: data.timestamp.toMillis()
-          };
-        }
-      });
-      callback(typingUsers);
-    });
-
-    this.unsubscribes.set(`typing_${chatId}`, unsubscribe);
-    return () => {
-      unsubscribe();
-      this.unsubscribes.delete(`typing_${chatId}`);
-    };
-  }
-
-  async sendTypingIndicator(chatId, userId, displayName) {
-    try {
-      const typingRef = doc(this.db, 'chats', chatId, 'typing', userId);
-      await updateDoc(typingRef, {
-        userId,
-        displayName,
-        timestamp: serverTimestamp()
-      });
-    } catch (error) {
-      // Create if doesn't exist
-      try {
-        await addDoc(collection(this.db, 'chats', chatId, 'typing'), {
-          userId,
-          displayName,
-          timestamp: serverTimestamp()
-        });
-      } catch (createError) {
-        console.error('Error sending typing indicator:', createError);
-      }
-    }
-  }
-
-  // Presence
-  async setUserPresence(userId, status) {
-    try {
-      const presenceRef = doc(this.db, 'users', userId);
-      await updateDoc(presenceRef, {
-        presence: status,
-        lastSeen: serverTimestamp()
-      });
-    } catch (error) {
-      console.error('Error setting presence:', error);
-    }
-  }
-
-  subscribeToPresence(callback) {
-    const usersRef = collection(this.db, 'users');
-    const unsubscribe = onSnapshot(usersRef, (snapshot) => {
-      const presence = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        presence[doc.id] = {
-          status: data.presence || 'offline',
-          lastSeen: data.lastSeen?.toMillis() || null
-        };
-      });
-      callback(presence);
-    });
-
-    this.unsubscribes.set('presence', unsubscribe);
-    return () => {
-      unsubscribe();
-      this.unsubscribes.delete('presence');
-    };
-  }
-
-  // Cleanup
-  cleanup() {
-    this.unsubscribes.forEach(unsubscribe => unsubscribe());
-    this.unsubscribes.clear();
-  }
-}
-
-export const firestoreService = new FirestoreService();
-export default firestoreService;
-
-
+    const handleSnapshot = (snapshot) => {
+   
