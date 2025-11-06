@@ -340,13 +340,13 @@ export default function ParentDashboard() {
             overflowY: 'auto',
             background: 'var(--background-color, transparent)'
           }}>
-            <h3 style={{ fontSize: '0.875rem', marginBottom: '1rem', color: 'var(--text-primary, #333)' }}>
+            <h3 style={{ fontSize: '0.875rem', marginBottom: '1rem', color: 'white' }}>
               Children Accounts
             </h3>
             {loading ? (
               <p style={{ color: 'var(--text-primary, #333)' }}>Loading...</p>
             ) : minorAccounts.length === 0 ? (
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-primary, #333)' }}>
+              <p style={{ fontSize: '0.875rem', color: 'white' }}>
                 No child accounts linked
               </p>
             ) : (
