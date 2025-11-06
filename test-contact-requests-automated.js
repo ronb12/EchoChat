@@ -792,85 +792,97 @@ async function acceptContactRequest(page) {
 async function logout(page) {
   console.log('\n🚪 Logging out...');
   
-  // Try multiple methods to logout
-  let loggedOut = false;
-  
-  // Method 1: Click avatar menu
-  const avatarMenu = await page.evaluateHandle(() => {
-    const avatars = Array.from(document.querySelectorAll('.user-avatar, [class*="avatar"]'));
-    return avatars[0];
+  // Method 1: Try direct Firebase signOut via page context (most reliable)
+  const directSignOut = await page.evaluate(async () => {
+    try {
+      // Import auth service and sign out
+      const { auth } = await import('/src/services/firebaseConfig.js');
+      const { signOut } = await import('firebase/auth');
+      
+      if (auth.currentUser) {
+        console.log('🔐 Signing out user:', auth.currentUser.email);
+        await signOut(auth);
+        console.log('✅ Firebase signOut completed');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error in direct signOut:', error);
+      return false;
+    }
   });
 
-  if (avatarMenu && avatarMenu.asElement()) {
-    await avatarMenu.asElement().click();
-    await sleep(1500);
-
-    const logoutButton = await page.evaluateHandle(() => {
-      const buttons = Array.from(document.querySelectorAll('button'));
-      return buttons.find(btn => {
-        const text = (btn.textContent || '').toLowerCase().trim();
-        return text.includes('sign out') ||
-               text.includes('logout') ||
-               text.includes('log out');
-      });
+  if (directSignOut) {
+    console.log('✅ Direct Firebase signOut called');
+    await sleep(3000); // Wait for auth state to update
+  } else {
+    // Method 2: Click avatar menu and logout button
+    const avatarMenu = await page.evaluateHandle(() => {
+      const avatars = Array.from(document.querySelectorAll('.user-avatar, [class*="avatar"]'));
+      return avatars[0];
     });
 
-    if (logoutButton && logoutButton.asElement()) {
-      await logoutButton.asElement().click();
-      await sleep(3000);
-      loggedOut = true;
-      console.log('✅ Logged out via avatar menu');
+    if (avatarMenu && avatarMenu.asElement()) {
+      await avatarMenu.asElement().click();
+      await sleep(1500);
+
+      const logoutButton = await page.evaluateHandle(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        return buttons.find(btn => {
+          const text = (btn.textContent || '').toLowerCase().trim();
+          return text.includes('sign out') ||
+                 text.includes('logout') ||
+                 text.includes('log out');
+        });
+      });
+
+      if (logoutButton && logoutButton.asElement()) {
+        await logoutButton.asElement().click();
+        await sleep(3000);
+        console.log('✅ Clicked logout button');
+      }
     }
   }
 
-  // Method 2: Check if actually logged out
-  if (loggedOut) {
-    const isLoggedOut = await page.evaluate(() => {
-      // Check if login modal is visible or app elements are gone
-      const loginModal = document.querySelector('.login-modal, #login-modal');
+  // Wait for auth state to change
+  await sleep(2000);
+
+  // Verify logout - check multiple times
+  let verifiedLogout = false;
+  for (let i = 0; i < 5; i++) {
+    await sleep(1000);
+    verifiedLogout = await page.evaluate(() => {
+      // Check if app elements are gone (user logged out)
       const hasAppElements = !!(
         document.querySelector('.chat-area') ||
         document.querySelector('.sidebar') ||
         document.querySelector('.app-header')
       );
-      return !hasAppElements || (loginModal && loginModal.offsetParent !== null);
+      
+      // Check if login modal or landing page is visible
+      const loginModal = document.querySelector('.login-modal, #login-modal');
+      const landingPage = document.querySelector('.landing-page, [class*="landing"]');
+      
+      return !hasAppElements || (loginModal && loginModal.offsetParent !== null) || !!landingPage;
     });
-
-    if (!isLoggedOut) {
-      console.log('⚠️ Logout may not have completed, trying alternative method...');
-      // Try calling signOut directly via page context
-      await page.evaluate(async () => {
-        try {
-          // Try to access auth and sign out
-          if (window.firebase && window.firebase.auth) {
-            await window.firebase.auth().signOut();
-            return true;
-          }
-        } catch (e) {
-          return false;
-        }
-      });
-      await sleep(2000);
+    
+    if (verifiedLogout) {
+      console.log(`✅ Verified logout successful (attempt ${i + 1})`);
+      break;
     }
   }
 
-  // Verify logout
-  const verifiedLogout = await page.evaluate(() => {
-    const hasAppElements = !!(
-      document.querySelector('.chat-area') ||
-      document.querySelector('.sidebar') ||
-      document.querySelector('.app-header')
-    );
-    return !hasAppElements;
-  });
-
-  if (verifiedLogout) {
-    console.log('✅ Verified logout successful');
-    return true;
+  if (!verifiedLogout) {
+    console.log('⚠️ Logout verification failed - trying to clear localStorage...');
+    // Last resort: clear localStorage and reload
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await sleep(1000);
   }
 
-  console.log('⚠️ Logout may have failed - user might still be logged in');
-  return false;
+  return verifiedLogout;
 }
 
 // Main test function

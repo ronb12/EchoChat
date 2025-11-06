@@ -76,7 +76,9 @@ class ContactService {
       console.log('📤 Creating contact request:', {
         requestId,
         fromUserId: normalizedFromUserId,
+        fromUserEmail: fromUserEmail,
         toUserId: normalizedToUserId,
+        toUserEmail: toUserEmail,
         fromUserIdType: typeof normalizedFromUserId,
         toUserIdType: typeof normalizedToUserId,
         fromUserIdLength: normalizedFromUserId.length,
@@ -86,10 +88,25 @@ class ContactService {
         status: 'pending'
       });
       
-      // Verify the toUserId matches what will be queried
-      console.log('🔍 Verification: toUserId will be queried as:', normalizedToUserId);
-      console.log('🔍 Verification: Receiver should query with their Firebase Auth UID');
-      console.log('🔍 Verification: If receiver\'s UID !==', normalizedToUserId, ', request won\'t be found!');
+      // CRITICAL: Log exact values that will be stored and queried
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📋 CONTACT REQUEST DETAILS (EXACT VALUES):');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('   Document ID (requestId):', requestId);
+      console.log('   fromUserId (stored):', normalizedFromUserId);
+      console.log('   fromUserEmail (stored):', fromUserEmail || 'NOT FOUND');
+      console.log('   toUserId (stored):', normalizedToUserId);
+      console.log('   toUserEmail (stored):', toUserEmail || 'NOT FOUND');
+      console.log('');
+      console.log('   ⚠️ CRITICAL: Receiver will query with:');
+      console.log('      - toUserId == receiver\'s Firebase Auth UID');
+      console.log('      - toUserEmail == receiver\'s email (fallback)');
+      console.log('');
+      console.log('   🔍 VERIFICATION NEEDED:');
+      console.log('      - Does toUserId match receiver\'s Firebase Auth UID?');
+      console.log('      - Does toUserEmail match receiver\'s email exactly?');
+      console.log('      - If NO to either, request won\'t be found!');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       try {
         await setDoc(requestRef, requestData);
@@ -122,17 +139,27 @@ class ContactService {
       
       if (verifyDoc && verifyDoc.exists()) {
         const savedData = verifyDoc.data();
-        console.log('✅ Contact request created and verified in Firestore:', {
-          requestId,
-          documentPath: `contactRequests/${requestId}`,
-          savedFromUserId: savedData.fromUserId,
-          savedToUserId: savedData.toUserId,
-          savedStatus: savedData.status,
-          createdAt: savedData.createdAt,
-          updatedAt: savedData.updatedAt,
-          toUserIdMatch: savedData.toUserId === normalizedToUserId,
-          fromUserIdMatch: savedData.fromUserId === normalizedFromUserId
-        });
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('✅ Contact request created and verified in Firestore:');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('   Document Path: contactRequests/' + requestId);
+        console.log('   fromUserId (saved):', savedData.fromUserId);
+        console.log('   fromUserEmail (saved):', savedData.fromUserEmail || 'MISSING');
+        console.log('   toUserId (saved):', savedData.toUserId);
+        console.log('   toUserEmail (saved):', savedData.toUserEmail || 'MISSING');
+        console.log('   status (saved):', savedData.status);
+        console.log('   createdAt:', savedData.createdAt ? new Date(savedData.createdAt).toISOString() : 'N/A');
+        console.log('');
+        console.log('   ✅ Verification:');
+        console.log('      fromUserId match:', savedData.fromUserId === normalizedFromUserId ? '✅ YES' : '❌ NO');
+        console.log('      toUserId match:', savedData.toUserId === normalizedToUserId ? '✅ YES' : '❌ NO');
+        console.log('      fromUserEmail stored:', savedData.fromUserEmail ? '✅ YES' : '❌ NO');
+        console.log('      toUserEmail stored:', savedData.toUserEmail ? '✅ YES' : '❌ NO');
+        console.log('');
+        console.log('   📋 Receiver must query with:');
+        console.log('      - toUserId ==', savedData.toUserId);
+        console.log('      - toUserEmail ==', savedData.toUserEmail || '(not stored)');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         // Additional verification: Check if document can be queried
         const testQuery = query(
@@ -143,17 +170,54 @@ class ContactService {
         const testSnapshot = await getDocs(testQuery);
         const foundInQuery = testSnapshot.docs.some(doc => doc.id === requestId);
         
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🔍 QUERY VERIFICATION:');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
         if (foundInQuery) {
           console.log('✅ Document is queryable (can be found by receiver)');
-          console.log('✅ Receiver should be able to see this request when querying with toUserId:', normalizedToUserId);
+          console.log('✅ Receiver should be able to see this request when querying with:');
+          console.log('      toUserId:', normalizedToUserId);
+          console.log('      toUserEmail:', toUserEmail || '(not stored - fallback won\'t work)');
         } else {
-          console.warn('⚠️ Document exists but not found in query - may be a Firestore rules or index issue');
-          console.warn('⚠️ Query used toUserId:', normalizedToUserId);
-          console.warn('⚠️ This might indicate:');
+          console.warn('⚠️ Document exists but NOT found in query!');
+          console.warn('');
+          console.warn('   Query used:');
+          console.warn('      toUserId:', normalizedToUserId);
+          console.warn('      status: pending');
+          console.warn('');
+          console.warn('   This might indicate:');
           console.warn('   1. Firestore composite index not created');
           console.warn('   2. Firestore rules blocking the query');
           console.warn('   3. toUserId mismatch (document has different toUserId than query)');
+          console.warn('');
+          console.warn('   💡 Check Firestore console to verify the document was saved correctly');
+          console.warn('   💡 Run checkContactRequests() in browser console to debug');
         }
+        
+        // Also test email fallback query
+        if (toUserEmail) {
+          const emailTestQuery = query(
+            collection(db, 'contactRequests'),
+            where('toUserEmail', '==', toUserEmail),
+            where('status', '==', 'pending')
+          );
+          const emailTestSnapshot = await getDocs(emailTestQuery);
+          const foundInEmailQuery = emailTestSnapshot.docs.some(doc => doc.id === requestId);
+          
+          console.log('');
+          console.log('   Email Fallback Query Test:');
+          if (foundInEmailQuery) {
+            console.log('   ✅ Document found by email query (fallback will work)');
+          } else {
+            console.warn('   ⚠️ Document NOT found by email query');
+            console.warn('      Query used toUserEmail:', toUserEmail);
+          }
+        } else {
+          console.warn('   ⚠️ toUserEmail not stored - email fallback query will not work!');
+        }
+        
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       } else {
         console.error('❌ Contact request was NOT saved to Firestore!');
         console.error('Document ID:', requestId);

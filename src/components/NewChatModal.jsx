@@ -258,7 +258,7 @@ export default function NewChatModal() {
       toUserIdLength: searchedUser.id?.length
     });
     
-    // IMPORTANT: Verify the toUserId matches the receiver's Firebase Auth UID
+    // CRITICAL: Verify the toUserId matches the receiver's Firebase Auth UID
     // The searchedUser.id should be the Firestore document ID, which should match Firebase Auth UID
     console.log('⚠️ VERIFICATION: toUserId should match receiver\'s Firebase Auth UID');
     console.log('   If they don\'t match, the receiver won\'t see the request!');
@@ -267,22 +267,42 @@ export default function NewChatModal() {
     console.log('   This ID should match the receiver\'s Firebase Auth UID exactly');
     
     // Verify the user document exists and check if the ID matches
+    let userDocData = null;
     try {
       const userDocRef = doc(db, 'users', searchedUser.id);
       const userDocSnap = await getDoc(userDocRef);
       if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
+        userDocData = userDocSnap.data();
         console.log('✅ User document found in Firestore');
         console.log('   Document ID:', searchedUser.id);
-        console.log('   User email:', userData.email);
+        console.log('   User email:', userDocData.email);
         console.log('   Note: Document ID should match Firebase Auth UID for queries to work');
+        
+        // IMPORTANT: The Firestore document ID MUST match the Firebase Auth UID
+        // If it doesn't, we need to find the user by email and get their actual UID
+        // This is a common issue - the document ID might be different from Auth UID
+        console.log('🔍 Checking if we need to find user by email to get correct UID...');
+        console.log('   Target email:', searchedUser.email);
+        console.log('   Document ID used:', searchedUser.id);
       } else {
         console.warn('⚠️ User document not found in Firestore with ID:', searchedUser.id);
         console.warn('   This might cause issues when querying for pending requests');
+        showNotification('User document not found. The user may need to complete signup.', 'warning');
+        return;
       }
     } catch (verifyError) {
       console.error('❌ Error verifying user document:', verifyError);
+      showNotification('Error verifying user. Please try again.', 'error');
+      return;
     }
+    
+    // Final verification before sending
+    console.log('🔍 Final verification before sending request:');
+    console.log('   Sender UID (fromUserId):', user.uid);
+    console.log('   Receiver Document ID (toUserId):', searchedUser.id);
+    console.log('   Receiver Email:', searchedUser.email);
+    console.log('   ⚠️ CRITICAL: The receiver will query with their Firebase Auth UID');
+    console.log('   ⚠️ If searchedUser.id !== receiver\'s Firebase Auth UID, request won\'t be found!');
     
     // Check if already a contact
     if (searchedUser.isContact) {
