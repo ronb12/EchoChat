@@ -163,15 +163,18 @@ export default function NewChatModal() {
           }
         });
         
-        console.log('📋 All users checked:', allUsers.length);
-        console.log('✅ Found user:', foundUser ? 'YES' : 'NO');
-        
-        if (!foundUser) {
-          console.log('❌ No match found. Searched users:', allUsers.map(u => ({
-            email: u.originalEmail,
-            displayName: u.displayName || 'N/A'
-          })));
-        }
+      console.log('📋 All users checked:', allUsers.length);
+      console.log('✅ Found user:', foundUser ? 'YES' : 'NO');
+      
+      if (!foundUser) {
+        console.log('❌ No match found. Searched users:', allUsers.map(u => ({
+          email: u.originalEmail,
+          displayName: u.displayName || 'N/A'
+        })));
+        console.log('💡 Tip: User might exist in Firebase Auth but not in Firestore.');
+        console.log('   Make sure the user has completed signup and has a Firestore document.');
+        console.log('   Check Firestore console: users collection');
+      }
       } catch (searchError) {
         console.error('❌ Error searching users:', searchError);
         console.error('Error code:', searchError.code);
@@ -194,8 +197,20 @@ export default function NewChatModal() {
         console.log('✅ User found and selected:', foundUser);
       } else {
         console.log('❌ User not found for query:', searchQuery);
-        console.log('💡 Tip: Make sure the email/username is spelled correctly and exists in the database.');
-        showNotification('User not found. Please check the username or email and try again.', 'warning');
+        console.log('💡 Possible reasons:');
+        console.log('   1. User exists in Firebase Auth but not in Firestore');
+        console.log('   2. User needs to complete signup to create Firestore document');
+        console.log('   3. Email/username is misspelled');
+        console.log('   4. User has not signed up yet');
+        console.log('');
+        console.log('📋 To fix:');
+        console.log('   - Have the user log in at least once to create their Firestore document');
+        console.log('   - Or manually create the user document in Firestore console');
+        console.log('   - Check Firestore: users collection');
+        
+        const errorMsg = `User not found. The user may exist in authentication but not in the database. 
+        Have them complete signup or log in once to create their profile.`;
+        showNotification(errorMsg, 'warning');
         setSearchedUser(null);
       }
     } catch (error) {
@@ -231,6 +246,18 @@ export default function NewChatModal() {
   const handleSendContactRequest = async () => {
     if (!searchedUser || !user) return;
     
+    console.log('📤 handleSendContactRequest called:', {
+      fromUserId: user.uid,
+      fromUserEmail: user.email,
+      toUserId: searchedUser.id,
+      toUserEmail: searchedUser.email,
+      toUserName: searchedUser.name,
+      fromUserIdType: typeof user.uid,
+      toUserIdType: typeof searchedUser.id,
+      fromUserIdLength: user.uid?.length,
+      toUserIdLength: searchedUser.id?.length
+    });
+    
     // Check if already a contact
     if (searchedUser.isContact) {
       showNotification('This user is already a contact', 'info');
@@ -245,7 +272,14 @@ export default function NewChatModal() {
     
     setSendingRequest(true);
     try {
+      console.log('📤 Calling contactService.sendContactRequest with:', {
+        fromUserId: user.uid,
+        toUserId: searchedUser.id
+      });
+      
       const result = await contactService.sendContactRequest(user.uid, searchedUser.id);
+      
+      console.log('📤 sendContactRequest result:', result);
       
       if (result.success) {
         showNotification('Contact request sent successfully!', 'success');
@@ -254,10 +288,16 @@ export default function NewChatModal() {
         // Update searchedUser to show pending status
         setSearchedUser({ ...searchedUser });
       } else {
+        console.error('❌ sendContactRequest failed:', result.error);
         showNotification(result.error || 'Failed to send contact request', 'error');
       }
     } catch (error) {
-      console.error('Error sending contact request:', error);
+      console.error('❌ Error sending contact request:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       showNotification('Error sending contact request. Please try again.', 'error');
     } finally {
       setSendingRequest(false);
