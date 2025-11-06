@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/authService';
+import { db } from '../services/firebaseConfig';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function SignUpModal() {
   const { closeSignUpModal, showSignUpModal, showNotification, openLoginModal } = useUI();
@@ -17,7 +19,7 @@ export default function SignUpModal() {
   // Load previously selected account type if exists
   useEffect(() => {
     const savedType = localStorage.getItem('selected_account_type');
-    if (savedType && (savedType === 'personal' || savedType === 'business')) {
+    if (savedType && (savedType === 'personal' || savedType === 'business' || savedType === 'parent')) {
       setAccountType(savedType);
     }
   }, []);
@@ -34,13 +36,23 @@ export default function SignUpModal() {
 
     // Validate account type is selected
     if (!accountType || accountType === '') {
-      setError('Please select an account type (Personal or Business)');
+      setError('Please select an account type (Personal, Business, or Parent)');
       setShowAccountTypeSelection(true);
       return;
     }
 
     if (!email || !password) {
       setError('Please enter both email and password');
+      return;
+    }
+
+    if (!displayName || displayName.trim() === '') {
+      setError('Display name is required');
+      return;
+    }
+
+    if (displayName.trim().length < 2) {
+      setError('Display name must be at least 2 characters');
       return;
     }
 
@@ -52,16 +64,43 @@ export default function SignUpModal() {
     setIsLoading(true);
 
     try {
-      const result = await authService.signUp(email, password, displayName || email.split('@')[0]);
+      const result = await authService.signUp(email, password, displayName.trim());
 
-      if (result.success) {
-        // Store account type
+      if (result.success && result.user) {
+        // Store account type in localStorage
         localStorage.setItem('echochat_account_type', accountType);
         localStorage.removeItem('selected_account_type');
-        
-        showNotification('Account created successfully!', 'success');
+
+        // Create user profile in Firestore
+        try {
+          const userRef = doc(db, 'users', result.user.uid);
+          await setDoc(userRef, {
+            email: result.user.email,
+            displayName: displayName.trim(),
+            accountType: accountType,
+            isBusinessAccount: accountType === 'business',
+            isParent: accountType === 'parent',
+            isMinor: false, // Will be set later if needed
+            createdAt: Date.now(),
+            children: accountType === 'parent' ? [] : undefined
+          }, { merge: true });
+
+          // If parent account, show link child flow
+          if (accountType === 'parent') {
+            showNotification('Parent account created! You can now link your child\'s account.', 'success');
+            // Store flag to show link child modal after signup
+            sessionStorage.setItem('showLinkChildFlow', 'true');
+          } else {
+            showNotification('Account created successfully!', 'success');
+          }
+        } catch (firestoreError) {
+          console.error('Error creating user profile:', firestoreError);
+          // Continue anyway - profile can be created later
+          showNotification('Account created! Please complete your profile in Settings.', 'success');
+        }
+
         closeSignUpModal();
-        
+
         // Reset form
         setEmail('');
         setPassword('');
@@ -133,6 +172,22 @@ export default function SignUpModal() {
                   <strong>Business Account</strong>
                   <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Business hours, auto-reply, analytics & more</span>
                 </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => handleAccountTypeSelect('parent')}
+                  style={{
+                    padding: '1.5rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    background: accountType === 'parent' ? 'var(--primary-color)' : 'var(--surface-color)'
+                  }}
+                >
+                  <span style={{ fontSize: '2rem' }}>🔒</span>
+                  <strong>Parent Account</strong>
+                  <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Monitor and manage your child's account</span>
+                </button>
               </div>
               <button
                 className="btn btn-secondary"
@@ -193,15 +248,17 @@ export default function SignUpModal() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <span style={{ fontSize: '2rem' }}>
-                          {accountType === 'business' ? '🏢' : '👤'}
+                          {accountType === 'business' ? '🏢' : accountType === 'parent' ? '🔒' : '👤'}
                         </span>
                         <div>
                           <div style={{ fontWeight: '600', fontSize: '1rem' }}>
-                            {accountType === 'business' ? 'Business Account' : 'Personal Account'}
+                            {accountType === 'business' ? 'Business Account' : accountType === 'parent' ? 'Parent Account' : 'Personal Account'}
                           </div>
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             {accountType === 'business'
                               ? 'Business hours, auto-reply, analytics & more'
+                              : accountType === 'parent'
+                              ? 'Monitor and manage your child\'s account'
                               : 'Personal messaging and communication'}
                           </div>
                         </div>
@@ -223,7 +280,7 @@ export default function SignUpModal() {
 
               <form onSubmit={handleSignUp}>
                 <div className="form-group">
-                  <label htmlFor="displayName">Display Name (Optional)</label>
+                  <label htmlFor="displayName">Display Name <span style={{ color: 'var(--error-color, #f44336)' }}>*</span></label>
                   <input
                     id="displayName"
                     type="text"
@@ -231,6 +288,8 @@ export default function SignUpModal() {
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="Enter your name"
                     disabled={isLoading}
+                    required
+                    minLength={2}
                   />
                 </div>
                 <div className="form-group">
@@ -268,10 +327,12 @@ export default function SignUpModal() {
                   style={{ width: '100%', marginTop: '0.5rem' }}
                   disabled={!accountType || accountType === '' || isLoading}
                 >
-                  {isLoading 
-                    ? 'Creating Account...' 
-                    : accountType === 'business' 
+                  {isLoading
+                    ? 'Creating Account...'
+                    : accountType === 'business'
                       ? 'Create Business Account'
+                      : accountType === 'parent'
+                      ? 'Create Parent Account'
                       : 'Create Personal Account'
                   }
                 </button>

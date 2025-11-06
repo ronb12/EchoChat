@@ -19,8 +19,10 @@ service cloud.firestore {
       allow read: if isAuthenticated() && 
         (resource.data.privacy == null || 
          resource.data.privacy.profileVisibility == 'public');
-      // Allow authenticated users to read basic user info for presence/contacts
+      // Allow authenticated users to read basic user info for presence/contacts/search
       allow read: if isAuthenticated();
+      // Allow list queries for authenticated users (needed for search)
+      allow list: if isAuthenticated();
     }
     
     // Profiles collection - for user profiles, aliases, status, etc.
