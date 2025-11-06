@@ -64,14 +64,26 @@ async function login(page, email, password) {
 
     // Fill login form
     await page.evaluate((email, password) => {
-      const emailInput = document.querySelector('input[type="email"], input[name="email"], input[placeholder*="email" i]');
+      const emailInput = document.querySelector('input[type="email"], input[name="email"]');
       const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
-      const submitBtn = document.querySelector('button[type="submit"], button:has-text("Log In"), button:has-text("Sign In")');
       
-      if (emailInput) emailInput.value = email;
-      if (passwordInput) passwordInput.value = password;
-      if (emailInput) emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-      if (passwordInput) passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+      // Find submit button by text content
+      const buttons = Array.from(document.querySelectorAll('button[type="submit"], button'));
+      const submitBtn = buttons.find(btn => {
+        const text = (btn.textContent || '').toLowerCase();
+        return text.includes('log in') || text.includes('sign in') || text.includes('login');
+      });
+      
+      if (emailInput) {
+        emailInput.value = email;
+        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+        emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (passwordInput) {
+        passwordInput.value = password;
+        passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+        passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
       if (submitBtn) submitBtn.click();
     }, email, password);
 
