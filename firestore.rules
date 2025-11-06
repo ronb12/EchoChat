@@ -54,6 +54,9 @@ service cloud.firestore {
     
     // Contact requests collection
     match /contactRequests/{requestId} {
+      // Allow list queries for authenticated users (needed for getPendingRequests)
+      allow list: if isAuthenticated();
+      // Allow read if user is sender or receiver
       allow read: if isAuthenticated() && 
         (request.auth.uid == resource.data.fromUserId || 
          request.auth.uid == resource.data.toUserId);
@@ -255,6 +258,69 @@ service cloud.firestore {
       allow write: if isAuthenticated() && 
         (request.auth.uid == userId || 
          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'ronellbradley@bradleyvs.com' ||
+        request.auth.token.admin == true ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true)
+      );
+    }
+    
+    // Ratings Collection
+    match /ratings/{ratingId} {
+      // Allow users to create their own ratings
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      // Allow users to read their own ratings
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      // Allow admins to read all ratings
+      allow read: if isAdmin();
+      // Allow list queries for admins (to view all ratings)
+      allow list: if isAdmin();
+      // No update or delete (ratings are permanent)
+    }
+    
+    // Feature Requests Collection
+    match /featureRequests/{requestId} {
+      // Allow users to create feature requests
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      // Allow users to read their own feature requests
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      // Allow admins to read all feature requests
+      allow read: if isAdmin();
+      // Allow list queries for authenticated users (to view their own requests)
+      allow list: if isAuthenticated();
+      // Allow list queries for admins (to view all requests)
+      allow list: if isAdmin();
+      // Allow users to update their own requests (e.g., add details)
+      allow update: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Support Tickets Collection
+    match /supportTickets/{ticketId} {
+      // Allow users to create support tickets
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      // Allow users to read their own tickets
+      allow read: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+      // Allow admins to read all tickets
+      allow read: if isAdmin();
+      // Allow list queries for authenticated users (to view their own tickets)
+      allow list: if isAuthenticated();
+      // Allow list queries for admins (to view all tickets)
+      allow list: if isAdmin();
+      // Allow users to update their own tickets (e.g., add comments)
+      allow update: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
     }
   }
 }

@@ -24,6 +24,10 @@ import ParentDashboard from './components/ParentDashboard';
 import ParentApprovalModal from './components/ParentApprovalModal';
 import LinkChildModal from './components/LinkChildModal';
 import ContactRequestModal from './components/ContactRequestModal';
+import RatingModal from './components/RatingModal';
+import FeatureRequestModal from './components/FeatureRequestModal';
+import SupportTicketModal from './components/SupportTicketModal';
+import AdminDashboard from './components/AdminDashboard';
 import NotificationToast from './components/NotificationToast';
 import { useAuth } from './hooks/useAuth';
 import { useUI } from './hooks/useUI';
@@ -32,7 +36,7 @@ import { usePresenceStatus, useNotifications } from './hooks/useRealtime';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const { showLoginModal, showSignUpModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, showGroupChatModal, showMediaGallery, closeMediaGallery, showPrivacyModal, showTermsModal, showSupportModal, showParentDashboard, showParentApprovalModal, showLinkChildModal, openLinkChildModal, showContactRequestModal, openContactRequestModal, callModalType, blockUserId, blockUserName, showNotification } = useUI();
+  const { showLoginModal, showSignUpModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, showGroupChatModal, showMediaGallery, closeMediaGallery, showPrivacyModal, showTermsModal, showSupportModal, showParentDashboard, showParentApprovalModal, showLinkChildModal, openLinkChildModal, showContactRequestModal, openContactRequestModal, showRatingModal, showFeatureRequestModal, showSupportTicketModal, showAdminDashboard, callModalType, blockUserId, blockUserName, showNotification } = useUI();
   const { messages } = useChat();
   const { currentChatId } = useChat();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -54,12 +58,14 @@ function AppContent() {
   useEffect(() => {
     if (!user || loading) return;
 
+    let hasChecked = false;
     const checkPendingRequests = async () => {
+      if (hasChecked) return;
+      hasChecked = true;
+      
       try {
-        console.log('🔍 Checking for pending contact requests...');
         const { contactService } = await import('./services/contactService');
         const pendingRequests = await contactService.getPendingRequests(user.uid);
-        console.log('📬 Found pending requests:', pendingRequests?.length || 0);
         
         if (pendingRequests && pendingRequests.length > 0) {
           // Show notification about pending requests
@@ -68,20 +74,15 @@ function AppContent() {
             ? `You have 1 pending contact request. Click to view.`
             : `You have ${count} pending contact requests. Click to view.`;
           
-          console.log('✅ Showing notification for pending requests');
           showNotification(message, 'info', {
             duration: 10000,
             onClick: () => {
-              console.log('📬 Opening contact request modal');
               openContactRequestModal();
             }
           });
-        } else {
-          console.log('ℹ️ No pending contact requests');
         }
       } catch (error) {
-        console.error('❌ Error checking pending contact requests:', error);
-        console.error('Error details:', error.message, error.stack);
+        console.error('Error checking pending contact requests:', error);
       }
     };
 
@@ -352,6 +353,10 @@ function AppContent() {
       {showParentApprovalModal && <ParentApprovalModal />}
       {showLinkChildModal && <LinkChildModal />}
       {showContactRequestModal && <ContactRequestModal />}
+      {showRatingModal && <RatingModal />}
+      {showFeatureRequestModal && <FeatureRequestModal />}
+      {showSupportTicketModal && <SupportTicketModal />}
+      {showAdminDashboard && <AdminDashboard />}
 
       {/* Notifications */}
       <NotificationToast />
