@@ -333,19 +333,6 @@ class ContactService {
       // Normalize userId to ensure it's a string and trimmed
       const normalizedUserId = String(userId).trim();
       
-      // Get user email for dual lookup (best practice from top messaging apps)
-      // This handles cases where UID might not match exactly
-      let userEmail = null;
-      try {
-        const userDoc = await getDoc(doc(db, 'users', normalizedUserId));
-        if (userDoc.exists()) {
-          userEmail = userDoc.data().email || null;
-          console.log('👂 User email for fallback:', userEmail);
-        }
-      } catch (error) {
-        console.error('Error fetching user email for query:', error);
-      }
-      
       const requestsRef = collection(db, 'contactRequests');
       
       // Primary query: by toUserId (most common case)
@@ -359,6 +346,24 @@ class ContactService {
       console.log('👂 Listener userId type:', typeof normalizedUserId, 'length:', normalizedUserId.length);
       console.log('👂 Original userId:', userId, 'type:', typeof userId);
       
+      // Get user email for fallback (async, but we'll fetch it in the callback)
+      let userEmailPromise = null;
+      try {
+        userEmailPromise = getDoc(doc(db, 'users', normalizedUserId)).then(doc => {
+          if (doc.exists()) {
+            const email = doc.data().email || null;
+            console.log('👂 User email for fallback:', email);
+            return email;
+          }
+          return null;
+        }).catch(err => {
+          console.error('Error fetching user email for query:', err);
+          return null;
+        });
+      } catch (error) {
+        console.error('Error setting up email fetch:', error);
+      }
+      
       // Set up primary listener
       const unsubscribe = onSnapshot(
         primaryQuery,
@@ -367,34 +372,37 @@ class ContactService {
           
           let finalSnapshot = snapshot;
           
-          // If no results and we have email, try fallback query by email
+          // If no results, try fallback query by email
           // This follows best practices from top messaging apps (dual lookup)
-          if (snapshot.size === 0 && userEmail) {
-            console.log('⚠️ No results by UID in real-time listener, trying fallback query by email...');
-            try {
-              const fallbackQuery = query(
-                requestsRef,
-                where('toUserEmail', '==', userEmail),
-                where('status', '==', 'pending')
-              );
-              const fallbackSnapshot = await getDocs(fallbackQuery);
-              console.log('📊 Fallback query result (by email):', fallbackSnapshot.size, 'documents found');
-              
-              if (fallbackSnapshot.size > 0) {
-                console.warn('⚠️ MISMATCH DETECTED in real-time listener: Found requests by email but not by UID!');
-                console.warn('   This means the toUserId in documents does not match the receiver\'s Firebase Auth UID');
-                console.warn('   Query UID:', normalizedUserId);
-                console.warn('   Query Email:', userEmail);
+          if (snapshot.size === 0 && userEmailPromise) {
+            const userEmail = await userEmailPromise;
+            if (userEmail) {
+              console.log('⚠️ No results by UID in real-time listener, trying fallback query by email...');
+              try {
+                const fallbackQuery = query(
+                  requestsRef,
+                  where('toUserEmail', '==', userEmail),
+                  where('status', '==', 'pending')
+                );
+                const fallbackSnapshot = await getDocs(fallbackQuery);
+                console.log('📊 Fallback query result (by email):', fallbackSnapshot.size, 'documents found');
                 
-                // Create a snapshot-like object from the fallback results
-                finalSnapshot = {
-                  docs: fallbackSnapshot.docs,
-                  size: fallbackSnapshot.size,
-                  empty: fallbackSnapshot.empty
-                };
+                if (fallbackSnapshot.size > 0) {
+                  console.warn('⚠️ MISMATCH DETECTED in real-time listener: Found requests by email but not by UID!');
+                  console.warn('   This means the toUserId in documents does not match the receiver\'s Firebase Auth UID');
+                  console.warn('   Query UID:', normalizedUserId);
+                  console.warn('   Query Email:', userEmail);
+                  
+                  // Create a snapshot-like object from the fallback results
+                  finalSnapshot = {
+                    docs: fallbackSnapshot.docs,
+                    size: fallbackSnapshot.size,
+                    empty: fallbackSnapshot.empty
+                  };
+                }
+              } catch (error) {
+                console.error('Error in fallback query:', error);
               }
-            } catch (error) {
-              console.error('Error in fallback query:', error);
             }
           }
           
