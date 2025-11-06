@@ -35,9 +35,31 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && isOwner(userId);
     }
     
-    // Contacts collection - user's contact list
-    match /contacts/{userId} {
-      allow read, write: if isOwner(userId);
+    // Contacts collection - documents with userId and contactId fields
+    match /contacts/{contactId} {
+      // Allow list queries for authenticated users (will filter by userId in query)
+      allow list: if isAuthenticated();
+      // Allow read if the document's userId field matches the authenticated user
+      allow get: if isAuthenticated() && 
+        (resource.data.userId == request.auth.uid || 
+         resource == null);
+      // Allow write if userId matches authenticated user
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Contact requests collection
+    match /contactRequests/{requestId} {
+      allow read: if isAuthenticated() && 
+        (request.auth.uid == resource.data.fromUserId || 
+         request.auth.uid == resource.data.toUserId);
+      allow create: if isAuthenticated() && 
+        request.auth.uid == request.resource.data.fromUserId;
+      allow update, delete: if isAuthenticated() && 
+        (request.auth.uid == resource.data.fromUserId || 
+         request.auth.uid == resource.data.toUserId);
     }
     
     // Chats collection
@@ -90,9 +112,20 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
     
-    // Blocked users collection
-    match /blocked/{userId} {
-      allow read, write: if isOwner(userId);
+    // Blocked users collection - query structure: documents with userId field
+    match /blocked/{blockedId} {
+      // Allow list queries for authenticated users (will filter by userId in query)
+      allow list: if isAuthenticated();
+      // Allow read if the document's userId field matches the authenticated user
+      allow get: if isAuthenticated() && 
+        (resource.data.userId == request.auth.uid || 
+         resource == null || 
+         request.auth.uid == blockedId);
+      // Allow write if userId matches authenticated user
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
     }
     
     // Reports collection
