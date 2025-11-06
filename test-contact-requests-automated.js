@@ -844,42 +844,93 @@ async function logout(page) {
     }
   }
 
-  // Wait for auth state to change
+  // Get current user email before logout for verification
+  const currentUserEmail = await page.evaluate(async () => {
+    try {
+      const { auth } = await import('/src/services/firebaseConfig.js');
+      return auth.currentUser?.email || null;
+    } catch (e) {
+      return null;
+    }
+  });
+  
+  if (currentUserEmail) {
+    console.log(`   Current user: ${currentUserEmail}`);
+  }
+
+  // Try using authService signOut (more reliable)
+  const authServiceSignOut = await page.evaluate(async () => {
+    try {
+      const authService = await import('/src/services/authService.js');
+      const result = await authService.default.signOut();
+      console.log('🔐 AuthService signOut result:', result);
+      return result.success;
+    } catch (error) {
+      console.error('Error in authService signOut:', error);
+      return false;
+    }
+  });
+
+  if (authServiceSignOut) {
+    console.log('✅ AuthService signOut called');
+    await sleep(2000);
+  }
+
+  // Clear all storage
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  
+  // Reload page to ensure auth state is cleared
+  console.log('   Reloading page to clear auth state...');
+  await page.reload({ waitUntil: 'networkidle0', timeout: 30000 });
   await sleep(2000);
 
-  // Verify logout - check multiple times
+  // Verify logout by checking auth.currentUser
   let verifiedLogout = false;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 10; i++) {
     await sleep(1000);
-    verifiedLogout = await page.evaluate(() => {
-      // Check if app elements are gone (user logged out)
-      const hasAppElements = !!(
-        document.querySelector('.chat-area') ||
-        document.querySelector('.sidebar') ||
-        document.querySelector('.app-header')
-      );
-      
-      // Check if login modal or landing page is visible
-      const loginModal = document.querySelector('.login-modal, #login-modal');
-      const landingPage = document.querySelector('.landing-page, [class*="landing"]');
-      
-      return !hasAppElements || (loginModal && loginModal.offsetParent !== null) || !!landingPage;
+    const authState = await page.evaluate(async () => {
+      try {
+        const { auth } = await import('/src/services/firebaseConfig.js');
+        return {
+          currentUser: auth.currentUser ? {
+            uid: auth.currentUser.uid,
+            email: auth.currentUser.email
+          } : null
+        };
+      } catch (e) {
+        return { error: e.message, currentUser: null };
+      }
     });
     
-    if (verifiedLogout) {
-      console.log(`✅ Verified logout successful (attempt ${i + 1})`);
+    if (!authState.currentUser) {
+      verifiedLogout = true;
+      console.log(`✅ Verified logout successful - no currentUser (attempt ${i + 1})`);
       break;
+    } else {
+      console.log(`   Still logged in as: ${authState.currentUser.email} (attempt ${i + 1})`);
     }
   }
 
   if (!verifiedLogout) {
-    console.log('⚠️ Logout verification failed - trying to clear localStorage...');
-    // Last resort: clear localStorage and reload
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
+    console.log('⚠️ Logout verification failed - forcing logout with page reload...');
+    // Last resort: navigate to a new page to force logout
+    await page.goto('http://localhost:3002', { waitUntil: 'networkidle0', timeout: 30000 });
+    await sleep(3000);
+    
+    // Check one more time
+    const finalCheck = await page.evaluate(async () => {
+      try {
+        const { auth } = await import('/src/services/firebaseConfig.js');
+        return auth.currentUser === null;
+      } catch (e) {
+        return true; // Assume logged out if we can't check
+      }
     });
-    await sleep(1000);
+    
+    verifiedLogout = finalCheck;
   }
 
   return verifiedLogout;
@@ -963,12 +1014,105 @@ async function runTest() {
 
     // Step 2: Send contact request
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // First, delete any existing contact requests between User 1 and User 2
+    console.log('🗑️  Deleting any existing contact requests...');
+    const deleteResult = await page.evaluate(async (user1Email, user2Email) => {
+      try {
+        const { auth } = await import('/src/services/firebaseConfig.js');
+        const { contactService } = await import('/src/services/contactService.js');
+        
+        if (!auth.currentUser) {
+          return { error: 'Not logged in' };
+        }
+        
+        const currentUserId = auth.currentUser.uid;
+        
+        // Get User 2's ID by searching for them
+        const { db } = await import('/src/services/firebaseConfig.js');
+        // Import firestore functions - use dynamic import that works in browser context
+        const firestoreModule = await import('firebase/firestore');
+        const { collection, getDocs } = firestoreModule;
+        
+        const usersRef = collection(db, 'users');
+        const usersSnapshot = await getDocs(usersRef);
+        let user2Id = null;
+        
+        usersSnapshot.forEach((docSnap) => {
+          const userData = docSnap.data();
+          if (userData.email && userData.email.toLowerCase() === user2Email.toLowerCase()) {
+            user2Id = docSnap.id;
+          }
+        });
+        
+        if (!user2Id) {
+          return { error: 'User 2 not found' };
+        }
+        
+        // Delete the request (both directions just in case)
+        const result1 = await contactService.deleteContactRequest(currentUserId, user2Id);
+        const result2 = await contactService.deleteContactRequest(user2Id, currentUserId);
+        
+        return {
+          success: result1.success || result2.success,
+          user1Id: currentUserId,
+          user2Id: user2Id,
+          deleted1: result1.success,
+          deleted2: result2.success
+        };
+      } catch (error) {
+        return { error: error.message, stack: error.stack };
+      }
+    }, TEST_USERS.user1.email, TEST_USERS.user2.email);
+    
+    if (deleteResult.error) {
+      console.log(`⚠️ Could not delete existing requests: ${deleteResult.error}`);
+    } else {
+      console.log(`✅ Delete attempt completed:`, deleteResult);
+      if (deleteResult.deleted1 || deleteResult.deleted2) {
+        console.log(`   Deleted existing request(s)`);
+      } else {
+        console.log(`   No existing requests found (this is OK)`);
+      }
+    }
+    
+    await sleep(2000); // Wait for deletion to complete
+    
+    // Clear console logs before sending request to capture fresh logs
+    const logsBeforeRequest = consoleLogs.length;
+    
     results.sendRequest = await sendContactRequest(page, TEST_USERS.user2.email);
     if (!results.sendRequest) {
       console.log('⚠️ Failed to send contact request, but continuing test...');
     }
 
     await sleep(3000); // Wait for request to be saved
+    
+    // Extract stored toUserId and toUserEmail from console logs
+    const requestLogs = consoleLogs.slice(logsBeforeRequest);
+    const storedToUserId = requestLogs
+      .map(log => {
+        // Look for "toUserId (stored):" or "toUserId:" patterns
+        const match = log.text.match(/toUserId[:\s(]+(?:stored[:\s)]+)?([A-Za-z0-9]{28})/);
+        return match ? match[1] : null;
+      })
+      .filter(uid => uid)[0];
+    
+    const storedToUserEmail = requestLogs
+      .map(log => {
+        // Look for "toUserEmail (stored):" patterns
+        const match = log.text.match(/toUserEmail[:\s(]+(?:stored[:\s)]+)?([^\s\)]+@[^\s\)]+)/);
+        return match ? match[1] : null;
+      })
+      .filter(email => email)[0];
+    
+    if (storedToUserId) {
+      console.log(`\n📋 Contact Request Stored Values (from logs):`);
+      console.log(`   toUserId (stored): ${storedToUserId}`);
+      if (storedToUserEmail) {
+        console.log(`   toUserEmail (stored): ${storedToUserEmail}`);
+      }
+    }
 
     // Step 3: Logout
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -1072,18 +1216,68 @@ async function runTest() {
       console.log('   This means the request was never saved, or was deleted');
     }
     
-    // Extract User 2's UID from console logs
-    const user2UidFromLogs = consoleLogs
-      .filter(log => log.text.includes('subscribeToPendingRequests') || log.text.includes('getPendingRequests'))
+    // Extract User 2's UID from console logs (after login)
+    const logsAfterUser2Login = consoleLogs.slice(logsBeforeRequest);
+    const user2UidFromLogs = logsAfterUser2Login
+      .filter(log => {
+        // Only get UIDs from logs after User 2 login (look for the second login)
+        const text = log.text;
+        return (text.includes('subscribeToPendingRequests') || text.includes('getPendingRequests')) &&
+               text.includes('Query userId');
+      })
       .map(log => {
-        const match = log.text.match(/userId[:\s]+([A-Za-z0-9]{28})/);
+        const match = log.text.match(/Query userId[:\s]+([A-Za-z0-9]{28})/);
         return match ? match[1] : null;
       })
-      .filter(uid => uid)[0];
+      .filter(uid => uid)
+      .slice(-1)[0]; // Get the last one (should be User 2)
+    
+    // Extract User 2's email from logs
+    const user2EmailFromLogs = logsAfterUser2Login
+      .filter(log => log.text.includes('User email for fallback query'))
+      .map(log => {
+        const match = log.text.match(/User email for fallback query[:\s]+([^\s]+@[^\s]+)/);
+        return match ? match[1] : null;
+      })
+      .filter(email => email)
+      .slice(-1)[0]; // Get the last one (should be User 2)
     
     if (user2UidFromLogs) {
-      console.log(`\n📋 User 2 UID extracted from logs: ${user2UidFromLogs}`);
+      console.log(`\n📋 User 2 Query Values (from logs):`);
+      console.log(`   Query userId: ${user2UidFromLogs}`);
+      if (user2EmailFromLogs) {
+        console.log(`   Query email: ${user2EmailFromLogs}`);
+      }
+      
+      // Compare stored values with query values
+      if (storedToUserId) {
+        console.log(`\n🔍 COMPARISON:`);
+        console.log(`   Stored toUserId:    "${storedToUserId}"`);
+        console.log(`   User 2 Query UID:   "${user2UidFromLogs}"`);
+        const uidMatches = String(storedToUserId) === String(user2UidFromLogs);
+        console.log(`   UID Match: ${uidMatches ? '✅ YES' : '❌ NO'}`);
+        
+        if (storedToUserEmail && user2EmailFromLogs) {
+          console.log(`   Stored toUserEmail:  "${storedToUserEmail}"`);
+          console.log(`   User 2 Query Email:  "${user2EmailFromLogs}"`);
+          const emailMatches = String(storedToUserEmail).toLowerCase() === String(user2EmailFromLogs).toLowerCase();
+          console.log(`   Email Match: ${emailMatches ? '✅ YES' : '❌ NO'}`);
+          
+          if (!uidMatches && !emailMatches) {
+            console.log(`\n❌ MISMATCH DETECTED: Neither UID nor email matches!`);
+            console.log(`   This explains why the request is not found.`);
+            console.log(`   The toUserId stored (${storedToUserId}) does not match User 2's Firebase Auth UID (${user2UidFromLogs})`);
+            console.log(`   The toUserEmail stored (${storedToUserEmail}) does not match User 2's email (${user2EmailFromLogs})`);
+          } else if (!uidMatches && emailMatches) {
+            console.log(`\n⚠️ UID MISMATCH: Email matches but UID doesn't`);
+            console.log(`   The fallback query by email should find the request, but it's not working.`);
+            console.log(`   This might be a Firestore query issue or the request was never saved.`);
+          }
+        }
+      }
+      
       if (firestoreCheck.allRequests && firestoreCheck.allRequests.length > 0) {
+        console.log(`\n📋 Firestore Document Comparison:`);
         firestoreCheck.allRequests.forEach((req, i) => {
           const matches = String(req.toUserId) === String(user2UidFromLogs);
           console.log(`   Request ${i + 1} toUserId matches User 2: ${matches ? '✅ YES' : '❌ NO'}`);

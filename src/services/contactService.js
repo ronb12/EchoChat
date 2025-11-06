@@ -720,6 +720,34 @@ class ContactService {
   }
 
   /**
+   * Delete a contact request between two users
+   * @param {string} fromUserId - Sender's ID
+   * @param {string} toUserId - Receiver's ID
+   * @returns {Promise<{success: boolean}>}
+   */
+  async deleteContactRequest(fromUserId, toUserId) {
+    try {
+      const normalizedFromUserId = String(fromUserId).trim();
+      const normalizedToUserId = String(toUserId).trim();
+      const requestId = `${normalizedFromUserId}_${normalizedToUserId}`;
+      const requestRef = doc(db, 'contactRequests', requestId);
+      
+      const requestSnap = await getDoc(requestRef);
+      if (requestSnap.exists()) {
+        await deleteDoc(requestRef);
+        console.log(`✅ Deleted contact request: ${requestId}`);
+        return { success: true };
+      } else {
+        console.log(`ℹ️ Contact request not found: ${requestId}`);
+        return { success: false, error: 'Request not found' };
+      }
+    } catch (error) {
+      console.error('Error deleting contact request:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Get contact requests sent by a user (outgoing requests)
    * @param {string} userId - User's ID
    * @returns {Promise<Array>}
