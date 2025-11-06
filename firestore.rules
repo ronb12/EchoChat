@@ -41,13 +41,17 @@ service cloud.firestore {
     match /contacts/{contactId} {
       // Allow list queries for authenticated users (will filter by userId in query)
       allow list: if isAuthenticated();
-      // Allow read if the document's userId field matches the authenticated user
+      // Allow read if the document's userId or contactId field matches the authenticated user
       allow get: if isAuthenticated() && 
         (resource.data.userId == request.auth.uid || 
+         resource.data.contactId == request.auth.uid ||
          resource == null);
-      // Allow write if userId matches authenticated user
+      // Allow create if userId matches authenticated user (own contact list)
+      // OR if contactId matches authenticated user (reverse entry when accepting request)
       allow create: if isAuthenticated() && 
-        request.resource.data.userId == request.auth.uid;
+        (request.resource.data.userId == request.auth.uid ||
+         request.resource.data.contactId == request.auth.uid);
+      // Allow update/delete if userId matches authenticated user
       allow update, delete: if isAuthenticated() && 
         resource.data.userId == request.auth.uid;
     }
