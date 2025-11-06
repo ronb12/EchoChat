@@ -7,7 +7,7 @@ import { firestoreService } from '../services/firestoreService';
 import { contactService } from '../services/contactService';
 import { minorSafetyService } from '../services/minorSafetyService';
 import { db } from '../services/firebaseConfig';
-import { collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, limit, doc, getDoc } from 'firebase/firestore';
 
 export default function NewChatModal() {
   const { closeNewChatModal, closeSidebar, showNotification } = useUI();
@@ -257,6 +257,32 @@ export default function NewChatModal() {
       fromUserIdLength: user.uid?.length,
       toUserIdLength: searchedUser.id?.length
     });
+    
+    // IMPORTANT: Verify the toUserId matches the receiver's Firebase Auth UID
+    // The searchedUser.id should be the Firestore document ID, which should match Firebase Auth UID
+    console.log('⚠️ VERIFICATION: toUserId should match receiver\'s Firebase Auth UID');
+    console.log('   If they don\'t match, the receiver won\'t see the request!');
+    console.log('   searchedUser.id (toUserId):', searchedUser.id);
+    console.log('   searchedUser.id type:', typeof searchedUser.id, 'length:', searchedUser.id?.length);
+    console.log('   This ID should match the receiver\'s Firebase Auth UID exactly');
+    
+    // Verify the user document exists and check if the ID matches
+    try {
+      const userDocRef = doc(db, 'users', searchedUser.id);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        console.log('✅ User document found in Firestore');
+        console.log('   Document ID:', searchedUser.id);
+        console.log('   User email:', userData.email);
+        console.log('   Note: Document ID should match Firebase Auth UID for queries to work');
+      } else {
+        console.warn('⚠️ User document not found in Firestore with ID:', searchedUser.id);
+        console.warn('   This might cause issues when querying for pending requests');
+      }
+    } catch (verifyError) {
+      console.error('❌ Error verifying user document:', verifyError);
+    }
     
     // Check if already a contact
     if (searchedUser.isContact) {

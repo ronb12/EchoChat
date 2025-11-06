@@ -60,38 +60,43 @@ export default function AppHeader() {
     return () => window.removeEventListener('showContactRequests', handleShowContactRequests);
   }, []);
 
-  // Load and refresh pending requests
+  // Load and refresh pending requests with real-time listener
   useEffect(() => {
     if (!user) {
       setPendingRequestsCount(0);
       return;
     }
 
-    let intervalId = null;
+    let unsubscribe = null;
+    let isMounted = true;
 
-    const loadPendingRequests = async () => {
+    const setupListener = async () => {
       try {
         const { contactService } = await import('../services/contactService');
-        const requests = await contactService.getPendingRequests(user.uid);
-        const count = requests?.length || 0;
-        setPendingRequestsCount(count);
-        console.log('📬 Pending contact requests:', count);
+        
+        // Set up real-time listener for immediate updates
+        unsubscribe = contactService.subscribeToPendingRequests(user.uid, (requests) => {
+          if (isMounted) {
+            const count = requests?.length || 0;
+            setPendingRequestsCount(count);
+            console.log('📬 Pending contact requests (real-time):', count);
+          }
+        });
       } catch (error) {
-        console.error('Error loading pending requests:', error);
-        setPendingRequestsCount(0);
+        console.error('Error setting up pending requests listener:', error);
+        if (isMounted) {
+          setPendingRequestsCount(0);
+        }
       }
     };
 
-    // Load immediately
-    loadPendingRequests();
-
-    // Refresh every 30 seconds
-    intervalId = setInterval(loadPendingRequests, 30000);
+    setupListener();
 
     // Cleanup on unmount or user change
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
+      isMounted = false;
+      if (unsubscribe) {
+        unsubscribe();
       }
     };
   }, [user]);

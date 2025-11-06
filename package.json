@@ -50,6 +50,7 @@
     "test:setup-payments-simple": "node scripts/test-setup-payments-simple.js",
     "test:parent-child": "node scripts/test-parent-child-features.js",
     "test:contact-requests": "node scripts/test-contact-requests.js",
+    "test:contact-requests:auto": "node test-contact-requests-automated.js",
     "test:user-search": "node scripts/test-user-search.js",
     "test:auth": "node test-auth-automated.js",
     "test:auth:watch": "HEADLESS=false node test-auth-automated.js",

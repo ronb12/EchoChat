@@ -2,7 +2,7 @@
 // Allows users to only chat with approved contacts
 
 import { db } from './firebaseConfig';
-import { collection, doc, getDoc, setDoc, getDocs, query, where, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, getDocs, query, where, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { firestoreService } from './firestoreService';
 
 class ContactService {
@@ -30,13 +30,44 @@ class ContactService {
         return { success: false, error: 'Request already sent' };
       }
 
-      // Create contact request
-      const requestId = `${fromUserId}_${toUserId}`;
+      // Normalize user IDs to ensure they're strings and trimmed
+      const normalizedFromUserId = String(fromUserId).trim();
+      const normalizedToUserId = String(toUserId).trim();
+      
+      // Get user emails for dual lookup (best practice from top messaging apps)
+      // This allows querying by both UID and email if UID doesn't match
+      let fromUserEmail = null;
+      let toUserEmail = null;
+      
+      try {
+        const fromUserDoc = await getDoc(doc(db, 'users', normalizedFromUserId));
+        if (fromUserDoc.exists()) {
+          fromUserEmail = fromUserDoc.data().email || null;
+        }
+        
+        const toUserDoc = await getDoc(doc(db, 'users', normalizedToUserId));
+        if (toUserDoc.exists()) {
+          toUserEmail = toUserDoc.data().email || null;
+        } else {
+          console.warn('⚠️ Receiver user document not found in Firestore!');
+          console.warn('   This may cause issues - the toUserId might not match their Firebase Auth UID');
+          console.warn('   toUserId:', normalizedToUserId);
+        }
+      } catch (error) {
+        console.error('Error fetching user emails:', error);
+        // Continue anyway - emails are optional but helpful
+      }
+      
+      // Create contact request with dual identifiers (UID + email)
+      // This follows best practices from Discord/Facebook Messenger
+      const requestId = `${normalizedFromUserId}_${normalizedToUserId}`;
       const requestRef = doc(db, 'contactRequests', requestId);
       
       const requestData = {
-        fromUserId,
-        toUserId,
+        fromUserId: normalizedFromUserId,
+        fromUserEmail: fromUserEmail, // Added for dual lookup
+        toUserId: normalizedToUserId,
+        toUserEmail: toUserEmail,     // Added for dual lookup
         status: 'pending',
         createdAt: Date.now(),
         updatedAt: Date.now()
@@ -44,14 +75,21 @@ class ContactService {
       
       console.log('📤 Creating contact request:', {
         requestId,
-        fromUserId,
-        toUserId,
-        fromUserIdType: typeof fromUserId,
-        toUserIdType: typeof toUserId,
-        fromUserIdLength: fromUserId?.length,
-        toUserIdLength: toUserId?.length,
+        fromUserId: normalizedFromUserId,
+        toUserId: normalizedToUserId,
+        fromUserIdType: typeof normalizedFromUserId,
+        toUserIdType: typeof normalizedToUserId,
+        fromUserIdLength: normalizedFromUserId.length,
+        toUserIdLength: normalizedToUserId.length,
+        originalFromUserId: fromUserId,
+        originalToUserId: toUserId,
         status: 'pending'
       });
+      
+      // Verify the toUserId matches what will be queried
+      console.log('🔍 Verification: toUserId will be queried as:', normalizedToUserId);
+      console.log('🔍 Verification: Receiver should query with their Firebase Auth UID');
+      console.log('🔍 Verification: If receiver\'s UID !==', normalizedToUserId, ', request won\'t be found!');
       
       try {
         await setDoc(requestRef, requestData);
@@ -92,14 +130,14 @@ class ContactService {
           savedStatus: savedData.status,
           createdAt: savedData.createdAt,
           updatedAt: savedData.updatedAt,
-          toUserIdMatch: savedData.toUserId === toUserId,
-          fromUserIdMatch: savedData.fromUserId === fromUserId
+          toUserIdMatch: savedData.toUserId === normalizedToUserId,
+          fromUserIdMatch: savedData.fromUserId === normalizedFromUserId
         });
         
         // Additional verification: Check if document can be queried
         const testQuery = query(
           collection(db, 'contactRequests'),
-          where('toUserId', '==', toUserId),
+          where('toUserId', '==', normalizedToUserId),
           where('status', '==', 'pending')
         );
         const testSnapshot = await getDocs(testQuery);
@@ -107,8 +145,14 @@ class ContactService {
         
         if (foundInQuery) {
           console.log('✅ Document is queryable (can be found by receiver)');
+          console.log('✅ Receiver should be able to see this request when querying with toUserId:', normalizedToUserId);
         } else {
           console.warn('⚠️ Document exists but not found in query - may be a Firestore rules or index issue');
+          console.warn('⚠️ Query used toUserId:', normalizedToUserId);
+          console.warn('⚠️ This might indicate:');
+          console.warn('   1. Firestore composite index not created');
+          console.warn('   2. Firestore rules blocking the query');
+          console.warn('   3. toUserId mismatch (document has different toUserId than query)');
         }
       } else {
         console.error('❌ Contact request was NOT saved to Firestore!');
@@ -279,6 +323,153 @@ class ContactService {
   }
 
   /**
+   * Subscribe to pending contact requests for a user (real-time)
+   * @param {string} userId - User's ID
+   * @param {Function} callback - Callback function that receives the requests array
+   * @returns {Function} Unsubscribe function
+   */
+  subscribeToPendingRequests(userId, callback) {
+    try {
+      // Normalize userId to ensure it's a string and trimmed
+      const normalizedUserId = String(userId).trim();
+      
+      // Get user email for dual lookup (best practice from top messaging apps)
+      // This handles cases where UID might not match exactly
+      let userEmail = null;
+      try {
+        const userDoc = await getDoc(doc(db, 'users', normalizedUserId));
+        if (userDoc.exists()) {
+          userEmail = userDoc.data().email || null;
+          console.log('👂 User email for fallback:', userEmail);
+        }
+      } catch (error) {
+        console.error('Error fetching user email for query:', error);
+      }
+      
+      const requestsRef = collection(db, 'contactRequests');
+      
+      // Primary query: by toUserId (most common case)
+      const primaryQuery = query(
+        requestsRef,
+        where('toUserId', '==', normalizedUserId),
+        where('status', '==', 'pending')
+      );
+
+      console.log('👂 Setting up real-time listener for pending requests:', normalizedUserId);
+      console.log('👂 Listener userId type:', typeof normalizedUserId, 'length:', normalizedUserId.length);
+      console.log('👂 Original userId:', userId, 'type:', typeof userId);
+      
+      // Set up primary listener
+      const unsubscribe = onSnapshot(
+        primaryQuery,
+        async (snapshot) => {
+          console.log('📬 Real-time update: pending requests changed. Count:', snapshot.size);
+          
+          let finalSnapshot = snapshot;
+          
+          // If no results and we have email, try fallback query by email
+          // This follows best practices from top messaging apps (dual lookup)
+          if (snapshot.size === 0 && userEmail) {
+            console.log('⚠️ No results by UID in real-time listener, trying fallback query by email...');
+            try {
+              const fallbackQuery = query(
+                requestsRef,
+                where('toUserEmail', '==', userEmail),
+                where('status', '==', 'pending')
+              );
+              const fallbackSnapshot = await getDocs(fallbackQuery);
+              console.log('📊 Fallback query result (by email):', fallbackSnapshot.size, 'documents found');
+              
+              if (fallbackSnapshot.size > 0) {
+                console.warn('⚠️ MISMATCH DETECTED in real-time listener: Found requests by email but not by UID!');
+                console.warn('   This means the toUserId in documents does not match the receiver\'s Firebase Auth UID');
+                console.warn('   Query UID:', normalizedUserId);
+                console.warn('   Query Email:', userEmail);
+                
+                // Create a snapshot-like object from the fallback results
+                finalSnapshot = {
+                  docs: fallbackSnapshot.docs,
+                  size: fallbackSnapshot.size,
+                  empty: fallbackSnapshot.empty
+                };
+              }
+            } catch (error) {
+              console.error('Error in fallback query:', error);
+            }
+          }
+          
+          // Debug: Log all documents to check for ID mismatches
+          if (finalSnapshot.size > 0) {
+            finalSnapshot.docs.forEach((docSnap) => {
+              const data = docSnap.data();
+              const toUserIdMatch = String(data.toUserId) === String(normalizedUserId);
+              console.log('📄 Request in snapshot:', {
+                id: docSnap.id,
+                fromUserId: data.fromUserId,
+                toUserId: data.toUserId,
+                toUserIdType: typeof data.toUserId,
+                toUserIdLength: data.toUserId?.length,
+                queryUserId: normalizedUserId,
+                queryUserIdType: typeof normalizedUserId,
+                queryUserIdLength: normalizedUserId.length,
+                matches: toUserIdMatch
+              });
+              
+              if (!toUserIdMatch) {
+                console.error('❌ ID MISMATCH in real-time listener!');
+                console.error('   Document toUserId:', data.toUserId, `(${typeof data.toUserId}, length: ${data.toUserId?.length})`);
+                console.error('   Query userId:', normalizedUserId, `(${typeof normalizedUserId}, length: ${normalizedUserId.length})`);
+              }
+            });
+          }
+          
+          // Fetch all user data in parallel
+          const requestPromises = finalSnapshot.docs.map(async (docSnap) => {
+            const requestData = docSnap.data();
+            
+            // Get sender user details
+            try {
+              const userDoc = await getDoc(doc(db, 'users', requestData.fromUserId));
+              if (userDoc.exists()) {
+                return {
+                  id: docSnap.id,
+                  ...requestData,
+                  fromUser: {
+                    id: requestData.fromUserId,
+                    ...userDoc.data()
+                  }
+                };
+              } else {
+                console.warn('⚠️ Sender user not found for request:', requestData.fromUserId);
+                return null;
+              }
+            } catch (error) {
+              console.error('Error fetching sender user:', error);
+              return null;
+            }
+          });
+
+          // Wait for all user data to be fetched
+          const requests = (await Promise.all(requestPromises)).filter(req => req !== null);
+
+          console.log('✅ Real-time callback with', requests.length, 'pending requests');
+          callback(requests);
+        },
+        (error) => {
+          console.error('❌ Error in real-time listener for pending requests:', error);
+          callback([]);
+        }
+      );
+
+      return unsubscribe;
+    } catch (error) {
+      console.error('❌ Error setting up real-time listener:', error);
+      callback([]);
+      return () => {}; // Return no-op unsubscribe function
+    }
+  }
+
+  /**
    * Get pending contact requests for a user
    * @param {string} userId - User's ID
    * @returns {Promise<Array>}
@@ -298,11 +489,25 @@ class ContactService {
       );
       
       console.log('📡 Querying Firestore for ALL requests (toUserId only)...');
+      console.log('🔍 Query userId:', userId);
+      console.log('🔍 Query userId type:', typeof userId);
+      console.log('🔍 Query userId length:', userId?.length);
+      
       const allSnapshot = await getDocs(allRequestsQuery);
       console.log('📊 All requests found (any status):', allSnapshot.size);
       
+      if (allSnapshot.size === 0) {
+        console.warn('⚠️ No requests found at all! This could mean:');
+        console.warn('   1. No requests have been sent to this user');
+        console.warn('   2. The toUserId in documents doesn\'t match this userId');
+        console.warn('   3. Firestore rules are blocking the query');
+      }
+      
       allSnapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        const toUserIdMatch = data.toUserId === userId;
+        const toUserIdStrictMatch = String(data.toUserId) === String(userId);
+        
         console.log('📄 Request document:', {
           id: docSnap.id,
           fromUserId: data.fromUserId,
@@ -310,20 +515,78 @@ class ContactService {
           status: data.status,
           toUserIdType: typeof data.toUserId,
           toUserIdLength: data.toUserId?.length,
-          userIdMatch: data.toUserId === userId
+          queryUserId: userId,
+          queryUserIdType: typeof userId,
+          queryUserIdLength: userId?.length,
+          userIdMatch: toUserIdMatch,
+          userIdStrictMatch: toUserIdStrictMatch,
+          userIdsEqual: data.toUserId === userId,
+          userIdsStringEqual: String(data.toUserId) === String(userId)
         });
+        
+        if (!toUserIdMatch) {
+          console.error('❌ MISMATCH DETECTED!');
+          console.error('   Document toUserId:', data.toUserId, `(${typeof data.toUserId}, length: ${data.toUserId?.length})`);
+          console.error('   Query userId:', userId, `(${typeof userId}, length: ${userId?.length})`);
+          console.error('   They are NOT equal!');
+        }
       });
       
       // Now query with status filter
+      // IMPORTANT: Ensure userId is a string and matches exactly
+      const queryUserId = String(userId).trim();
+      console.log('📡 Querying Firestore for pending requests (with status filter)...');
+      console.log('📡 Query userId (normalized):', queryUserId, 'type:', typeof queryUserId, 'length:', queryUserId.length);
+      
+      // Get user email for potential fallback query
+      let userEmail = null;
+      try {
+        const userDoc = await getDoc(doc(db, 'users', queryUserId));
+        if (userDoc.exists()) {
+          userEmail = userDoc.data().email || null;
+          console.log('📧 User email for fallback query:', userEmail);
+        }
+      } catch (error) {
+        console.error('Error fetching user email:', error);
+      }
+      
+      // Primary query: by toUserId
       const q = query(
         requestsRef,
-        where('toUserId', '==', userId),
+        where('toUserId', '==', queryUserId),
         where('status', '==', 'pending')
       );
       
-      console.log('📡 Querying Firestore for pending requests (with status filter)...');
-      const snapshot = await getDocs(q);
+      let snapshot = await getDocs(q);
       console.log('📊 Query result (pending only):', snapshot.size, 'documents found');
+      
+      // If no results and we have email, try fallback query by email
+      // This follows best practices from top messaging apps (dual lookup)
+      if (snapshot.size === 0 && userEmail) {
+        console.log('⚠️ No results by UID, trying fallback query by email...');
+        const fallbackQuery = query(
+          requestsRef,
+          where('toUserEmail', '==', userEmail),
+          where('status', '==', 'pending')
+        );
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        console.log('📊 Fallback query result (by email):', fallbackSnapshot.size, 'documents found');
+        
+        if (fallbackSnapshot.size > 0) {
+          console.warn('⚠️ MISMATCH DETECTED: Found requests by email but not by UID!');
+          console.warn('   This means the toUserId in documents does not match the receiver\'s Firebase Auth UID');
+          console.warn('   Query UID:', queryUserId);
+          console.warn('   Query Email:', userEmail);
+          fallbackSnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            console.warn('   Document toUserId:', data.toUserId);
+            console.warn('   Document toUserEmail:', data.toUserEmail);
+          });
+          
+          // Use fallback results
+          snapshot = fallbackSnapshot;
+        }
+      }
 
       const requests = [];
       for (const docSnap of snapshot.docs) {
