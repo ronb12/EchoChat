@@ -249,7 +249,37 @@ class ContactService {
 
       const requestData = requestSnap.data();
       
-      if (requestData.toUserId !== userId) {
+      // Normalize user IDs for comparison
+      const normalizedUserId = String(userId).trim();
+      const normalizedToUserId = String(requestData.toUserId || '').trim();
+      
+      // Check authorization: UID must match OR email must match (fallback for UID mismatches)
+      let isAuthorized = normalizedToUserId === normalizedUserId;
+      
+      if (!isAuthorized) {
+        // Fallback: Check by email if UID doesn't match
+        // This handles cases where the toUserId stored doesn't match the receiver's Firebase Auth UID
+        try {
+          const userDoc = await getDoc(doc(db, 'users', normalizedUserId));
+          if (userDoc.exists()) {
+            const userEmail = userDoc.data().email || '';
+            const requestEmail = requestData.toUserEmail || '';
+            
+            if (userEmail.toLowerCase().trim() === requestEmail.toLowerCase().trim()) {
+              console.log('⚠️ UID mismatch but email matches - allowing accept');
+              console.log('   Request toUserId:', normalizedToUserId);
+              console.log('   User UID:', normalizedUserId);
+              console.log('   Email match:', userEmail);
+              isAuthorized = true;
+            }
+          }
+        } catch (emailCheckError) {
+          console.error('Error checking email for authorization:', emailCheckError);
+          // Continue with UID check only
+        }
+      }
+      
+      if (!isAuthorized) {
         throw new Error('Not authorized to accept this request');
       }
 
@@ -264,7 +294,9 @@ class ContactService {
       });
 
       // Add both users as contacts
-      await this.addContact(requestData.fromUserId, requestData.toUserId);
+      // Use the actual userId (receiver's Firebase Auth UID) instead of the stored toUserId
+      // This ensures the contact is created with the correct UID
+      await this.addContact(requestData.fromUserId, normalizedUserId);
 
       return { success: true };
     } catch (error) {
@@ -290,7 +322,32 @@ class ContactService {
 
       const requestData = requestSnap.data();
       
-      if (requestData.toUserId !== userId) {
+      // Normalize user IDs for comparison
+      const normalizedUserId = String(userId).trim();
+      const normalizedToUserId = String(requestData.toUserId || '').trim();
+      
+      // Check authorization: UID must match OR email must match (fallback for UID mismatches)
+      let isAuthorized = normalizedToUserId === normalizedUserId;
+      
+      if (!isAuthorized) {
+        // Fallback: Check by email if UID doesn't match
+        try {
+          const userDoc = await getDoc(doc(db, 'users', normalizedUserId));
+          if (userDoc.exists()) {
+            const userEmail = userDoc.data().email || '';
+            const requestEmail = requestData.toUserEmail || '';
+            
+            if (userEmail.toLowerCase().trim() === requestEmail.toLowerCase().trim()) {
+              console.log('⚠️ UID mismatch but email matches - allowing reject');
+              isAuthorized = true;
+            }
+          }
+        } catch (emailCheckError) {
+          console.error('Error checking email for authorization:', emailCheckError);
+        }
+      }
+      
+      if (!isAuthorized) {
         throw new Error('Not authorized to reject this request');
       }
 
