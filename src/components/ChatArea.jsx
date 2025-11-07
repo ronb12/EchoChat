@@ -3,6 +3,7 @@ import { useChat } from '../hooks/useChat';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { useRealtimeMessages, useTypingIndicator } from '../hooks/useRealtime';
+import { useDisplayName } from '../hooks/useDisplayName';
 import { chatService } from '../services/chatService';
 import { validationService } from '../services/validationService';
 import { stickersService } from '../services/stickersService';
@@ -19,17 +20,25 @@ import { EMOJI_LIST } from '../data/emojis';
 export default function ChatArea() {
   const { messages, currentChatId, setCurrentChatId, chats } = useChat();
   const { user, signOut, setUser } = useAuth();
+  const myDisplayName = useDisplayName(user?.uid, user?.displayName || user?.email || 'You');
 
   // Get current chat details
   const currentChat = chats.find(chat => chat.id === currentChatId);
-  const currentChatDisplayName = currentChat?.alias
-    || currentChat?.displayName
-    || currentChat?.name
-    || 'Select a chat';
-  const currentChatContactName = currentChat?.alias
-    || currentChat?.displayName
-    || currentChat?.name
-    || 'Contact';
+  const participants = Array.isArray(currentChat?.participants) ? currentChat.participants : [];
+  const otherParticipantId = participants.find((participantId) => participantId && participantId !== user?.uid);
+  const baseChatName = currentChat
+    ? (currentChat.alias || currentChat.displayName || currentChat.name || (currentChat.type === 'group' ? 'Group Chat' : 'Chat'))
+    : 'Select a chat';
+  const otherParticipantName = useDisplayName(
+    currentChat?.type === 'group' ? null : otherParticipantId,
+    baseChatName
+  );
+  const currentChatDisplayName = currentChat?.type === 'group'
+    ? (currentChat?.name || baseChatName)
+    : otherParticipantName || baseChatName;
+  const currentChatContactName = currentChat?.type === 'group'
+    ? (currentChat?.name || 'Group')
+    : otherParticipantName || 'Contact';
   const { openNewChatModal, openCallModal, toggleSidebar, openSettingsModal, openGroupChatModal, openMediaGallery, openStatusModal, showNotification } = useUI();
   const [messageText, setMessageText] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -57,6 +66,15 @@ export default function ChatArea() {
   const emojiPickerRef = useRef(null);
   const moreMenuRef = useRef(null);
   const { typingUsers, startTyping, stopTyping } = useTypingIndicator(currentChatId);
+  const typingUserEntries = Object.values(typingUsers || {});
+  const firstTypingUser =
+    typingUserEntries.find(entry => entry?.userId && entry.userId !== user?.uid) ||
+    typingUserEntries[0] ||
+    null;
+  const typingDisplayName = useDisplayName(
+    firstTypingUser?.userId && firstTypingUser.userId !== user?.uid ? firstTypingUser.userId : null,
+    firstTypingUser?.displayName || 'Someone'
+  );
 
   // Track mobile state
   useEffect(() => {
@@ -210,7 +228,7 @@ export default function ChatArea() {
       receiverId,
       receiverName,
       callerId: user?.uid || null,
-      callerName: user?.displayName || user?.email || 'You'
+      callerName: myDisplayName || 'You'
     });
   };
 
@@ -232,7 +250,7 @@ export default function ChatArea() {
           audio: base64Audio,
           audioName: `voice_${Date.now()}.webm`,
           senderId: user.uid,
-          senderName: user.displayName || user.email || 'User'
+          senderName: myDisplayName || 'User'
         });
       };
       reader.readAsDataURL(audioBlob);
@@ -297,7 +315,7 @@ export default function ChatArea() {
             fileSize: preview.file.size,
             fileType: preview.file.type,
             senderId: user.uid,
-            senderName: user.displayName || user.email || 'User'
+            senderName: myDisplayName || 'User'
           });
         } catch (error) {
           alert(`Error sending image: ${error.message || 'Unknown error'}`);
@@ -326,7 +344,7 @@ export default function ChatArea() {
               fileType: file.type,
               fileName: file.name,
               senderId: user.uid,
-              senderName: user.displayName || user.email || 'User'
+              senderName: myDisplayName || 'User'
             });
           } catch (error) {
             alert(`Error sending file: ${error.message || 'Unknown error'}`);
@@ -340,7 +358,7 @@ export default function ChatArea() {
           await chatService.sendMessage(currentChatId, {
             text: validationService.sanitizeInput(messageText.trim()),
             senderId: user.uid,
-            senderName: user.displayName || user.email || 'User'
+            senderName: myDisplayName || 'User'
           });
         } catch (error) {
           console.error('❌ Error sending text message:', error);
@@ -441,7 +459,7 @@ export default function ChatArea() {
               <h3>{currentChatDisplayName}</h3>
               <div className="chat-status">
                 {Object.keys(typingUsers).length > 0
-                  ? `${Object.values(typingUsers)[0]?.displayName || 'Someone'} is typing...`
+                  ? `${typingDisplayName || 'Someone'} is typing...`
                   : 'Online'
                 }
               </div>
@@ -995,7 +1013,7 @@ export default function ChatArea() {
                       await stickersService.sendSticker(
                         currentChatId,
                         user?.uid,
-                        user?.displayName || user?.email || 'User',
+                        myDisplayName || 'User',
                         sticker
                       );
                       setShowStickerPicker(false);
@@ -1043,7 +1061,7 @@ export default function ChatArea() {
           <PollCreatorModal
             chatId={currentChatId}
             userId={user?.uid}
-            userName={user?.displayName || user?.email || 'User'}
+            userName={myDisplayName || 'User'}
             onClose={() => setShowPollCreator(false)}
             onSuccess={() => {
               setShowPollCreator(false);
@@ -1151,7 +1169,7 @@ export default function ChatArea() {
                       image: gifUrl,
                       imageName: 'gif.gif',
                       senderId: user.uid,
-                      senderName: user.displayName || user.email || 'User'
+                      senderName: myDisplayName || 'User'
                     });
                     setShowGifPicker(false);
                   } catch (error) {

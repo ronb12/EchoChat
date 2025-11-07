@@ -2,10 +2,69 @@ import React, { useState, useEffect } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useChat } from '../hooks/useChat';
 import { useRealtimeChats } from '../hooks/useRealtime';
+import { useAuth } from '../hooks/useAuth';
+import { useDisplayName } from '../hooks/useDisplayName';
+
+function ChatListRow({ chat, isActive, onSelect, currentUserId }) {
+  const participants = Array.isArray(chat?.participants) ? chat.participants : [];
+  const otherParticipantId = chat?.type === 'group'
+    ? null
+    : participants.find((participantId) => participantId && participantId !== currentUserId);
+  const baseChatName = chat?.alias || chat?.displayName || chat?.name || 'Unknown';
+  const chatDisplayName = chat?.type === 'group'
+    ? (chat?.name || baseChatName)
+    : useDisplayName(otherParticipantId, baseChatName);
+
+  const lastMessageSenderId = chat?.lastMessageSenderId && chat.lastMessageSenderId !== currentUserId
+    ? chat.lastMessageSenderId
+    : null;
+  const lastMessageSenderName = useDisplayName(
+    lastMessageSenderId,
+    chat?.lastMessageSenderName || (lastMessageSenderId ? 'Someone' : '')
+  );
+  const previewText = chat?.lastMessage
+    ? (lastMessageSenderId && lastMessageSenderName
+        ? `${lastMessageSenderName}: ${chat.lastMessage}`
+        : chat.lastMessage)
+    : 'No messages';
+
+  const avatarSrc = chat?.avatar || '/icons/default-avatar.png';
+
+  return (
+    <li
+      className={`chat-item ${isActive ? 'active' : ''}`}
+      onClick={() => onSelect(chat.id)}
+      style={{ cursor: 'pointer' }}
+    >
+      <div className="chat-avatar">
+        <img
+          src={avatarSrc}
+          alt={chatDisplayName}
+          onError={(e) => { e.target.src = '/icons/default-avatar.png'; }}
+        />
+      </div>
+      <div className="chat-info">
+        <div className="chat-name">{chatDisplayName}</div>
+        <div className="chat-preview">{previewText}</div>
+      </div>
+      <div className="chat-meta">
+        {chat.lastMessageAt && (
+          <div className="chat-time">
+            {new Date(chat.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        )}
+        {chat.unreadCount && chat.unreadCount > 0 && (
+          <div className="unread-count">{chat.unreadCount}</div>
+        )}
+      </div>
+    </li>
+  );
+}
 
 export default function Sidebar() {
   const { isSidebarOpen, openNewChatModal, toggleSidebar, closeSidebar } = useUI();
   const { chats = [], currentChatId, setCurrentChatId } = useChat();
+  const { user } = useAuth();
   // Initialize chats from service
   useRealtimeChats();
   const [isMobile, setIsMobile] = useState(false);
@@ -66,34 +125,13 @@ export default function Sidebar() {
               </li>
             ) : (
               chats.map((chat) => (
-                <li
+                <ChatListRow
                   key={chat.id}
-                  className={`chat-item ${currentChatId === chat.id ? 'active' : ''}`}
-                  onClick={() => handleChatClick(chat.id)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div className="chat-avatar">
-                    <img
-                      src={chat.avatar || '/icons/default-avatar.png'}
-                      alt={chat.name}
-                      onError={(e) => { e.target.src = '/icons/default-avatar.png'; }}
-                    />
-                  </div>
-                  <div className="chat-info">
-                    <div className="chat-name">{chat.name || 'Unknown'}</div>
-                    <div className="chat-preview">{chat.lastMessage || 'No messages'}</div>
-                  </div>
-                  <div className="chat-meta">
-                    {chat.lastMessageAt && (
-                      <div className="chat-time">
-                        {new Date(chat.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    )}
-                    {chat.unreadCount && chat.unreadCount > 0 && (
-                      <div className="unread-count">{chat.unreadCount}</div>
-                    )}
-                  </div>
-                </li>
+                  chat={chat}
+                  isActive={currentChatId === chat.id}
+                  onSelect={handleChatClick}
+                  currentUserId={user?.uid}
+                />
               ))
             )}
           </ul>

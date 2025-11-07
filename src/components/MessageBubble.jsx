@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { chatService } from '../services/chatService';
+import { useDisplayName } from '../hooks/useDisplayName';
 
 const COMMON_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -17,6 +18,9 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
   const [isDecrypting, setIsDecrypting] = useState(false);
   const contextMenuRef = useRef(null);
   const editInputRef = useRef(null);
+  const senderId = message?.senderId || null;
+  const fallbackSenderName = message?.senderName || 'User';
+  const senderDisplayName = useDisplayName(senderId, fallbackSenderName);
 
   useEffect(() => {
     if (isEditing && editInputRef.current) {
@@ -45,7 +49,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
       if (decryptedText) {
         return;
       }
-      
+
       if (message && message.isEncrypted && message.encryptedText && !isDecrypting) {
         setIsDecrypting(true);
         try {
@@ -227,7 +231,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
           </button>
           {!isOwn && (
             <button onClick={() => {
-              openBlockUserModal(message.senderId, message.senderName);
+              openBlockUserModal(message.senderId, senderDisplayName);
               setShowContextMenu(false);
             }} className="context-menu-item">
               🚫 Block/Report
@@ -367,8 +371,8 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
       )}
 
       <div className="message-meta">
-        {!isOwn && message.senderName && (
-          <span className="message-sender">{message.senderName}</span>
+        {!isOwn && senderDisplayName && (
+          <span className="message-sender">{senderDisplayName}</span>
         )}
         <span className="message-time" title={message.timestamp ? new Date(message.timestamp).toLocaleString() : ''}>
           {timestamp}
