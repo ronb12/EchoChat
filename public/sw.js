@@ -1,5 +1,17 @@
 // Enhanced Service Worker for EchoChat PWA - Advanced Offline Support
-const CACHE_VERSION = 'v2.1.2';
+const DEFAULT_CACHE_VERSION = '2.1.2';
+let resolvedVersion = DEFAULT_CACHE_VERSION;
+try {
+  const swUrl = new URL(self.location.href);
+  const queryVersion = swUrl.searchParams.get('v');
+  if (queryVersion && typeof queryVersion === 'string') {
+    resolvedVersion = queryVersion;
+  }
+} catch (error) {
+  console.warn('[SW] Unable to parse service worker version from URL:', error?.message);
+}
+
+const CACHE_VERSION = `v${resolvedVersion.replace(/^v/i, '')}`;
 const CACHE_NAME = `echochat-${CACHE_VERSION}`;
 const STATIC_CACHE = `${CACHE_NAME}-static`;
 const DYNAMIC_CACHE = `${CACHE_NAME}-dynamic`;
@@ -73,17 +85,8 @@ self.addEventListener('activate', (event) => {
       })
       .then(() => {
         console.log('[SW] Service worker activated');
-        // Claim clients - handle errors gracefully
-        if (self.clients && self.clients.claim) {
-          return self.clients.claim().catch((error) => {
-            // Only log if it's not the expected "only active worker can claim" error
-            if (!error.message.includes('Only the active worker')) {
-              console.warn('[SW] Could not claim clients:', error.message);
-            }
-            // Return resolved promise to continue activation
-            return Promise.resolve();
-          });
-        }
+        // Don't claim clients immediately - this can cause reload loops
+        // Let the service worker activate naturally without forcing control
         return Promise.resolve();
       })
   );

@@ -218,8 +218,10 @@ function AppContent() {
                   await new Promise(resolve => setTimeout(resolve, 300));
 
                   try {
+                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
+                    const swUrl = `/sw.js?v=${encodeURIComponent(appVersion)}`;
                     const registration = await Promise.race([
-                      navigator.serviceWorker.register('/sw.js', {
+                      navigator.serviceWorker.register(swUrl, {
                         updateViaCache: 'none'
                       }),
                       new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
