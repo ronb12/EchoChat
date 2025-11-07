@@ -112,9 +112,11 @@ function ChatListRow({
     resetPosition();
   };
 
+  const actionsClassName = `chat-item-actions${isOpen ? ' visible' : ''}`;
+
   return (
     <li className="chat-item-container">
-      <div className="chat-item-actions" aria-hidden={!isOpen}>
+      <div className={actionsClassName} aria-hidden={!isOpen}>
         <button
           className="chat-action-btn mute-btn"
           type="button"
@@ -122,7 +124,6 @@ function ChatListRow({
           aria-label={isMuted ? 'Unmute chat' : 'Mute chat'}
         >
           <span className="chat-action-icon">{isMuted ? '🔔' : '🔕'}</span>
-          <span className="chat-action-label">{isMuted ? 'Unmute' : 'Mute'}</span>
         </button>
         <button
           className="chat-action-btn delete-btn"
@@ -131,7 +132,6 @@ function ChatListRow({
           aria-label="Delete chat"
         >
           <span className="chat-action-icon">🗑️</span>
-          <span className="chat-action-label">Delete</span>
         </button>
       </div>
       <div

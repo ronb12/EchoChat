@@ -737,10 +737,21 @@ body {
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0));
   z-index: 0;
   pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(32px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
 }
 
 [data-theme="dark"] .chat-item-actions {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+}
+
+.chat-item-actions.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .chat-action-btn {
@@ -788,6 +799,11 @@ body {
 
 [data-theme="dark"] .chat-action-btn.delete-btn:hover {
   background: rgba(244, 67, 54, 0.3);
+}
+
+.chat-action-icon {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .chat-muted-indicator {
