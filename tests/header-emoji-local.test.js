@@ -15,6 +15,7 @@ async function run() {
     const appUrl = process.env.ECHOCHAT_TEST_URL || 'http://127.0.0.1:5173/';
     console.log(`🌐 Navigating to ${appUrl}`);
     await page.goto(appUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
 
     await page.waitForSelector('button', { timeout: 15000 });
     const clickedSignIn = await page.evaluate(() => {
@@ -39,6 +40,7 @@ async function run() {
     }
 
     await page.waitForSelector('.app-header', { timeout: 25000 });
+    await page.waitForTimeout(2000);
 
     const headerMetrics = await page.evaluate(() => {
       const el = document.querySelector('.app-header');
