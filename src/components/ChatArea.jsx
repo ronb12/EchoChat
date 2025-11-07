@@ -22,6 +22,14 @@ export default function ChatArea() {
 
   // Get current chat details
   const currentChat = chats.find(chat => chat.id === currentChatId);
+  const currentChatDisplayName = currentChat?.alias
+    || currentChat?.displayName
+    || currentChat?.name
+    || 'Select a chat';
+  const currentChatContactName = currentChat?.alias
+    || currentChat?.displayName
+    || currentChat?.name
+    || 'Contact';
   const { openNewChatModal, openCallModal, toggleSidebar, openSettingsModal, openGroupChatModal, openMediaGallery, openStatusModal, showNotification } = useUI();
   const [messageText, setMessageText] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -194,7 +202,7 @@ export default function ChatArea() {
     }
 
     const receiverId = otherParticipants[0];
-    const receiverName = currentChat.name || 'Contact';
+    const receiverName = currentChatContactName;
 
     openCallModal({
       type,
@@ -430,7 +438,7 @@ export default function ChatArea() {
               />
             </div>
             <div className="chat-details">
-              <h3>{currentChat?.name || 'Select a chat'}</h3>
+              <h3>{currentChatDisplayName}</h3>
               <div className="chat-status">
                 {Object.keys(typingUsers).length > 0
                   ? `${Object.values(typingUsers)[0]?.displayName || 'Someone'} is typing...`

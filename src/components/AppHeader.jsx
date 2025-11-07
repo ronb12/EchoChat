@@ -300,11 +300,11 @@ export default function AppHeader() {
               boxShadow: '0 2px 8px rgba(0, 132, 255, 0.3)'
             }}
             title={pendingRequestsCount > 0 
-              ? `${pendingRequestsCount} pending contact request${pendingRequestsCount > 1 ? 's' : ''}`
-              : 'View contact requests'}
+              ? `${pendingRequestsCount} pending friend request${pendingRequestsCount > 1 ? 's' : ''}`
+              : 'View friend requests'}
           >
             <span>📬</span>
-            <span>Requests</span>
+            <span>Friend Requests</span>
             {pendingRequestsCount > 0 && (
               <span
                 style={{
