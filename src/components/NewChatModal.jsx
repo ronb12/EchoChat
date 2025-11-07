@@ -305,6 +305,7 @@ export default function NewChatModal() {
     
     // Verify the user document exists and check if the ID matches
     let userDocData = null;
+    let finalToUserId = searchedUser.id;
     try {
       const userDocRef = doc(db, 'users', searchedUser.id);
       const userDocSnap = await getDoc(userDocRef);
@@ -321,6 +322,13 @@ export default function NewChatModal() {
         console.log('🔍 Checking if we need to find user by email to get correct UID...');
         console.log('   Target email:', searchedUser.email);
         console.log('   Document ID used:', searchedUser.id);
+
+        if (userDocData.uid && userDocData.uid !== searchedUser.id) {
+          console.warn('⚠️ Document ID does not match stored uid. Using auth UID for toUserId.');
+          console.warn('   Firestore doc id:', searchedUser.id);
+          console.warn('   userDocData.uid:', userDocData.uid);
+          finalToUserId = String(userDocData.uid).trim();
+        }
       } else {
         console.warn('⚠️ User document not found in Firestore with ID:', searchedUser.id);
         console.warn('   This might cause issues when querying for pending requests');
@@ -337,6 +345,9 @@ export default function NewChatModal() {
     console.log('🔍 Final verification before sending request:');
     console.log('   Sender UID (fromUserId):', user.uid);
     console.log('   Receiver Document ID (toUserId):', searchedUser.id);
+    if (finalToUserId !== searchedUser.id) {
+      console.log('   ✅ Using receiver auth UID from userDocData.uid:', finalToUserId);
+    }
     console.log('   Receiver Email:', searchedUser.email);
     console.log('   ⚠️ CRITICAL: The receiver will query with their Firebase Auth UID');
     console.log('   ⚠️ If searchedUser.id !== receiver\'s Firebase Auth UID, request won\'t be found!');
@@ -357,19 +368,19 @@ export default function NewChatModal() {
     try {
       console.log('📤 Calling contactService.sendContactRequest with:', {
         fromUserId: user.uid,
-        toUserId: searchedUser.id
+        toUserId: finalToUserId
       });
       
-      const result = await contactService.sendContactRequest(user.uid, searchedUser.id);
+      const result = await contactService.sendContactRequest(user.uid, finalToUserId);
       
       console.log('📤 sendContactRequest result:', result);
       
       if (result.success) {
         showNotification('Contact request sent successfully!', 'success');
         // Add to pending requests list
-        setPendingRequests([...pendingRequests, searchedUser.id]);
+        setPendingRequests([...pendingRequests, finalToUserId]);
         // Update searchedUser to show pending status
-        setSearchedUser({ ...searchedUser });
+        setSearchedUser({ ...searchedUser, id: finalToUserId });
       } else {
         console.error('❌ sendContactRequest failed:', result.error);
         showNotification(result.error || 'Failed to send contact request', 'error');

@@ -481,7 +481,7 @@ class ChatService {
           this.userIdToChats.set(userId, chats);
           callback(chats);
         });
-        
+
         this.firestoreUnsubscribes.set(`chats_${userId}`, unsubscribe);
         return () => {
           if (this.firestoreUnsubscribes.has(`chats_${userId}`)) {
@@ -518,19 +518,53 @@ class ChatService {
 
   // Create new chat
   async createChat(participants, chatName = null, isGroup = false) {
-    const chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const createdAt = Date.now();
-    const chat = {
-      id: chatId,
-      name: chatName || (isGroup ? 'Group Chat' : 'Direct Chat'),
-      participants,
-      type: isGroup ? 'group' : 'direct',
-      createdAt,
-      lastMessageAt: createdAt,
-      avatar: null,
-      lastMessage: null,
-      unreadCount: 0
-    };
+    let chat = null;
+    let chatId = null;
+    const fallbackCreatedAt = Date.now();
+
+    if (this.useFirestore) {
+      try {
+        const firestoreChat = await firestoreService.createChat(participants, chatName, isGroup);
+        chatId = firestoreChat.id;
+
+        const normalizeTimestamp = (value, fallback) => {
+          if (!value) {return fallback;}
+          if (typeof value === 'number') {return value;}
+          if (typeof value?.toMillis === 'function') {return value.toMillis();}
+          return fallback;
+        };
+
+        chat = {
+          id: chatId,
+          name: firestoreChat.name || chatName || (isGroup ? 'Group Chat' : 'Direct Chat'),
+          participants: firestoreChat.participants || participants,
+          type: firestoreChat.type || (isGroup ? 'group' : 'direct'),
+          createdAt: normalizeTimestamp(firestoreChat.createdAt, fallbackCreatedAt),
+          lastMessageAt: normalizeTimestamp(firestoreChat.lastMessageAt, fallbackCreatedAt),
+          avatar: null,
+          lastMessage: null,
+          unreadCount: 0
+        };
+      } catch (error) {
+        console.error('Firestore createChat failed, falling back to local mode:', error);
+        this.useFirestore = false;
+      }
+    }
+
+    if (!chat) {
+      chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      chat = {
+        id: chatId,
+        name: chatName || (isGroup ? 'Group Chat' : 'Direct Chat'),
+        participants,
+        type: isGroup ? 'group' : 'direct',
+        createdAt: fallbackCreatedAt,
+        lastMessageAt: fallbackCreatedAt,
+        avatar: null,
+        lastMessage: null,
+        unreadCount: 0
+      };
+    }
 
     // Add chat to each participant's chat list
     participants.forEach(userId => {
@@ -538,7 +572,7 @@ class ChatService {
         this.userIdToChats.set(userId, []);
       }
       const userChats = this.userIdToChats.get(userId);
-      if (!userChats.find(c => c.id === chatId)) {
+      if (!userChats.find(c => c.id === chat.id)) {
         userChats.push(chat);
       }
     });
