@@ -19,8 +19,10 @@ function ChatListRow({
 }) {
   const [offsetX, setOffsetX] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const touchStartRef = useRef(null);
-  const touchCurrentRef = useRef(null);
+  const pointerStartRef = useRef(null);
+  const pointerCurrentRef = useRef(null);
+  const pointerIdRef = useRef(null);
+  const pointerTypeRef = useRef(null);
 
   const participants = Array.isArray(chat?.participants) ? chat.participants : [];
   const otherParticipantId = chat?.type === 'group'
@@ -56,16 +58,25 @@ function ChatListRow({
     setIsOpen(true);
   };
 
-  const handleTouchStart = (event) => {
-    if (!event.touches || event.touches.length === 0) {return;}
-    touchStartRef.current = event.touches[0].clientX;
-    touchCurrentRef.current = touchStartRef.current;
+  const handlePointerDown = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) {return;}
+    pointerIdRef.current = event.pointerId;
+    pointerTypeRef.current = event.pointerType;
+    pointerStartRef.current = event.clientX;
+    pointerCurrentRef.current = event.clientX;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch (error) {
+      // ignore capture errors (e.g., not supported)
+    }
   };
 
-  const handleTouchMove = (event) => {
-    if (touchStartRef.current === null || !event.touches || event.touches.length === 0) {return;}
-    const currentX = event.touches[0].clientX;
-    const delta = currentX - touchStartRef.current;
+  const handlePointerMove = (event) => {
+    if (pointerIdRef.current !== event.pointerId) {return;}
+    if (pointerTypeRef.current === 'mouse' && (event.buttons & 1) !== 1) {return;}
+
+    const currentX = event.clientX;
+    const delta = currentX - pointerStartRef.current;
     if (delta < 0) {
       setOffsetX(Math.max(delta, -ACTION_WIDTH - 32));
     } else if (isOpen) {
@@ -73,12 +84,16 @@ function ChatListRow({
     } else {
       setOffsetX(0);
     }
-    touchCurrentRef.current = currentX;
+    pointerCurrentRef.current = currentX;
+    event.preventDefault();
   };
 
-  const handleTouchEnd = () => {
-    if (touchStartRef.current === null) {return;}
-    const delta = (touchCurrentRef.current ?? touchStartRef.current) - touchStartRef.current;
+  const handlePointerUp = (event) => {
+    if (pointerIdRef.current !== event.pointerId) {return;}
+
+    const start = pointerStartRef.current ?? 0;
+    const current = pointerCurrentRef.current ?? start;
+    const delta = current - start;
     if (!isOpen && delta <= -60) {
       openActions();
     } else if (isOpen && delta >= 40) {
@@ -88,8 +103,15 @@ function ChatListRow({
     } else {
       resetPosition();
     }
-    touchStartRef.current = null;
-    touchCurrentRef.current = null;
+    pointerStartRef.current = null;
+    pointerCurrentRef.current = null;
+    pointerIdRef.current = null;
+    pointerTypeRef.current = null;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch (error) {
+      // ignore capture errors
+    }
   };
 
   const handleRowClick = () => {
@@ -137,9 +159,10 @@ function ChatListRow({
       <div
         className={`chat-item ${isActive ? 'active' : ''} ${isOpen ? 'open' : ''}`}
         onClick={handleRowClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
         style={{ transform: `translateX(${offsetX}px)` }}
         role="button"
         tabIndex={0}
