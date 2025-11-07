@@ -488,7 +488,7 @@ class ContactService {
    * @param {Function} callback - Callback function that receives the requests array
    * @returns {Function} Unsubscribe function
    */
-  subscribeToPendingRequests(userId, callback) {
+  subscribeToPendingRequests(userId, callback, options = {}) {
     try {
       // Normalize userId to ensure it's a string and trimmed
       const normalizedUserId = String(userId).trim();
@@ -507,21 +507,31 @@ class ContactService {
       console.log('👂 Original userId:', userId, 'type:', typeof userId);
       
       // Get user email for fallback (async, but we'll fetch it in the callback)
+      const { userEmail: providedUserEmail = null } = options || {};
       let userEmailPromise = null;
-      try {
-        userEmailPromise = getDoc(doc(db, 'users', normalizedUserId)).then(doc => {
-          if (doc.exists()) {
-            const email = doc.data().email || null;
-            console.log('👂 User email for fallback:', email);
-            return email;
-          }
-          return null;
-        }).catch(err => {
-          console.error('Error fetching user email for query:', err);
-          return null;
-        });
-      } catch (error) {
-        console.error('Error setting up email fetch:', error);
+      if (providedUserEmail) {
+        console.log('👂 Using provided user email for fallback:', providedUserEmail);
+        userEmailPromise = Promise.resolve(providedUserEmail);
+      } else {
+        try {
+          userEmailPromise = getDoc(doc(db, 'users', normalizedUserId)).then(doc => {
+            if (doc.exists()) {
+              const email = doc.data().email || null;
+              console.log('👂 User email for fallback:', email);
+              return email;
+            }
+            return null;
+          }).catch(err => {
+            if (err?.code === 'permission-denied') {
+              console.warn('⚠️ Permission denied fetching user email for listener; continuing without email');
+            } else {
+              console.warn('⚠️ Error fetching user email for listener:', err?.message || err);
+            }
+            return null;
+          });
+        } catch (error) {
+          console.warn('⚠️ Error setting up email fetch for listener:', error?.message || error);
+        }
       }
       
       // Set up primary listener
@@ -642,7 +652,8 @@ class ContactService {
    * @param {string} userId - User's ID
    * @returns {Promise<Array>}
    */
-  async getPendingRequests(userId) {
+  async getPendingRequests(userId, options = {}) {
+    const { userEmail: providedUserEmail = null } = options || {};
     try {
       console.log('🔍 getPendingRequests called for userId:', userId);
       console.log('🔍 userId type:', typeof userId);
@@ -707,15 +718,21 @@ class ContactService {
       console.log('📡 Query userId (normalized):', queryUserId, 'type:', typeof queryUserId, 'length:', queryUserId.length);
       
       // Get user email for potential fallback query
-      let userEmail = null;
-      try {
-        const userDoc = await getDoc(doc(db, 'users', queryUserId));
-        if (userDoc.exists()) {
-          userEmail = userDoc.data().email || null;
-          console.log('📧 User email for fallback query:', userEmail);
+      let userEmail = providedUserEmail || null;
+      if (!userEmail) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', queryUserId));
+          if (userDoc.exists()) {
+            userEmail = userDoc.data().email || null;
+            console.log('📧 User email for fallback query:', userEmail);
+          }
+        } catch (error) {
+          if (error?.code === 'permission-denied') {
+            console.warn('⚠️ Permission denied fetching user email; continuing without fallback email');
+          } else {
+            console.warn('⚠️ Error fetching user email for fallback:', error?.message || error);
+          }
         }
-      } catch (error) {
-        console.error('Error fetching user email:', error);
       }
       
       // Primary query: by toUserId

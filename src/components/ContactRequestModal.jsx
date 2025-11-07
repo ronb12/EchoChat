@@ -61,13 +61,17 @@ export default function ContactRequestModal() {
       loadSentRequests();
       
       // Set up real-time listener for immediate updates
-      unsubscribe = contactService.subscribeToPendingRequests(user.uid, (requests) => {
-        if (isMounted) {
-          setPendingRequests(requests);
-          setLoading(false);
-          console.log('📬 ContactRequestModal: Updated with', requests.length, 'pending requests');
-        }
-      });
+      unsubscribe = contactService.subscribeToPendingRequests(
+        user.uid,
+        (requests) => {
+          if (isMounted) {
+            setPendingRequests(requests);
+            setLoading(false);
+            console.log('📬 ContactRequestModal: Updated with', requests.length, 'pending requests');
+          }
+        },
+        { userEmail: user.email }
+      );
     }
 
     // Cleanup on unmount or when modal closes

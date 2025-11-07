@@ -65,7 +65,7 @@ function AppContent() {
       
       try {
         const { contactService } = await import('./services/contactService');
-        const pendingRequests = await contactService.getPendingRequests(user.uid);
+        const pendingRequests = await contactService.getPendingRequests(user.uid, { userEmail: user.email });
         
         if (pendingRequests && pendingRequests.length > 0) {
           // Show notification about pending requests

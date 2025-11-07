@@ -75,13 +75,17 @@ export default function AppHeader() {
         const { contactService } = await import('../services/contactService');
         
         // Set up real-time listener for immediate updates
-        unsubscribe = contactService.subscribeToPendingRequests(user.uid, (requests) => {
+        unsubscribe = contactService.subscribeToPendingRequests(
+          user.uid,
+          (requests) => {
           if (isMounted) {
             const count = requests?.length || 0;
             setPendingRequestsCount(count);
             console.log('📬 Pending contact requests (real-time):', count);
           }
-        });
+          },
+          { userEmail: user.email }
+        );
       } catch (error) {
         console.error('Error setting up pending requests listener:', error);
         if (isMounted) {
