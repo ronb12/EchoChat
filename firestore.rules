@@ -103,6 +103,67 @@ service cloud.firestore {
     
     // Messages collection
     match /messages/{messageId} {
+      function chatDoc() {
+        return get(/databases/$(database)/documents/chats/$(resource.data.chatId));
+      }
+      
+      function isChatParticipant() {
+        return isAuthenticated() &&
+          chatDoc().data.participants != null &&
+          request.auth.uid in chatDoc().data.participants;
+      }
+      
+      function fieldUnchanged(field) {
+        return request.resource.data[field] == resource.data[field];
+      }
+      
+      function readsMap(data) {
+        return data.reads == null ? {} : data.reads;
+      }
+      
+      function isReadReceiptUpdate() {
+        let existingReads = readsMap(resource.data);
+        let newReads = readsMap(request.resource.data);
+        let existingKeys = existingReads.keys();
+        let newKeys = newReads.keys();
+        let addedKeys = newKeys.difference(existingKeys);
+        let removedKeys = existingKeys.difference(newKeys);
+
+        return isChatParticipant() &&
+          request.resource.data.chatId == resource.data.chatId &&
+          request.resource.data.senderId == resource.data.senderId &&
+          fieldUnchanged('text') &&
+          fieldUnchanged('encryptedText') &&
+          fieldUnchanged('isEncrypted') &&
+          fieldUnchanged('senderName') &&
+          fieldUnchanged('timestamp') &&
+          fieldUnchanged('deliveredAt') &&
+          fieldUnchanged('reactions') &&
+          fieldUnchanged('edited') &&
+          fieldUnchanged('editedAt') &&
+          fieldUnchanged('deleted') &&
+          fieldUnchanged('deletedAt') &&
+          fieldUnchanged('deletedForEveryone') &&
+          fieldUnchanged('sticker') &&
+          fieldUnchanged('stickerId') &&
+          fieldUnchanged('stickerPackId') &&
+          fieldUnchanged('image') &&
+          fieldUnchanged('audio') &&
+          fieldUnchanged('file') &&
+          fieldUnchanged('video') &&
+          fieldUnchanged('videoName') &&
+          fieldUnchanged('imageName') &&
+          fieldUnchanged('audioName') &&
+          fieldUnchanged('fileName') &&
+          fieldUnchanged('fileSize') &&
+          fieldUnchanged('fileType') &&
+          request.resource.data.keys().hasOnly(resource.data.keys()) &&
+          resource.data.keys().hasOnly(request.resource.data.keys()) &&
+          removedKeys.size() == 0 &&
+          addedKeys.hasOnly([request.auth.uid]) &&
+          existingKeys.all(key => newReads[key] == existingReads[key]);
+      }
+      
       // Allow read if user is authenticated (for public messages or participants)
       allow read: if isAuthenticated();
       // Allow create if user is authenticated
@@ -110,7 +171,7 @@ service cloud.firestore {
         request.resource.data.senderId == request.auth.uid;
       // Allow update/delete if user is the sender
       allow update, delete: if isAuthenticated() && 
-        resource.data.senderId == request.auth.uid;
+        (resource.data.senderId == request.auth.uid || isReadReceiptUpdate());
     }
     
     // Groups collection
