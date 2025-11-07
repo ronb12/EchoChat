@@ -76,6 +76,24 @@ class ChatService {
     // This is handled by the polling mechanism in subscribeToMessages
   }
 
+  normalizeReadsMap(reads) {
+    if (!reads || typeof reads !== 'object') {return {};}
+    const normalized = {};
+    Object.entries(reads).forEach(([uid, value]) => {
+      if (!uid) {return;}
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        normalized[uid] = value;
+      } else if (value && typeof value.toMillis === 'function') {
+        normalized[uid] = value.toMillis();
+      } else if (value && typeof value.seconds === 'number') {
+        normalized[uid] = value.seconds * 1000;
+      } else {
+        normalized[uid] = Date.now();
+      }
+    });
+    return normalized;
+  }
+
   // Messages - Uses Firestore for real-time sync, localStorage as fallback
   subscribeToMessages(chatId, callback) {
     if (this.useFirestore) {
@@ -85,7 +103,8 @@ class ChatService {
           // Decrypt messages that need decryption
           const processedMessages = messages.map(msg => ({
             ...msg,
-            needsDecryption: msg.isEncrypted && msg.encryptedText
+            needsDecryption: msg.isEncrypted && msg.encryptedText,
+            reads: this.normalizeReadsMap(msg.reads)
           }));
           callback(processedMessages);
         });
@@ -221,6 +240,9 @@ class ChatService {
         // Update chat metadata (last message, unread counts)
         await this.handlePostSend(chatId, newMessage || messageData);
         // Real-time subscription will handle notifying subscribers
+        if (newMessage) {
+          newMessage.reads = this.normalizeReadsMap(newMessage.reads);
+        }
         return newMessage;
       } catch (error) {
         console.error('Firestore sendMessage failed, falling back to localStorage:', error);
@@ -233,7 +255,10 @@ class ChatService {
     const messages = this.chatIdToMessages.get(chatId) || [];
     const newMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      ...messageData
+      ...messageData,
+      reads: messageData.senderId
+        ? { [messageData.senderId]: Date.now() }
+        : {}
     };
 
     messages.push(newMessage);
@@ -251,13 +276,32 @@ class ChatService {
   }
 
   // Mark message as read
-  markMessageAsRead(chatId, messageId) {
+  async markMessageAsRead(chatId, messageId, userId) {
+    if (!chatId || !messageId) {return;}
+
     const messages = this.chatIdToMessages.get(chatId) || [];
     const message = messages.find(m => m.id === messageId);
-    if (message && !message.readAt) {
-      message.readAt = Date.now();
+    if (message) {
+      const now = Date.now();
+      if (userId) {
+        message.reads = {
+          ...(message.reads || {}),
+          [userId]: message.reads?.[userId] || now
+        };
+      }
+      if (!message.readAt && userId && userId !== message.senderId) {
+        message.readAt = now;
+      }
       this.saveMessagesToStorage();
       this.notifyMessageSubscribers(chatId);
+    }
+
+    if (this.useFirestore) {
+      try {
+        await firestoreService.markMessageAsRead(chatId, messageId, userId || null);
+      } catch (error) {
+        console.error('Error marking message as read in Firestore:', error);
+      }
     }
   }
 

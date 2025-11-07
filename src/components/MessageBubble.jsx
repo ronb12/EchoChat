@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
 import { chatService } from '../services/chatService';
 import { useDisplayName } from '../hooks/useDisplayName';
+import { useWindowFocus } from '../hooks/useWindowFocus';
 
 const COMMON_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -18,9 +19,19 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
   const [isDecrypting, setIsDecrypting] = useState(false);
   const contextMenuRef = useRef(null);
   const editInputRef = useRef(null);
+  const messageRef = useRef(null);
+  const hasMarkedReadRef = useRef(false);
+  const isIntersectingRef = useRef(false);
+  const windowFocused = useWindowFocus();
+
+  useEffect(() => {
+    hasMarkedReadRef.current = false;
+    isIntersectingRef.current = false;
+  }, [message?.id]);
   const senderId = message?.senderId || null;
   const fallbackSenderName = message?.senderName || 'User';
   const senderDisplayName = useDisplayName(senderId, fallbackSenderName);
+  const currentUserId = user?.uid || null;
 
   useEffect(() => {
     if (isEditing && editInputRef.current) {
@@ -76,15 +87,51 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
     decryptMessage();
   }, [message, user, chatId]);
 
-  // Mark message as read when it's visible
+  const attemptMarkAsRead = useCallback(() => {
+    if (!currentUserId) {return;}
+    const alreadyRead = message?.reads && message.reads[currentUserId];
+    if (hasMarkedReadRef.current) {return;}
+    if (!isIntersectingRef.current) {return;}
+    if (!windowFocused) {return;}
+    if (isOwn || message?.senderId === currentUserId || alreadyRead || !chatId || !message?.id) {return;}
+
+    hasMarkedReadRef.current = true;
+    chatService.markMessageAsRead(chatId, message.id, currentUserId).catch(() => {
+      hasMarkedReadRef.current = false;
+    });
+  }, [chatId, isOwn, message?.id, message?.reads, message?.senderId, currentUserId, windowFocused]);
+
   useEffect(() => {
-    if (!isOwn && message && !message.readAt && user) {
-      // Simulate read after 1 second of viewing
-      setTimeout(() => {
-        chatService.markMessageAsRead(chatId, message.id);
-      }, 1000);
+    const node = messageRef.current;
+    if (!node || isOwn || message?.senderId === currentUserId || !currentUserId || !chatId || !message?.id) {
+      return;
     }
-  }, [message, isOwn, chatId, user]);
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.target !== node) {return;}
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+          isIntersectingRef.current = true;
+          attemptMarkAsRead();
+        } else if (!entry.isIntersecting) {
+          isIntersectingRef.current = false;
+        }
+      });
+    }, {
+      threshold: [0.6, 0.8, 1]
+    });
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+      isIntersectingRef.current = false;
+    };
+  }, [attemptMarkAsRead, isOwn, message?.readAt, chatId, user?.uid, message?.id]);
+
+  useEffect(() => {
+    attemptMarkAsRead();
+  }, [attemptMarkAsRead, windowFocused]);
 
   if (!message) {return null;}
 
@@ -198,6 +245,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
       className={messageClass}
       onContextMenu={handleContextMenu}
       onDoubleClick={() => !isOwn && setShowReactions(true)}
+      ref={messageRef}
     >
       {/* Context Menu */}
       {showContextMenu && (
@@ -383,6 +431,52 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
           </span>
         )}
       </div>
+      {isOwn && (
+        <ReadReceipts message={message} currentUserId={currentUserId} />
+      )}
     </div>
   );
+}
+
+function ReadReceipts({ message, currentUserId }) {
+  const readerEntries = useMemo(() => {
+    if (!message?.reads) {return [];}
+    return Object.entries(message.reads)
+      .filter(([uid]) => uid && uid !== currentUserId && uid !== message.senderId)
+      .map(([uid, readAt]) => ({
+        uid,
+        readAt: typeof readAt === 'number' && Number.isFinite(readAt)
+          ? readAt
+          : Date.now()
+      }))
+      .sort((a, b) => (a.readAt || 0) - (b.readAt || 0));
+  }, [message?.reads, message?.senderId, currentUserId]);
+
+  if (readerEntries.length === 0) {
+    return null;
+  }
+
+  const displayed = readerEntries.slice(0, 2);
+  const remaining = readerEntries.length - displayed.length;
+
+  return (
+    <div className="message-read-receipts" title={`Read by ${readerEntries.length} participant${readerEntries.length > 1 ? 's' : ''}`}>
+      <span className="message-read-icon" aria-hidden="true">✓✓</span>
+      <span className="message-read-text">
+        Read by{' '}
+        {displayed.map((entry, index) => (
+          <React.Fragment key={entry.uid}>
+            {index > 0 ? ', ' : ''}
+            <ReadReceiptName userId={entry.uid} />
+          </React.Fragment>
+        ))}
+        {remaining > 0 && ` +${remaining}`}
+      </span>
+    </div>
+  );
+}
+
+function ReadReceiptName({ userId }) {
+  const displayName = useDisplayName(userId, 'Someone');
+  return <span className="message-read-name">{displayName}</span>;
 }

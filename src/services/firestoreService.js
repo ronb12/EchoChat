@@ -77,7 +77,12 @@ class FirestoreService {
         audioName: messageData.audioName || null,
         fileName: messageData.fileName || null,
         fileSize: messageData.fileSize || null,
-        fileType: messageData.fileType || null
+        fileType: messageData.fileType || null,
+        reads: messageData.senderId
+          ? {
+              [messageData.senderId]: serverTimestamp()
+            }
+          : {}
       };
 
       console.log('📤 Sending message to Firestore:', {
@@ -102,7 +107,8 @@ class FirestoreService {
         // Ensure sticker fields are preserved
         sticker: message.sticker || null,
         stickerId: message.stickerId || null,
-        stickerPackId: message.stickerPackId || null
+        stickerPackId: message.stickerPackId || null,
+        reads: message.reads || {}
       };
     } catch (error) {
       console.error('Error sending message:', error);
@@ -194,6 +200,20 @@ class FirestoreService {
       console.log(`📬 Real-time message update for chatId: ${chatId}, messages count: ${snapshot.size}`);
       const messages = snapshot.docs.map(doc => {
         const data = doc.data();
+        const readsRaw = data.reads || {};
+        const reads = {};
+        Object.entries(readsRaw).forEach(([uid, value]) => {
+          if (!uid) {return;}
+          if (value && typeof value.toMillis === 'function') {
+            reads[uid] = value.toMillis();
+          } else if (typeof value === 'number') {
+            reads[uid] = value;
+          } else if (value && typeof value.seconds === 'number') {
+            reads[uid] = value.seconds * 1000;
+          } else {
+            reads[uid] = Date.now();
+          }
+        });
         return {
           id: doc.id,
           ...data,
@@ -209,7 +229,8 @@ class FirestoreService {
           stickerPackId: data.stickerPackId || null,
           // Preserve video fields
           video: data.video || null,
-          videoName: data.videoName || null
+          videoName: data.videoName || null,
+          reads
         };
       });
       console.log(`📬 Calling callback with ${messages.length} messages for chatId: ${chatId}`);
@@ -309,10 +330,26 @@ class FirestoreService {
       const messageDoc = await getDoc(messageRef);
       if (messageDoc.exists()) {
         const data = messageDoc.data();
-        if (data.chatId === chatId && data.senderId !== userId && !data.readAt) {
-          await updateDoc(messageRef, {
-            readAt: serverTimestamp()
-          });
+        if (data.chatId !== chatId) {
+          return;
+        }
+        if (userId && data.senderId === userId) {
+          return;
+        }
+
+        const updates = {};
+        if (!data.readAt) {
+          updates.readAt = serverTimestamp();
+        }
+        if (userId) {
+          const reads = data.reads || {};
+          if (!reads[userId]) {
+            updates[`reads.${userId}`] = serverTimestamp();
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(messageRef, updates);
         }
       }
     } catch (error) {

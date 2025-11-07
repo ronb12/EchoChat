@@ -1539,6 +1539,37 @@ body {
   gap: 2px;
 }
 
+.message-read-receipts {
+  margin-top: 4px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.message.sent .message-read-receipts {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .message.received .message-read-receipts {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.message-read-icon {
+  font-size: 12px;
+}
+
+.message-read-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.message-read-name {
+  font-weight: 500;
+}
+
 /* Message Media Styles */
 .message-media {
   max-width: 100%;
