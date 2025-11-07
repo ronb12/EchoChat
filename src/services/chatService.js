@@ -620,6 +620,30 @@ class ChatService {
     return fallback;
   }
 
+  async deleteChat(chatId) {
+    if (!chatId) {return;}
+
+    if (this.useFirestore) {
+      try {
+        await firestoreService.deleteChat(chatId);
+      } catch (error) {
+        console.error('Error deleting chat from Firestore:', error);
+      }
+    }
+
+    this.chatIdToMessages.delete(chatId);
+    this.chatIdToTypingUsers.delete(chatId);
+
+    this.userIdToChats.forEach((chats, userId) => {
+      if (!Array.isArray(chats)) {return;}
+      const filtered = chats.filter((chat) => chat?.id !== chatId);
+      this.userIdToChats.set(userId, filtered);
+    });
+
+    this.saveMessagesToStorage();
+    this.notifyMessageSubscribers(chatId);
+  }
+
   // Create new chat
   async createChat(participants, chatName = null, isGroup = false) {
     let chat = null;

@@ -1,11 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useChat } from '../hooks/useChat';
 import { useRealtimeChats } from '../hooks/useRealtime';
 import { useAuth } from '../hooks/useAuth';
 import { useDisplayName } from '../hooks/useDisplayName';
+import { chatService } from '../services/chatService';
 
-function ChatListRow({ chat, isActive, onSelect, currentUserId }) {
+const ACTION_WIDTH = 128;
+
+function ChatListRow({
+  chat,
+  isActive,
+  onSelect,
+  currentUserId,
+  onToggleMute,
+  onDelete,
+  isMuted
+}) {
+  const [offsetX, setOffsetX] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const touchStartRef = useRef(null);
+  const touchCurrentRef = useRef(null);
+
   const participants = Array.isArray(chat?.participants) ? chat.participants : [];
   const otherParticipantId = chat?.type === 'group'
     ? null
@@ -30,32 +46,152 @@ function ChatListRow({ chat, isActive, onSelect, currentUserId }) {
 
   const avatarSrc = chat?.avatar || '/icons/default-avatar.png';
 
+  const resetPosition = () => {
+    setOffsetX(0);
+    setIsOpen(false);
+  };
+
+  const openActions = () => {
+    setOffsetX(-ACTION_WIDTH);
+    setIsOpen(true);
+  };
+
+  const handleTouchStart = (event) => {
+    if (!event.touches || event.touches.length === 0) {return;}
+    touchStartRef.current = event.touches[0].clientX;
+    touchCurrentRef.current = touchStartRef.current;
+  };
+
+  const handleTouchMove = (event) => {
+    if (touchStartRef.current === null || !event.touches || event.touches.length === 0) {return;}
+    const currentX = event.touches[0].clientX;
+    const delta = currentX - touchStartRef.current;
+    if (delta < 0) {
+      setOffsetX(Math.max(delta, -ACTION_WIDTH - 32));
+    } else if (isOpen) {
+      setOffsetX(Math.min(delta - ACTION_WIDTH, 0));
+    } else {
+      setOffsetX(0);
+    }
+    touchCurrentRef.current = currentX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartRef.current === null) {return;}
+    const delta = (touchCurrentRef.current ?? touchStartRef.current) - touchStartRef.current;
+    if (!isOpen && delta <= -60) {
+      openActions();
+    } else if (isOpen && delta >= 40) {
+      resetPosition();
+    } else if (isOpen) {
+      openActions();
+    } else {
+      resetPosition();
+    }
+    touchStartRef.current = null;
+    touchCurrentRef.current = null;
+  };
+
+  const handleRowClick = () => {
+    if (isOpen) {
+      resetPosition();
+      return;
+    }
+    onSelect(chat.id);
+  };
+
+  const handleToggleClick = (event) => {
+    event.stopPropagation();
+    if (isOpen) {
+      resetPosition();
+    } else {
+      openActions();
+    }
+  };
+
+  const handleMute = (event) => {
+    event.stopPropagation();
+    onToggleMute(chat.id);
+    resetPosition();
+  };
+
+  const handleDelete = (event) => {
+    event.stopPropagation();
+    onDelete(chat.id);
+    resetPosition();
+  };
+
   return (
-    <li
-      className={`chat-item ${isActive ? 'active' : ''}`}
-      onClick={() => onSelect(chat.id)}
-      style={{ cursor: 'pointer' }}
-    >
-      <div className="chat-avatar">
-        <img
-          src={avatarSrc}
-          alt={chatDisplayName}
-          onError={(e) => { e.target.src = '/icons/default-avatar.png'; }}
-        />
+    <li className="chat-item-container">
+      <div className="chat-item-actions" aria-hidden={!isOpen}>
+        <button
+          className="chat-action-btn mute-btn"
+          type="button"
+          onClick={handleMute}
+          aria-label={isMuted ? 'Unmute chat' : 'Mute chat'}
+        >
+          {isMuted ? '🔔' : '🔕'}
+        </button>
+        <button
+          className="chat-action-btn delete-btn"
+          type="button"
+          onClick={handleDelete}
+          aria-label="Delete chat"
+        >
+          🗑️
+        </button>
       </div>
-      <div className="chat-info">
-        <div className="chat-name">{chatDisplayName}</div>
-        <div className="chat-preview">{previewText}</div>
-      </div>
-      <div className="chat-meta">
-        {chat.lastMessageAt && (
-          <div className="chat-time">
-            {new Date(chat.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      <div
+        className={`chat-item ${isActive ? 'active' : ''} ${isOpen ? 'open' : ''}`}
+        onClick={handleRowClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ transform: `translateX(${offsetX}px)` }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleRowClick();
+          }
+          if (event.key === 'Escape' && isOpen) {
+            resetPosition();
+          }
+        }}
+      >
+        <div className="chat-avatar">
+          <img
+            src={avatarSrc}
+            alt={chatDisplayName}
+            onError={(e) => { e.target.src = '/icons/default-avatar.png'; }}
+          />
+        </div>
+        <div className="chat-info">
+          <div className="chat-name">
+            {chatDisplayName}
+            {isMuted && <span className="chat-muted-indicator" title="Notifications silenced">🔕</span>}
           </div>
-        )}
-        {chat.unreadCount && chat.unreadCount > 0 && (
-          <div className="unread-count">{chat.unreadCount}</div>
-        )}
+          <div className="chat-preview">{previewText}</div>
+        </div>
+        <div className="chat-meta">
+          {chat.lastMessageAt && (
+            <div className="chat-time">
+              {new Date(chat.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+          {chat.unreadCount && chat.unreadCount > 0 && (
+            <div className="unread-count">{chat.unreadCount}</div>
+          )}
+        </div>
+        <button
+          type="button"
+          className="chat-item-more"
+          aria-label="Chat options"
+          onClick={handleToggleClick}
+        >
+          ⋯
+        </button>
       </div>
     </li>
   );
@@ -63,7 +199,15 @@ function ChatListRow({ chat, isActive, onSelect, currentUserId }) {
 
 export default function Sidebar() {
   const { isSidebarOpen, openNewChatModal, toggleSidebar, closeSidebar } = useUI();
-  const { chats = [], currentChatId, setCurrentChatId } = useChat();
+  const {
+    chats = [],
+    currentChatId,
+    setCurrentChatId,
+    mutedChats,
+    toggleMuteChat,
+    setChats,
+    unmuteChat
+  } = useChat();
   const { user } = useAuth();
   // Initialize chats from service
   useRealtimeChats();
@@ -92,6 +236,27 @@ export default function Sidebar() {
     // Close sidebar on mobile when chat is selected
     if (isMobile) {
       closeSidebar();
+    }
+  };
+
+  const handleToggleMute = (chatId) => {
+    toggleMuteChat(chatId);
+  };
+
+  const handleDeleteChat = async (chatId) => {
+    if (!chatId) {return;}
+    const confirmation = window.confirm('Delete this chat and all of its messages? This cannot be undone.');
+    if (!confirmation) {return;}
+    try {
+      await chatService.deleteChat(chatId);
+      setChats((prev) => prev.filter((chat) => chat.id !== chatId));
+      if (currentChatId === chatId) {
+        setCurrentChatId(null);
+      }
+      unmuteChat(chatId);
+    } catch (error) {
+      console.error('Failed to delete chat:', error);
+      alert('Unable to delete this chat. Please try again.');
     }
   };
 
@@ -131,6 +296,9 @@ export default function Sidebar() {
                   isActive={currentChatId === chat.id}
                   onSelect={handleChatClick}
                   currentUserId={user?.uid}
+                  onToggleMute={handleToggleMute}
+                  onDelete={handleDeleteChat}
+                  isMuted={mutedChats?.includes(chat.id)}
                 />
               ))
             )}

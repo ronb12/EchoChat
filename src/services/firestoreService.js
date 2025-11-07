@@ -384,6 +384,46 @@ class FirestoreService {
     }
   }
 
+  async deleteChat(chatId) {
+    try {
+      if (!chatId) {return;}
+
+      const chatRef = doc(this.db, 'chats', chatId);
+      const messagesRef = collection(this.db, 'messages');
+      const batchSize = 100;
+
+      // Delete messages in batches
+      while (true) {
+        const messageSnapshot = await getDocs(query(messagesRef, where('chatId', '==', chatId), limit(batchSize)));
+        if (messageSnapshot.empty) {
+          break;
+        }
+        const batch = writeBatch(this.db);
+        messageSnapshot.forEach((messageDoc) => {
+          batch.delete(messageDoc.ref);
+        });
+        await batch.commit();
+        if (messageSnapshot.size < batchSize) {
+          break;
+        }
+      }
+
+      // Delete typing indicators if any
+      const typingCollection = collection(this.db, 'chats', chatId, 'typing');
+      const typingSnapshot = await getDocs(typingCollection);
+      if (!typingSnapshot.empty) {
+        const batch = writeBatch(this.db);
+        typingSnapshot.forEach((docSnap) => batch.delete(docSnap.ref));
+        await batch.commit();
+      }
+
+      await deleteDoc(chatRef);
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+      throw error;
+    }
+  }
+
   subscribeToUserChats(userId, callback) {
     // Try with orderBy first (requires index)
     const q = query(
