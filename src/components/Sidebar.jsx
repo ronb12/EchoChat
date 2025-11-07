@@ -100,15 +100,6 @@ function ChatListRow({
     onSelect(chat.id);
   };
 
-  const handleToggleClick = (event) => {
-    event.stopPropagation();
-    if (isOpen) {
-      resetPosition();
-    } else {
-      openActions();
-    }
-  };
-
   const handleMute = (event) => {
     event.stopPropagation();
     onToggleMute(chat.id);
@@ -130,7 +121,8 @@ function ChatListRow({
           onClick={handleMute}
           aria-label={isMuted ? 'Unmute chat' : 'Mute chat'}
         >
-          {isMuted ? '🔔' : '🔕'}
+          <span className="chat-action-icon">{isMuted ? '🔔' : '🔕'}</span>
+          <span className="chat-action-label">{isMuted ? 'Unmute' : 'Mute'}</span>
         </button>
         <button
           className="chat-action-btn delete-btn"
@@ -138,7 +130,8 @@ function ChatListRow({
           onClick={handleDelete}
           aria-label="Delete chat"
         >
-          🗑️
+          <span className="chat-action-icon">🗑️</span>
+          <span className="chat-action-label">Delete</span>
         </button>
       </div>
       <div
@@ -184,14 +177,6 @@ function ChatListRow({
             <div className="unread-count">{chat.unreadCount}</div>
           )}
         </div>
-        <button
-          type="button"
-          className="chat-item-more"
-          aria-label="Chat options"
-          onClick={handleToggleClick}
-        >
-          ⋯
-        </button>
       </div>
     </li>
   );
