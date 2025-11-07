@@ -211,6 +211,14 @@ body {
   gap: 12px;
 }
 
+.app-header .logo-icon {
+  font-size: clamp(1.5rem, 1.2vw + 1rem, 2.25rem) !important;
+  line-height: 1 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .logo-icon {
   font-size: 28px;
   animation: float 3s ease-in-out infinite;
@@ -241,7 +249,8 @@ body {
 
 .app-title h1 {
   /* Fluid font size responsive to screen */
-  font-size: clamp(1.25rem, 1.5vw + 0.75rem, 1.5rem);
+  font-size: clamp(1.125rem, 1vw + 0.75rem, 1.5rem) !important;
+  line-height: 1.2 !important;
   font-weight: 900;
   margin: 0;
   color: #ffffff !important;
@@ -4122,13 +4131,13 @@ body.dark .form-group select {
   margin-bottom: var(--spacing-xl);
 }
 
-.logo-icon {
+.hero-section .logo-icon {
   font-size: 4rem;
   margin-bottom: var(--spacing-md);
   animation: float 3s ease-in-out infinite;
 }
 
-.app-title {
+.hero-section .app-title {
   font-size: 3.5rem;
   font-weight: 700;
   margin-bottom: var(--spacing-sm);
@@ -4642,7 +4651,7 @@ body.dark .form-group select {
 
 /* Landing Page Mobile Styles */
 @media (max-width: 768px) {
-  .app-title { font-size: 2.5rem; }
+  .hero-section .app-title { font-size: 2.5rem; }
   .cta-content h2 { font-size: 2rem; }
   .hero-features { grid-template-columns: 1fr; }
   .features-grid { grid-template-columns: 1fr; }
@@ -4664,8 +4673,8 @@ body.dark .form-group select {
 }
 
 @media (max-width: 480px) {
-  .app-title { font-size: 2rem; }
-  .logo-icon { font-size: 3rem; }
+  .hero-section .app-title { font-size: 2rem; }
+  .hero-section .logo-icon { font-size: 3rem; }
   .hero-section { padding: var(--spacing-lg) 0; }
   .cta-section { padding: var(--spacing-lg) 0; }
   .features-section { padding: var(--spacing-lg) 0; }
@@ -5115,6 +5124,9 @@ body.dark .form-group select {
   z-index: var(--z-popover);
   padding: 12px;
   border: 1px solid var(--border-color);
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 260px;
 }
 
 [data-theme="dark"] .emoji-picker {
