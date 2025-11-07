@@ -1,4 +1,6 @@
 // WebRTC Call Service for Video/Voice Calls with Screen Sharing
+import { callSignalingService } from './callSignalingService';
+
 class CallService {
   constructor() {
     this.localStream = null;
@@ -9,10 +11,19 @@ class CallService {
     this.callType = null; // 'video' or 'audio'
     this.isScreenSharing = false;
     this.callListeners = new Set();
+    this.currentCallId = null;
+    this.currentChatId = null;
+    this.currentCallerId = null;
+    this.currentReceiverId = null;
+    this.answerListener = null;
+    this.candidateListener = null;
+    this.callDocListener = null;
+    this.localRole = null; // 'caller' or 'callee'
+    this.receivedCandidateKeys = new Set();
   }
 
   // Initialize peer connection
-  async initializePeerConnection() {
+  async initializePeerConnection({ callId = null, role = null } = {}) {
     const configuration = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -39,6 +50,11 @@ class CallService {
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         this.notifyCallListeners('iceCandidate', event.candidate);
+        if (callId && role) {
+          callSignalingService.addIceCandidate(callId, event.candidate.toJSON(), role).catch((error) => {
+            console.error('Error adding ICE candidate to signaling channel:', error);
+          });
+        }
       }
     };
 
@@ -53,29 +69,93 @@ class CallService {
   }
 
   // Start a call (video or audio)
-  async startCall(type = 'video', userId) {
+  async startCall({
+    callType = 'video',
+    callerId,
+    callerName = null,
+    receiverId,
+    receiverName = null,
+    chatId,
+    callId: explicitCallId = null
+  } = {}) {
     try {
-      this.callType = type;
+      if (!callerId || !receiverId || !chatId) {
+        throw new Error('Caller ID, receiver ID, and chat ID are required to start a call');
+      }
+
+      const callId = explicitCallId || chatId;
+
+      this.callType = callType;
       this.isCallActive = true;
+      this.localRole = 'caller';
+      this.currentCallId = callId;
+      this.currentChatId = chatId;
+      this.currentCallerId = callerId;
+      this.currentReceiverId = receiverId;
+      this.receivedCandidateKeys.clear();
 
       // Get user media
       const constraints = {
-        video: type === 'video' ? true : false,
+        video: callType === 'video',
         audio: true
       };
 
       this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
       this.notifyCallListeners('localStream', this.localStream);
 
-      await this.initializePeerConnection();
+      await this.initializePeerConnection({ callId, role: this.localRole });
 
       // Create offer
       const offer = await this.peerConnection.createOffer();
       await this.peerConnection.setLocalDescription(offer);
 
-      this.notifyCallListeners('callStarted', { type, userId, offer });
+      const offerPayload = {
+        type: offer.type,
+        sdp: offer.sdp
+      };
 
-      return { offer, type };
+      await callSignalingService.createOffer(callId, {
+        chatId,
+        callType,
+        callerId,
+        callerName,
+        receiverId,
+        receiverName,
+        offer: offerPayload
+      });
+
+      this.callDocListener = callSignalingService.listenToCall(callId, async (callData) => {
+        if (!callData) {return;}
+        if (callData.status === 'ended') {
+          this.endCall();
+          return;
+        }
+        if (callData.answer && this.peerConnection) {
+          if (this.peerConnection.signalingState === 'have-local-offer' || this.peerConnection.signalingState === 'stable') {
+            try {
+              await this.peerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
+            } catch (error) {
+              console.error('Error setting remote description (answer):', error);
+            }
+          }
+        }
+      });
+
+      this.candidateListener = callSignalingService.listenForCandidates(callId, this.localRole, async (candidate) => {
+        if (!candidate || !this.peerConnection) {return;}
+        const key = JSON.stringify(candidate);
+        if (this.receivedCandidateKeys.has(key)) {return;}
+        this.receivedCandidateKeys.add(key);
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (error) {
+          console.error('Error adding remote ICE candidate:', error);
+        }
+      });
+
+      this.notifyCallListeners('callStarted', { type: callType, userId: callerId, offer });
+
+      return { offer, type: callType, callId };
     } catch (error) {
       console.error('Error starting call:', error);
       this.endCall();
@@ -84,30 +164,78 @@ class CallService {
   }
 
   // Answer incoming call
-  async answerCall(offer, type = 'video') {
+  async answerCall({
+    offer,
+    callType = 'video',
+    callId,
+    chatId,
+    callerId,
+    callerName = null,
+    receiverId,
+    receiverName = null
+  } = {}) {
     try {
-      this.callType = type;
+      if (!offer || !callId || !receiverId) {
+        throw new Error('Offer, callId, and receiverId are required to answer call');
+      }
+
+      this.callType = callType;
       this.isCallActive = true;
+      this.localRole = 'callee';
+      this.currentCallId = callId;
+      this.currentChatId = chatId || null;
+      this.currentCallerId = callerId || null;
+      this.currentReceiverId = receiverId;
+      this.receivedCandidateKeys.clear();
 
       // Get user media
       const constraints = {
-        video: type === 'video' ? true : false,
+        video: callType === 'video',
         audio: true
       };
 
       this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
       this.notifyCallListeners('localStream', this.localStream);
 
-      await this.initializePeerConnection();
+      await this.initializePeerConnection({ callId, role: this.localRole });
 
       // Set remote description
-      await this.peerConnection.setRemoteDescription(offer);
+      const remoteDescription = offer.type ? offer : new RTCSessionDescription(offer);
+      await this.peerConnection.setRemoteDescription(remoteDescription);
 
       // Create answer
       const answer = await this.peerConnection.createAnswer();
       await this.peerConnection.setLocalDescription(answer);
 
-      this.notifyCallListeners('callAnswered', { type, answer });
+      const answerPayload = {
+        type: answer.type,
+        sdp: answer.sdp,
+        receiverId,
+        receiverName
+      };
+
+      await callSignalingService.setAnswer(callId, answerPayload);
+
+      this.callDocListener = callSignalingService.listenToCall(callId, (callData) => {
+        if (!callData) {return;}
+        if (callData.status === 'ended') {
+          this.endCall();
+        }
+      });
+
+      this.candidateListener = callSignalingService.listenForCandidates(callId, this.localRole, async (candidate) => {
+        if (!candidate || !this.peerConnection) {return;}
+        const key = JSON.stringify(candidate);
+        if (this.receivedCandidateKeys.has(key)) {return;}
+        this.receivedCandidateKeys.add(key);
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (error) {
+          console.error('Error adding remote ICE candidate (callee):', error);
+        }
+      });
+
+      this.notifyCallListeners('callAnswered', { type: callType, answer });
 
       return answer;
     } catch (error) {
@@ -138,6 +266,19 @@ class CallService {
 
   // End call
   endCall() {
+    if (this.answerListener) {
+      this.answerListener();
+      this.answerListener = null;
+    }
+    if (this.candidateListener) {
+      this.candidateListener();
+      this.candidateListener = null;
+    }
+    if (this.callDocListener) {
+      this.callDocListener();
+      this.callDocListener = null;
+    }
+
     // Stop screen sharing first
     if (this.screenStream) {
       this.screenStream.getTracks().forEach(track => track.stop());
@@ -158,6 +299,18 @@ class CallService {
     this.isCallActive = false;
     this.isScreenSharing = false;
     this.callType = null;
+    this.receivedCandidateKeys.clear();
+
+    if (this.currentCallId) {
+      callSignalingService.markCallEnded(this.currentCallId).catch(() => {});
+      callSignalingService.clearCall(this.currentCallId).catch(() => {});
+    }
+
+    this.currentCallId = null;
+    this.currentChatId = null;
+    this.currentCallerId = null;
+    this.currentReceiverId = null;
+    this.localRole = null;
 
     this.notifyCallListeners('callEnded');
   }
@@ -298,6 +451,10 @@ class CallService {
         console.error('Error in call listener:', error);
       }
     });
+  }
+
+  listenForIncomingCalls(userId, callback) {
+    return callSignalingService.listenForIncomingCalls(userId, callback);
   }
 }
 

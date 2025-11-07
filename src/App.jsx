@@ -36,7 +36,7 @@ import { usePresenceStatus, useNotifications } from './hooks/useRealtime';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const { showLoginModal, showSignUpModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, showGroupChatModal, showMediaGallery, closeMediaGallery, showPrivacyModal, showTermsModal, showSupportModal, showParentDashboard, showParentApprovalModal, showLinkChildModal, openLinkChildModal, showContactRequestModal, openContactRequestModal, showRatingModal, showFeatureRequestModal, showSupportTicketModal, showAdminDashboard, callModalType, blockUserId, blockUserName, showNotification } = useUI();
+  const { showLoginModal, showSignUpModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, showGroupChatModal, showMediaGallery, closeMediaGallery, showPrivacyModal, showTermsModal, showSupportModal, showParentDashboard, showParentApprovalModal, showLinkChildModal, openLinkChildModal, showContactRequestModal, openContactRequestModal, showRatingModal, showFeatureRequestModal, showSupportTicketModal, showAdminDashboard, callModalType, callSession, isIncomingCall, blockUserId, blockUserName, showNotification } = useUI();
   const { messages } = useChat();
   const { currentChatId } = useChat();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -341,7 +341,13 @@ function AppContent() {
       {showSignUpModal && <SignUpModal />}
       {showSettingsModal && <SettingsModal />}
       {showNewChatModal && <NewChatModal />}
-      {showCallModal && <CallModal callType={callModalType} />}
+      {showCallModal && (
+        <CallModal
+          callType={callModalType}
+          callSession={callSession}
+          isIncoming={isIncomingCall}
+        />
+      )}
       {showBlockUserModal && <BlockUserModal userId={blockUserId} userName={blockUserName} />}
       {showStatusModal && <StatusModal />}
       {showGroupChatModal && <GroupChatModal />}

@@ -4,7 +4,7 @@ import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { callService } from '../services/callService';
 
-export default function CallModal({ callType = 'video', isIncoming = false, onEndCall }) {
+export default function CallModal({ callType = 'video', callSession = null, isIncoming = false, onEndCall }) {
   const { closeCallModal } = useUI();
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
@@ -14,6 +14,15 @@ export default function CallModal({ callType = 'video', isIncoming = false, onEn
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const [callDuration, setCallDuration] = useState(0);
+  const callId = callSession?.callId || callSession?.chatId || null;
+  const chatId = callSession?.chatId || null;
+  const receiverId = callSession?.receiverId || null;
+  const receiverName = callSession?.receiverName || 'Contact';
+  const callerId = callSession?.callerId || null;
+  const callerName = callSession?.callerName || 'Caller';
+  const offer = callSession?.offer || null;
+  const displayName = isIncoming ? callerName : receiverName;
+  const hasInitializedRef = useRef(false);
 
   useEffect(() => {
     let interval;
@@ -24,6 +33,10 @@ export default function CallModal({ callType = 'video', isIncoming = false, onEn
     }
     return () => clearInterval(interval);
   }, [isConnected]);
+
+  useEffect(() => {
+    hasInitializedRef.current = false;
+  }, [callId, isIncoming]);
 
   useEffect(() => {
     const unsubscribe = callService.subscribeToCallEvents((event, data) => {
@@ -60,20 +73,47 @@ export default function CallModal({ callType = 'video', isIncoming = false, onEn
       }
     });
 
-    // Start or answer call
     const initCall = async () => {
+      if (!user?.uid || hasInitializedRef.current) {
+        return;
+      }
+
       try {
         if (isIncoming) {
-          // Incoming call - answer it
-          // In production, receive offer from signaling server
-          console.log('Answering incoming call');
+          if (!offer || !callId) {
+            console.warn('Incoming call missing offer or call ID');
+            return;
+          }
+          await callService.answerCall({
+            offer,
+            callType,
+            callId,
+            chatId,
+            callerId,
+            callerName,
+            receiverId: user.uid,
+            receiverName: user.displayName || user.email || 'You'
+          });
         } else {
-          // Outgoing call
-          await callService.startCall(callType, user?.uid);
+          if (!receiverId || !chatId) {
+            alert('Unable to start call. Missing participant information.');
+            handleEndCall();
+            return;
+          }
+          await callService.startCall({
+            callType,
+            callerId: user.uid,
+            callerName: user.displayName || user.email || 'You',
+            receiverId,
+            receiverName,
+            chatId,
+            callId
+          });
         }
+        hasInitializedRef.current = true;
       } catch (error) {
         console.error('Call error:', error);
-        alert('Error starting call. Please check your camera/microphone permissions.');
+        alert('Error establishing call. Please check your camera/microphone permissions.');
         handleEndCall();
       }
     };
@@ -84,8 +124,7 @@ export default function CallModal({ callType = 'video', isIncoming = false, onEn
       unsubscribe();
       callService.endCall();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callType, isIncoming, user]);
+  }, [callType, isIncoming, user, callId, chatId, receiverId, receiverName, callerId, callerName, offer]);
 
   const handleEndCall = () => {
     callService.endCall();
@@ -145,6 +184,17 @@ export default function CallModal({ callType = 'video', isIncoming = false, onEn
               <div>{connectionState === 'connecting' ? 'Connecting...' : 'Calling...'}</div>
             </div>
           )}
+          <div style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 20,
+            color: '#fff',
+            fontSize: '1.1rem',
+            fontWeight: '600',
+            textShadow: '0 2px 6px rgba(0,0,0,0.5)'
+          }}>
+            {displayName}
+          </div>
         </div>
 
         {/* Local Video (Video calls only) */}
@@ -257,6 +307,16 @@ export default function CallModal({ callType = 'video', isIncoming = false, onEn
 
 CallModal.propTypes = {
   callType: PropTypes.oneOf(['video', 'audio']),
+  callSession: PropTypes.shape({
+    callId: PropTypes.string,
+    chatId: PropTypes.string,
+    callerId: PropTypes.string,
+    callerName: PropTypes.string,
+    receiverId: PropTypes.string,
+    receiverName: PropTypes.string,
+    offer: PropTypes.object,
+    callType: PropTypes.oneOf(['video', 'audio'])
+  }),
   isIncoming: PropTypes.bool,
   onEndCall: PropTypes.func
 };

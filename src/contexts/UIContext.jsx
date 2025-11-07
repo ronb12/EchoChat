@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
+import { useAuth } from '../hooks/useAuth';
+import { callService } from '../services/callService';
 
 const UIContext = createContext();
 
@@ -26,10 +28,17 @@ export function UIProvider({ children }) {
   const [showParentApprovalModal, setShowParentApprovalModal] = useState(false);
   const [showLinkChildModal, setShowLinkChildModal] = useState(false);
   const [showContactRequestModal, setShowContactRequestModal] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showFeatureRequestModal, setShowFeatureRequestModal] = useState(false);
+  const [showSupportTicketModal, setShowSupportTicketModal] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [callModalType, setCallModalType] = useState('video');
+  const [callSession, setCallSession] = useState(null);
+  const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [blockUserId, setBlockUserId] = useState(null);
   const [blockUserName, setBlockUserName] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const { user } = useAuth();
 
   // Load theme from localStorage
   useEffect(() => {
@@ -44,6 +53,42 @@ export function UIProvider({ children }) {
     localStorage.setItem('echochat-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      return undefined;
+    }
+
+    const unsubscribe = callService.listenForIncomingCalls(user.uid, (callData) => {
+      if (!callData) {return;}
+      if (callData.callerId === user.uid) {return;}
+      const existingCallId = callSession?.callId || callSession?.chatId;
+      const incomingCallId = callData.id || callData.chatId;
+      if (showCallModal && existingCallId && existingCallId === incomingCallId) {
+        return;
+      }
+
+      setCallModalType(callData.callType || 'video');
+      setCallSession({
+        callId: callData.id,
+        chatId: callData.chatId || null,
+        callerId: callData.callerId || null,
+        callerName: callData.callerName || 'Incoming caller',
+        receiverId: callData.receiverId || user.uid,
+        receiverName: callData.receiverName || user.displayName || user.email || 'You',
+        offer: callData.offer || null,
+        callType: callData.callType || 'video'
+      });
+      setIsIncomingCall(true);
+      setShowCallModal(true);
+    });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [user, showCallModal, callSession]);
 
   // Toggle theme
   const toggleTheme = () => {
@@ -87,12 +132,41 @@ export function UIProvider({ children }) {
   const closeSettingsModal = () => setShowSettingsModal(false);
   const openNewChatModal = () => setShowNewChatModal(true);
   const closeNewChatModal = () => setShowNewChatModal(false);
-  const openCallModal = (type = 'video') => {
+  const openCallModal = (typeOrConfig = 'video', maybeConfig = {}) => {
+    const config = typeof typeOrConfig === 'string'
+      ? { type: typeOrConfig, ...maybeConfig }
+      : { ...typeOrConfig };
+
+    const {
+      type = 'video',
+      callId = null,
+      chatId = null,
+      callerId = null,
+      callerName = null,
+      receiverId = null,
+      receiverName = null,
+      offer = null,
+      isIncoming = false
+    } = config;
+
     setCallModalType(type);
+    setCallSession({
+      callId: callId || chatId || null,
+      chatId,
+      callerId,
+      callerName,
+      receiverId,
+      receiverName,
+      offer,
+      callType: type
+    });
+    setIsIncomingCall(isIncoming);
     setShowCallModal(true);
   };
   const closeCallModal = () => {
     setShowCallModal(false);
+    setCallSession(null);
+    setIsIncomingCall(false);
     setCallModalType('video');
   };
   const openBlockUserModal = (userId, userName) => {
@@ -127,6 +201,14 @@ export function UIProvider({ children }) {
   const closeLinkChildModal = () => setShowLinkChildModal(false);
   const openContactRequestModal = () => setShowContactRequestModal(true);
   const closeContactRequestModal = () => setShowContactRequestModal(false);
+  const openRatingModal = () => setShowRatingModal(true);
+  const closeRatingModal = () => setShowRatingModal(false);
+  const openFeatureRequestModal = () => setShowFeatureRequestModal(true);
+  const closeFeatureRequestModal = () => setShowFeatureRequestModal(false);
+  const openSupportTicketModal = () => setShowSupportTicketModal(true);
+  const closeSupportTicketModal = () => setShowSupportTicketModal(false);
+  const openAdminDashboard = () => setShowAdminDashboard(true);
+  const closeAdminDashboard = () => setShowAdminDashboard(false);
 
   const value = {
     theme,
@@ -148,7 +230,13 @@ export function UIProvider({ children }) {
     showParentApprovalModal,
     showLinkChildModal,
     showContactRequestModal,
+    showRatingModal,
+    showFeatureRequestModal,
+    showSupportTicketModal,
+    showAdminDashboard,
     callModalType,
+    callSession,
+    isIncomingCall,
     blockUserId,
     blockUserName,
     notifications,
@@ -190,7 +278,15 @@ export function UIProvider({ children }) {
     openLinkChildModal,
     closeLinkChildModal,
     openContactRequestModal,
-    closeContactRequestModal
+    closeContactRequestModal,
+    openRatingModal,
+    closeRatingModal,
+    openFeatureRequestModal,
+    closeFeatureRequestModal,
+    openSupportTicketModal,
+    closeSupportTicketModal,
+    openAdminDashboard,
+    closeAdminDashboard
   };
 
   return (
