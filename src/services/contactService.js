@@ -662,9 +662,10 @@ class ContactService {
       const requestsRef = collection(db, 'contactRequests');
       
       // First, try to get all requests for this user (without status filter) for debugging
+      const normalizedUserId = String(userId).trim();
       const allRequestsQuery = query(
         requestsRef,
-        where('toUserId', '==', userId)
+        where('toUserId', '==', normalizedUserId)
       );
       
       console.log('📡 Querying Firestore for ALL requests (toUserId only)...');
@@ -710,7 +711,7 @@ class ContactService {
       
       // Now query with status filter
       // IMPORTANT: Ensure userId is a string and matches exactly
-      const queryUserId = String(userId).trim();
+      const queryUserId = normalizedUserId;
       console.log('📡 Querying Firestore for pending requests (with status filter)...');
       console.log('📡 Query userId (normalized):', queryUserId, 'type:', typeof queryUserId, 'length:', queryUserId.length);
       
