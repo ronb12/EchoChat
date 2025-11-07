@@ -170,6 +170,31 @@ service cloud.firestore {
     match /stripe_accounts/{userId} {
       allow read, write: if isOwner(userId);
     }
+
+    // Call signaling sessions
+    match /callSessions/{callId} {
+      allow create: if isAuthenticated() &&
+        request.resource.data.callerId == request.auth.uid &&
+        request.resource.data.receiverId != null;
+
+      allow read, update: if isAuthenticated() &&
+        (resource.data.callerId == request.auth.uid ||
+         resource.data.receiverId == request.auth.uid);
+
+      allow delete: if false;
+
+      match /candidates/{candidateId} {
+        allow create: if isAuthenticated() &&
+          ((get(/databases/$(database)/documents/callSessions/$(callId)).data.callerId == request.auth.uid) ||
+           (get(/databases/$(database)/documents/callSessions/$(callId)).data.receiverId == request.auth.uid));
+
+        allow read: if isAuthenticated() &&
+          ((get(/databases/$(database)/documents/callSessions/$(callId)).data.callerId == request.auth.uid) ||
+           (get(/databases/$(database)/documents/callSessions/$(callId)).data.receiverId == request.auth.uid));
+
+        allow update, delete: if false;
+      }
+    }
     
     // Sticker packs collection
     match /stickerPacks/{packId} {
