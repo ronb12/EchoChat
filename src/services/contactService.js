@@ -676,10 +676,7 @@ class ContactService {
       console.log('📊 All requests found (any status):', allSnapshot.size);
       
       if (allSnapshot.size === 0) {
-        console.warn('⚠️ No requests found at all! This could mean:');
-        console.warn('   1. No requests have been sent to this user');
-        console.warn('   2. The toUserId in documents doesn\'t match this userId');
-        console.warn('   3. Firestore rules are blocking the query');
+        console.log('ℹ️ No contact request documents found for this user (normal if no requests have been sent).');
       }
       
       allSnapshot.forEach((docSnap) => {
