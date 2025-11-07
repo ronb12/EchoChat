@@ -218,6 +218,8 @@ class ChatService {
     if (this.useFirestore) {
       try {
         const newMessage = await firestoreService.sendMessage(chatId, messageData);
+        // Update chat metadata (last message, unread counts)
+        await this.handlePostSend(chatId, newMessage || messageData);
         // Real-time subscription will handle notifying subscribers
         return newMessage;
       } catch (error) {
@@ -242,6 +244,8 @@ class ChatService {
 
     // Notify all subscribers
     this.notifyMessageSubscribers(chatId);
+
+    await this.handlePostSend(chatId, newMessage);
 
     return newMessage;
   }
@@ -477,9 +481,10 @@ class ChatService {
     if (this.useFirestore) {
       try {
         const unsubscribe = firestoreService.subscribeToUserChats(userId, (chats) => {
+          const normalizedChats = this.normalizeChatListForUser(chats, userId);
           // Update local cache
-          this.userIdToChats.set(userId, chats);
-          callback(chats);
+          this.userIdToChats.set(userId, normalizedChats);
+          callback(normalizedChats);
         });
 
         this.firestoreUnsubscribes.set(`chats_${userId}`, unsubscribe);
@@ -502,11 +507,11 @@ class ChatService {
       this.userIdToChats.set(userId, []);
     }
     // Immediately deliver current state
-    callback(this.userIdToChats.get(userId));
+    callback(this.normalizeChatListForUser(this.userIdToChats.get(userId), userId));
 
     // Set up polling to check for updates (simulating real-time)
     const interval = setInterval(() => {
-      const userChats = this.userIdToChats.get(userId) || [];
+      const userChats = this.normalizeChatListForUser(this.userIdToChats.get(userId) || [], userId);
       callback(userChats);
     }, 500);
 
@@ -514,6 +519,105 @@ class ChatService {
       clearInterval(interval);
     };
     return unsubscribe;
+  }
+
+  async handlePostSend(chatId, messageData) {
+    if (!messageData) {return;}
+
+    const preview = firestoreService.buildMessagePreview
+      ? firestoreService.buildMessagePreview(messageData)
+      : (messageData.text || '').trim();
+    const timestamp = Date.now();
+
+    this.updateLocalChatCache(chatId, preview, timestamp, messageData);
+
+    if (this.useFirestore) {
+      try {
+        await firestoreService.updateChatAfterMessage(chatId, messageData);
+      } catch (error) {
+        console.error('Error updating chat metadata after send:', error);
+      }
+    }
+  }
+
+  updateLocalChatCache(chatId, preview, timestamp, messageData) {
+    if (!chatId) {return;}
+
+    const senderId = messageData?.senderId;
+
+    this.userIdToChats.forEach((chats, userId) => {
+      if (!Array.isArray(chats) || chats.length === 0) {
+        return;
+      }
+
+      const updatedChats = chats.map((chat) => {
+        if (!chat || chat.id !== chatId) {
+          return chat;
+        }
+
+        const unreadCount = this.resolveUnreadCount(chat.unreadCount, userId);
+        const nextUnread = senderId
+          ? (senderId === userId ? 0 : unreadCount + 1)
+          : unreadCount;
+
+        return {
+          ...chat,
+          lastMessage: preview,
+          lastMessageAt: timestamp,
+          unreadCount: nextUnread
+        };
+      });
+
+      this.userIdToChats.set(userId, updatedChats);
+    });
+  }
+
+  normalizeChatListForUser(chats, userId) {
+    if (!Array.isArray(chats)) {
+      return [];
+    }
+
+    return chats.map(chat => this.normalizeChatForUser(chat, userId));
+  }
+
+  normalizeChatForUser(chat, userId) {
+    if (!chat) {return chat;}
+
+    const normalized = { ...chat };
+    normalized.lastMessageAt = this.normalizeTimestamp(chat.lastMessageAt, chat.createdAt || Date.now());
+    normalized.createdAt = this.normalizeTimestamp(chat.createdAt, normalized.lastMessageAt);
+
+    if (typeof chat.lastMessage === 'object' && chat.lastMessage !== null) {
+      normalized.lastMessage = (chat.lastMessage.text || '').trim();
+    } else {
+      normalized.lastMessage = (chat.lastMessage || '').toString();
+    }
+
+    normalized.unreadCount = this.resolveUnreadCount(chat.unreadCount, userId);
+
+    return normalized;
+  }
+
+  resolveUnreadCount(unreadValue, userId) {
+    if (typeof unreadValue === 'number' && Number.isFinite(unreadValue)) {
+      return unreadValue;
+    }
+
+    if (unreadValue && typeof unreadValue === 'object') {
+      const valueForUser = unreadValue[userId];
+      if (typeof valueForUser === 'number' && Number.isFinite(valueForUser)) {
+        return valueForUser;
+      }
+    }
+
+    return 0;
+  }
+
+  normalizeTimestamp(value, fallback = Date.now()) {
+    if (!value && value !== 0) {return fallback;}
+    if (typeof value === 'number' && Number.isFinite(value)) {return value;}
+    if (typeof value?.toMillis === 'function') {return value.toMillis();}
+    return fallback;
   }
 
   // Create new chat
