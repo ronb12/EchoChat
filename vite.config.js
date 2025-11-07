@@ -4,12 +4,18 @@ import legacy from '@vitejs/plugin-legacy';
 import react from '@vitejs/plugin-react';
 import { copyFileSync, existsSync } from 'fs';
 
+const buildVersion =
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.GITHUB_SHA ||
+  process.env.npm_package_version ||
+  Date.now().toString();
+
 export default defineConfig({
   root: '.',
   publicDir: 'public',
   define: {
     global: 'globalThis',
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '0.0.0'),
+    __APP_VERSION__: JSON.stringify(buildVersion.slice(0, 12)),
   },
   build: {
     outDir: 'dist',
