@@ -922,7 +922,8 @@ body {
   position: relative;
   height: 100%;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 /* Welcome Screen */
@@ -5160,9 +5161,6 @@ body.dark .form-group select {
   position: relative;
 }
 
-/* ============================================
-   SELECT DROPDOWN STYLING
-   ============================================ */
 /* Enhanced select dropdown styling with visible arrow */
 select {
   appearance: none !important;

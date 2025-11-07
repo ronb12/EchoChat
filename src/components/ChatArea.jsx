@@ -19,7 +19,7 @@ import { EMOJI_LIST } from '../data/emojis';
 export default function ChatArea() {
   const { messages, currentChatId, setCurrentChatId, chats } = useChat();
   const { user, signOut, setUser } = useAuth();
-  
+
   // Get current chat details
   const currentChat = chats.find(chat => chat.id === currentChatId);
   const { openNewChatModal, openCallModal, toggleSidebar, openSettingsModal, openGroupChatModal, openMediaGallery, openStatusModal, showNotification } = useUI();
@@ -100,6 +100,10 @@ export default function ChatArea() {
   // Close emoji picker and more menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Ignore clicks on the emoji toggle button itself
+      if (event.target?.closest('.emoji-btn')) {
+        return;
+      }
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
         setShowEmojiPicker(false);
       }
@@ -208,6 +212,21 @@ export default function ChatArea() {
       return;
     }
 
+    // Validate chat exists
+    if (!currentChatId) {
+      console.error('❌ Cannot send message: No chat selected');
+      alert('Please select a chat first');
+      return;
+    }
+
+    console.log('📤 handleSendMessage called:', {
+      chatId: currentChatId,
+      userId: user.uid,
+      hasText: !!messageText.trim(),
+      filesCount: selectedFiles.length,
+      imagesCount: previewImages.length
+    });
+
     try {
       // Validate message text
       if (messageText.trim()) {
@@ -289,6 +308,13 @@ export default function ChatArea() {
             senderName: user.displayName || user.email || 'User'
           });
         } catch (error) {
+          console.error('❌ Error sending text message:', error);
+          console.error('   Error details:', {
+            chatId: currentChatId,
+            userId: user.uid,
+            errorMessage: error.message,
+            errorCode: error.code
+          });
           alert(`Error sending message: ${error.message || 'Unknown error'}`);
           return;
         }
@@ -370,9 +396,9 @@ export default function ChatArea() {
               </button>
             )}
             <div className="chat-avatar">
-              <img 
-                src={currentChat?.avatar || '/icons/default-avatar.png'} 
-                alt={currentChat?.name || 'Chat'} 
+              <img
+                src={currentChat?.avatar || '/icons/default-avatar.png'}
+                alt={currentChat?.name || 'Chat'}
                 onError={(e) => { e.target.src = '/icons/default-avatar.png'; }}
               />
             </div>
@@ -545,7 +571,9 @@ export default function ChatArea() {
                         e.stopPropagation();
                         // Check subscription status before allowing Quick Reply
                         try {
-                          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+                          const isProduction = import.meta.env.PROD;
+                          const baseUrl = import.meta.env.VITE_API_BASE_URL || (isProduction ? '' : 'http://localhost:3001');
+                          const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
                           const response = await fetch(`${API_BASE_URL}/api/stripe/subscription/${user?.uid}`);
                           if (response.ok) {
                             const subscription = await response.json();
@@ -683,7 +711,7 @@ export default function ChatArea() {
                       try {
                         // Check if user is a demo user (no Firebase UID)
                         const isDemoUser = user && !user.uid;
-                        
+
                         if (isDemoUser) {
                           // Demo user - just clear localStorage and state
                           localStorage.removeItem('echochat_account_type');
