@@ -356,6 +356,7 @@ export default function AppHeader() {
           justifyContent: isCompactHeader ? 'space-between' : 'flex-end',
           alignItems: isCompactHeader ? 'stretch' : 'center',
           gap: isCompactHeader ? '8px' : '12px',
+          flexDirection: isCompactHeader ? 'column' : 'row',
           flexWrap: isCompactHeader ? 'wrap' : 'nowrap'
         }}
       >
@@ -476,7 +477,7 @@ export default function AppHeader() {
               padding: isCompactHeader ? '6px 12px' : '8px 16px',
               marginRight: isCompactHeader ? '0' : '12px',
               flex: isCompactHeader ? '1 1 auto' : '0 0 auto',
-              display: isCompactHeader ? 'none' : 'flex',
+              display: 'flex',
               background: 'var(--primary-color, #0084ff)',
               color: 'white',
               border: 'none',
@@ -486,7 +487,9 @@ export default function AppHeader() {
               fontWeight: '600',
               alignItems: 'center',
               gap: '8px',
-              boxShadow: '0 2px 8px rgba(0, 132, 255, 0.3)'
+              boxShadow: '0 2px 8px rgba(0, 132, 255, 0.3)',
+              width: isCompactHeader ? '100%' : 'auto',
+              justifyContent: 'center'
             }}
             title={pendingRequestsCount > 0 
               ? `${pendingRequestsCount} pending friend request${pendingRequestsCount > 1 ? 's' : ''}`
