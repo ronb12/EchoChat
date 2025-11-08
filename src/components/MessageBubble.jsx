@@ -249,7 +249,13 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   };
 
   const timestamp = formatTimestamp(message.timestamp);
-  const messageClass = `message ${isOwn ? 'sent' : 'received'} ${message.deleted ? 'deleted' : ''}`;
+  const scheduledFor = message.scheduleTime || message.scheduledFor || null;
+  const isScheduled = Boolean(
+    message.scheduled ||
+    message.status === 'scheduled' ||
+    (message.isPlaceholder && scheduledFor)
+  );
+  const messageClass = `message ${isOwn ? 'sent' : 'received'} ${message.deleted ? 'deleted' : ''} ${isScheduled ? 'scheduled' : ''}`;
   const displaySticker = message.decryptedSticker || message.sticker;
   const displayImage = message.decryptedImage || message.image;
   const displayAudio = message.decryptedAudio || message.audio;
@@ -539,6 +545,11 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
       {message.pinned && (
         <div className="message-pinned-indicator">
           📌 Pinned
+        </div>
+      )}
+      {isScheduled && scheduledFor && (
+        <div className="message-scheduled-indicator">
+          ⏰ Scheduled for {formatTimestamp(scheduledFor)}
         </div>
       )}
       {message.forwarded && (

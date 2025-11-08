@@ -1903,6 +1903,31 @@ body {
   color: var(--primary-color);
 }
 
+.message-scheduled-indicator {
+  font-size: 12px;
+  margin-bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-color-secondary);
+  background: rgba(0, 132, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.message.scheduled .message-content {
+  border: 1px dashed rgba(0, 132, 255, 0.35);
+}
+
+.input-action-btn.schedule-btn {
+  color: var(--text-color-secondary);
+}
+
+.input-action-btn.schedule-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .message-text {
   white-space: pre-wrap;
   word-wrap: break-word;

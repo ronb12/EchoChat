@@ -34,6 +34,7 @@ class ChatService {
 
     // Start scheduled messages checker
     this.startScheduledMessageChecker();
+    this.loadScheduledQueueFromStorage();
   }
 
   isEncryptionEnabled() {
@@ -160,6 +161,7 @@ class ChatService {
         });
         this.chatIdToMessages = new Map(entries);
       }
+      this.rebuildScheduledMessagesFromCache();
     } catch (error) {
       console.error('Error loading messages from storage:', error);
     }
@@ -273,10 +275,12 @@ class ChatService {
           try {
             const decryptedMessages = await this.processIncomingMessages(chatId, messages);
             this.chatIdToMessages.set(chatId, decryptedMessages);
+            this.mergeScheduledPlaceholders(chatId);
           } catch (error) {
             console.error('Failed to process incoming messages:', error);
             this.chatIdToMessages.set(chatId, messages);
           }
+          this.mergeScheduledPlaceholders(chatId);
           emitMessages();
         };
 
@@ -315,6 +319,7 @@ class ChatService {
     if (!this.chatIdToMessages.has(chatId)) {
       this.chatIdToMessages.set(chatId, []);
     }
+    this.mergeScheduledPlaceholders(chatId);
     // Immediately deliver current state
     callback(this.buildMessagesWithReadPointers(chatId));
 
@@ -738,7 +743,7 @@ class ChatService {
     }
     this.scheduledMessageInterval = setInterval(() => {
       this.checkScheduledMessages();
-    }, 60000);
+    }, 15000);
   }
 
   subscribeToTypingIndicators(chatId, callback) {
@@ -1140,49 +1145,281 @@ class ChatService {
   }
 
   // Schedule message
-  async scheduleMessage(chatId, message, scheduleTime, userId) {
-    const scheduledMessage = {
-      ...message,
-      scheduled: true,
-      scheduleTime,
-      createdAt: Date.now()
-    };
-
-    // Store in scheduled messages
+  ensureScheduledQueue(chatId) {
     if (!this.scheduledMessages) {
       this.scheduledMessages = new Map();
     }
-    const scheduled = this.scheduledMessages.get(chatId) || [];
-    scheduled.push(scheduledMessage);
-    this.scheduledMessages.set(chatId, scheduled);
+    if (!this.scheduledMessages.has(chatId)) {
+      this.scheduledMessages.set(chatId, []);
+    }
+  }
 
-    // Check and send scheduled messages periodically
+  mergeScheduledPlaceholders(chatId) {
+    const entries = this.scheduledMessages?.get(chatId) || [];
+    if (entries.length === 0) {return;}
+    const current = [...(this.chatIdToMessages.get(chatId) || [])];
+    let modified = false;
+    entries.forEach((entry) => {
+      const placeholder = entry.placeholder;
+      if (!placeholder) {return;}
+      const index = current.findIndex((msg) => msg.id === placeholder.id);
+      if (index >= 0) {
+        current[index] = { ...placeholder };
+        modified = true;
+      } else {
+        current.push({ ...placeholder });
+        modified = true;
+      }
+    });
+    if (modified) {
+      current.sort((a, b) => {
+        const timeA = a.scheduleTime || a.timestamp || a.createdAt || 0;
+        const timeB = b.scheduleTime || b.timestamp || b.createdAt || 0;
+        return timeA - timeB;
+      });
+      this.chatIdToMessages.set(chatId, current);
+    }
+  }
+
+  persistScheduledQueue() {
+    try {
+      const payload = [];
+      this.scheduledMessages.forEach((entries = [], chatId) => {
+        entries.forEach((entry) => {
+          payload.push({
+            chatId,
+            id: entry.id,
+            scheduleTime: entry.scheduleTime,
+            senderId: entry.senderId,
+            senderName: entry.senderName,
+            originalPayload: entry.originalPayload,
+            placeholder: entry.placeholder
+          });
+        });
+      });
+      localStorage.setItem('echochat_scheduled_queue', JSON.stringify(payload));
+    } catch (error) {
+      console.error('Failed to persist scheduled queue:', error);
+    }
+  }
+
+  loadScheduledQueueFromStorage() {
+    try {
+      const stored = localStorage.getItem('echochat_scheduled_queue');
+      if (!stored) {return;}
+      const items = JSON.parse(stored);
+      if (!Array.isArray(items)) {return;}
+      this.scheduledMessages = new Map();
+      items.forEach((item) => {
+        if (!item || !item.chatId || !item.id || !item.scheduleTime || !item.senderId) {return;}
+        const placeholder = item.placeholder || this.buildScheduledPlaceholder(
+          item.chatId,
+          item.originalPayload || {},
+          item.scheduleTime,
+          item.senderId,
+          item.senderName,
+          item.id
+        );
+        this.ensureScheduledQueue(item.chatId);
+        const queue = this.scheduledMessages.get(item.chatId);
+        queue.push({
+          id: item.id,
+          chatId: item.chatId,
+          scheduleTime: item.scheduleTime,
+          senderId: item.senderId,
+          senderName: item.senderName || 'User',
+          originalPayload: item.originalPayload || {},
+          placeholder
+        });
+        this.addPlaceholderToChat(item.chatId, placeholder, false);
+      });
+    } catch (error) {
+      console.error('Failed to load scheduled queue:', error);
+    }
+  }
+
+  rebuildScheduledMessagesFromCache() {
+    const now = Date.now();
+    const rebuilt = new Map();
+    this.chatIdToMessages.forEach((messages, chatId) => {
+      const pending = (messages || []).filter(
+        (msg) => msg && msg.scheduled && msg.scheduleTime && msg.scheduleTime > now
+      );
+      if (pending.length > 0) {
+        rebuilt.set(
+          chatId,
+          pending.map((msg) => ({
+            id: msg.id,
+            chatId,
+            scheduleTime: msg.scheduleTime,
+            senderId: msg.senderId,
+            senderName: msg.senderName || 'User',
+            originalPayload: msg.originalPayload || {
+              text: msg.text || msg.decryptedText || '',
+              senderId: msg.senderId,
+              senderName: msg.senderName || 'User'
+            },
+            placeholder: { ...msg }
+          }))
+        );
+      }
+    });
+    if (rebuilt.size > 0) {
+      this.scheduledMessages = rebuilt;
+      this.persistScheduledQueue();
+    }
+  }
+
+  addPlaceholderToChat(chatId, placeholder, notify = true) {
+    if (!placeholder) {return;}
+    const current = [...(this.chatIdToMessages.get(chatId) || [])];
+    const index = current.findIndex((msg) => msg.id === placeholder.id);
+    if (index >= 0) {
+      current[index] = { ...placeholder };
+    } else {
+      current.push({ ...placeholder });
+    }
+    current.sort((a, b) => {
+      const timeA = a.scheduleTime || a.timestamp || a.createdAt || 0;
+      const timeB = b.scheduleTime || b.timestamp || b.createdAt || 0;
+      return timeA - timeB;
+    });
+    this.chatIdToMessages.set(chatId, current);
+    if (notify) {
+      this.saveMessagesToStorage();
+      this.notifyMessageSubscribers(chatId);
+    }
+  }
+
+  removeScheduledPlaceholder(chatId, placeholderId, notify = true) {
+    const queue = this.scheduledMessages?.get(chatId) || [];
+    if (queue.length > 0) {
+      const filtered = queue.filter((entry) => entry.id !== placeholderId);
+      this.scheduledMessages.set(chatId, filtered);
+    }
+    if (this.chatIdToMessages.has(chatId)) {
+      const filteredMessages = (this.chatIdToMessages.get(chatId) || []).filter(
+        (msg) => msg.id !== placeholderId
+      );
+      this.chatIdToMessages.set(chatId, filteredMessages);
+    }
+    if (notify) {
+      this.saveMessagesToStorage();
+      this.notifyMessageSubscribers(chatId);
+    }
+    this.persistScheduledQueue();
+  }
+
+  buildScheduledPlaceholder(chatId, message, scheduleTime, userId, userName, customId = null) {
+    const timestamp = Date.now();
+    const id =
+      customId || `scheduled_${timestamp}_${Math.random().toString(36).slice(2, 8)}`;
+    return {
+      ...message,
+      id,
+      chatId,
+      senderId: userId,
+      senderName: userName || 'User',
+      text: message.text || '',
+      decryptedText: message.decryptedText || message.text || '',
+      scheduled: true,
+      scheduleTime,
+      scheduledFor: scheduleTime,
+      createdAt: timestamp,
+      timestamp: scheduleTime,
+      status: 'scheduled',
+      isPlaceholder: true,
+      originalPayload: {
+        text: message.text || '',
+        senderId: userId,
+        senderName: userName || 'User'
+      }
+    };
+  }
+
+  async scheduleMessage(chatId, message, scheduleTime, userId, userName) {
+    if (!chatId || !message || !userId || !scheduleTime) {
+      throw new Error('Invalid scheduling data');
+    }
+
+    const normalizedTime = Number(scheduleTime);
+    if (!Number.isFinite(normalizedTime)) {
+      throw new Error('Invalid schedule time');
+    }
+
+    const now = Date.now();
+    const minDelayMs = 15000; // 15 seconds buffer
+    if (normalizedTime < now + minDelayMs) {
+      throw new Error('Please choose a time at least 15 seconds in the future.');
+    }
+
+    const sanitizedPayload = {
+      text: message.text || '',
+      senderId: userId,
+      senderName: userName || 'User'
+    };
+
+    const placeholder = this.buildScheduledPlaceholder(
+      chatId,
+      sanitizedPayload,
+      normalizedTime,
+      userId,
+      userName
+    );
+
+    this.ensureScheduledQueue(chatId);
+    const queue = this.scheduledMessages.get(chatId);
+    queue.push({
+      id: placeholder.id,
+      chatId,
+      scheduleTime: normalizedTime,
+      senderId: userId,
+      senderName: userName || 'User',
+      originalPayload: sanitizedPayload,
+      placeholder
+    });
+
+    this.addPlaceholderToChat(chatId, placeholder);
+    this.persistScheduledQueue();
     this.checkScheduledMessages();
-
-    return scheduledMessage;
+    return placeholder;
   }
 
   // Check and send scheduled messages
-  checkScheduledMessages() {
+  async checkScheduledMessages() {
     if (!this.scheduledMessages) {return;}
 
     const now = Date.now();
-    this.scheduledMessages.forEach((messages, chatId) => {
-      const toSend = messages.filter(msg => msg.scheduleTime <= now);
+    this.scheduledMessages.forEach(async (entries, chatId) => {
+      if (!Array.isArray(entries) || entries.length === 0) {return;}
+      const remaining = [];
+      for (const entry of entries) {
+        if (!entry || !entry.scheduleTime) {
+          continue;
+        }
+        if (entry.scheduleTime > now) {
+          remaining.push(entry);
+          continue;
+        }
 
-      toSend.forEach(async (msg) => {
-        await this.sendMessage(chatId, {
-          ...msg,
-          scheduled: false,
-          scheduleTime: null,
-          timestamp: now
-        });
-      });
-
-      // Remove sent messages
-      const remaining = messages.filter(msg => msg.scheduleTime > now);
+        try {
+          await this.sendMessage(chatId, {
+            ...entry.originalPayload,
+            senderId: entry.senderId,
+            senderName: entry.senderName,
+            scheduled: false,
+            scheduleTime: null
+          });
+          this.removeScheduledPlaceholder(chatId, entry.id, true);
+        } catch (error) {
+          console.error('Failed to deliver scheduled message:', error);
+          entry.scheduleTime = now + 60000;
+          remaining.push(entry);
+        }
+      }
       this.scheduledMessages.set(chatId, remaining);
     });
+    this.persistScheduledQueue();
   }
 
   // Notifications

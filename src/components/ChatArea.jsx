@@ -14,6 +14,7 @@ import GifPicker from './GifPicker';
 import SendMoneyModal from './SendMoneyModal';
 import QuickReplyModal from './QuickReplyModal';
 import PollCreatorModal from './PollCreatorModal';
+import ScheduleMessageModal from './ScheduleMessageModal';
 import { EMOJI_LIST } from '../data/emojis';
 
 export default function ChatArea() {
@@ -69,6 +70,9 @@ export default function ChatArea() {
   const [videoPreviewBlob, setVideoPreviewBlob] = useState(null);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [showPinnedTray, setShowPinnedTray] = useState(true);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDraftValue, setScheduleDraftValue] = useState('');
+  const [isSchedulingMessage, setIsSchedulingMessage] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -92,6 +96,14 @@ export default function ChatArea() {
     firstTypingUser?.userId && firstTypingUser.userId !== user?.uid ? firstTypingUser.userId : null,
     firstTypingUser?.displayName || 'Someone'
   );
+
+  const computeDefaultScheduleValue = useCallback(() => {
+    const base = new Date(Date.now() + 15 * 60 * 1000);
+    base.setSeconds(0, 0);
+    const offset = base.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(base.getTime() - offset).toISOString().slice(0, 16);
+    return localISOTime;
+  }, []);
 
   const pinnedMessages = useMemo(() => {
     if (!Array.isArray(messages)) {
@@ -142,6 +154,63 @@ export default function ChatArea() {
       target.classList.remove('pinned-message-highlight');
     }, 1600);
   }, [showNotification]);
+  const handleOpenScheduleModal = () => {
+    if (!user) {
+      showNotification('You need to be signed in to schedule messages.', 'error');
+      return;
+    }
+    if (!currentChatId) {
+      showNotification('Select a chat before scheduling a message.', 'info');
+      return;
+    }
+    if (!messageText.trim()) {
+      showNotification('Type a message before scheduling.', 'info');
+      return;
+    }
+    if (selectedFiles.length > 0 || previewImages.length > 0) {
+      showNotification('Scheduling attachments is not supported yet. Please send immediately.', 'info');
+      return;
+    }
+    setScheduleDraftValue(computeDefaultScheduleValue());
+    setShowScheduleModal(true);
+  };
+
+  const handleScheduleSubmit = async (scheduledTimestamp) => {
+    if (!user || !currentChatId) {
+      showNotification('Please select a chat first.', 'error');
+      return;
+    }
+    if (!messageText.trim()) {
+      showNotification('Type a message before scheduling.', 'info');
+      return;
+    }
+
+    try {
+      setIsSchedulingMessage(true);
+      const sanitizedText = validationService.sanitizeInput(messageText.trim());
+      await chatService.scheduleMessage(
+        currentChatId,
+        {
+          text: sanitizedText,
+          senderId: user.uid,
+          senderName: myDisplayName || 'User'
+        },
+        scheduledTimestamp,
+        user.uid,
+        myDisplayName || 'User'
+      );
+      showNotification('Message scheduled successfully.', 'success');
+      setMessageText('');
+      setShowScheduleModal(false);
+      stopTyping();
+    } catch (error) {
+      console.error('Failed to schedule message:', error);
+      showNotification(error?.message || 'Unable to schedule message.', 'error');
+    } finally {
+      setIsSchedulingMessage(false);
+    }
+  };
+
 
   // Track mobile state
   useEffect(() => {
@@ -1480,6 +1549,15 @@ export default function ChatArea() {
           />
         )}
 
+        <ScheduleMessageModal
+          isOpen={showScheduleModal}
+          defaultValue={scheduleDraftValue}
+          minTimestamp={Date.now() + 15 * 1000}
+          onClose={() => setShowScheduleModal(false)}
+          onConfirm={handleScheduleSubmit}
+          isSubmitting={isSchedulingMessage}
+        />
+
         {/* Messages Container */}
         <div className="messages-container">
           {pinnedMessages.length > 0 && (
@@ -1635,6 +1713,19 @@ export default function ChatArea() {
               style={{ color: '#4caf50' }}
             >
               💵
+            </button>
+            <button
+              className="input-action-btn schedule-btn"
+              title="Schedule message"
+              onClick={handleOpenScheduleModal}
+              disabled={
+                !messageText.trim() ||
+                selectedFiles.length > 0 ||
+                previewImages.length > 0 ||
+                isSchedulingMessage
+              }
+            >
+              ⏰
             </button>
             {showGifPicker && (
               <GifPicker
