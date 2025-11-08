@@ -128,8 +128,8 @@ service cloud.firestore {
       function isReadReceiptUpdate() {
         let diff = request.resource.data.diff(resource.data);
         let changed = diff.changedKeys();
-        let added = diff.addedKeys();
         let removed = diff.removedKeys();
+        let allowedKeys = resource.data.keys().concat(['reads', 'readAt']);
         let readAtAllowed = !changed.hasAny(['readAt']) ||
           (resource.data.readAt == null && isServerTimestamp(request.resource.data.readAt));
         let readsBefore = mapOrEmpty(resource.data.reads);
@@ -140,6 +140,8 @@ service cloud.firestore {
         let readsRemoved = readsDiff.removedKeys();
 
         return isChatParticipant() &&
+          request.resource.data.keys().hasOnly(allowedKeys) &&
+          resource.data.keys().hasOnly(request.resource.data.keys()) &&
           request.resource.data.chatId == resource.data.chatId &&
           request.resource.data.senderId == resource.data.senderId &&
           fieldUnchanged('text') &&
@@ -168,7 +170,6 @@ service cloud.firestore {
           fieldUnchanged('fileSize') &&
           fieldUnchanged('fileType') &&
           readAtAllowed &&
-          (added.size() == 0 || (added.size() == 1 && added.hasOnly(['reads']))) &&
           removed.size() == 0 &&
           changed.hasOnly(['reads', 'readAt']) &&
           readsRemoved.size() == 0 &&
