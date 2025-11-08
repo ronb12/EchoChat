@@ -172,9 +172,10 @@ service cloud.firestore {
           removed.size() == 0 &&
           changed.hasOnly(['reads', 'readAt']) &&
           readsRemoved.size() == 0 &&
-          readsChanged.hasOnly([request.auth.uid]) &&
+          (readsChanged.size() == 0 || readsChanged.hasOnly([request.auth.uid])) &&
           (readsAdded.size() == 0 || readsAdded.hasOnly([request.auth.uid])) &&
-          readsAfter[request.auth.uid] != null;
+          readsAfter[request.auth.uid] != null &&
+          isServerTimestamp(readsAfter[request.auth.uid]);
       }
       
       // Allow read if user is authenticated (for public messages or participants)
