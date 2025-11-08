@@ -8,6 +8,7 @@ import { chatService } from '../services/chatService';
 import { validationService } from '../services/validationService';
 import { stickersService } from '../services/stickersService';
 import { videoMessageService } from '../services/videoMessageService';
+import { firestoreService } from '../services/firestoreService';
 import MessageBubble from './MessageBubble';
 import MessageSearch from './MessageSearch';
 import GifPicker from './GifPicker';
@@ -193,6 +194,44 @@ export default function ChatArea() {
     return new Date(timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }, []);
 
+  const formatFileSize = useCallback((bytes) => {
+    if (!Number.isFinite(bytes) || bytes <= 0) {return '';}
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex += 1;
+    }
+    const precision = size >= 10 || unitIndex === 0 ? 0 : 1;
+    return `${size.toFixed(precision)} ${units[unitIndex]}`;
+  }, []);
+
+  const getAttachmentIcon = useCallback((attachment) => {
+    const type = (attachment?.type || '').toLowerCase();
+    if (type === 'image') {return '📷';}
+    if (type === 'audio') {return '🎵';}
+    if (type === 'video') {return '🎥';}
+    if (type === 'sticker') {return '🗒️';}
+    return '📎';
+  }, []);
+
+  const getAttachmentName = useCallback((attachment) => {
+    if (attachment?.name) {return attachment.name;}
+    const type = (attachment?.type || '').toLowerCase();
+    if (type === 'image') {return 'Photo';}
+    if (type === 'audio') {return 'Audio';}
+    if (type === 'video') {return 'Video';}
+    if (type === 'sticker') {return 'Sticker';}
+    return 'Attachment';
+  }, []);
+
+  const getAttachmentLabel = useCallback((attachment) => {
+    const name = getAttachmentName(attachment);
+    const sizeLabel = formatFileSize(attachment?.size);
+    return sizeLabel ? `${name} • ${sizeLabel}` : name;
+  }, [formatFileSize, getAttachmentName]);
+
   const handleOpenScheduleModal = (targetMessage = null) => {
     if (targetMessage) {
       setScheduleMode('reschedule');
@@ -203,6 +242,9 @@ export default function ChatArea() {
       return;
     }
 
+    const hasText = !!messageText.trim();
+    const hasAttachments = previewImages.length > 0 || selectedFiles.length > 0;
+
     if (!user) {
       showNotification('You need to be signed in to schedule messages.', 'error');
       return;
@@ -211,12 +253,8 @@ export default function ChatArea() {
       showNotification('Select a chat before scheduling a message.', 'info');
       return;
     }
-    if (!messageText.trim()) {
-      showNotification('Type a message before scheduling.', 'info');
-      return;
-    }
-    if (selectedFiles.length > 0 || previewImages.length > 0) {
-      showNotification('Scheduling attachments is not supported yet. Please send immediately.', 'info');
+    if (!hasText && !hasAttachments) {
+      showNotification('Add text or attachments before scheduling.', 'info');
       return;
     }
     setScheduleMode('create');
@@ -241,25 +279,105 @@ export default function ChatArea() {
         );
         showNotification('Message rescheduled.', 'success');
       } else {
-        if (!messageText.trim()) {
-          showNotification('Type a message before scheduling.', 'info');
+        const baseDisplayName = myDisplayName || 'User';
+        const trimmedText = messageText.trim();
+        const hasText = !!trimmedText;
+        const imagePreviews = Array.isArray(previewImages) ? [...previewImages] : [];
+        const nonImageFiles = Array.isArray(selectedFiles)
+          ? selectedFiles.filter(file => !(file?.type || '').startsWith('image/'))
+          : [];
+
+        if (!hasText && imagePreviews.length === 0 && nonImageFiles.length === 0) {
+          showNotification('Nothing to schedule. Add text or attachments.', 'info');
           return;
         }
-        const sanitizedText = validationService.sanitizeInput(messageText.trim());
-        await chatService.scheduleMessage(
-          currentChatId,
-          {
-            text: sanitizedText,
-            senderId: user.uid,
-            senderName: myDisplayName || 'User'
-          },
-          scheduledTimestamp,
-          user.uid,
-          myDisplayName || 'User'
-        );
-        showNotification('Message scheduled successfully.', 'success');
-        setMessageText('');
-        stopTyping();
+
+        let scheduledCount = 0;
+
+        for (const preview of imagePreviews) {
+          const file = preview?.file;
+          if (!file) {continue;}
+          const imageUrl = await firestoreService.uploadFile(currentChatId, file, 'images');
+          await chatService.scheduleMessage(
+            currentChatId,
+            {
+              text: '',
+              attachments: [{
+                type: 'image',
+                url: imageUrl,
+                name: file.name || null,
+                size: file.size || null,
+                contentType: file.type || null
+              }],
+              image: imageUrl,
+              imageName: file.name || null,
+              imageSize: file.size || null,
+              imageType: file.type || null
+            },
+            scheduledTimestamp,
+            user.uid,
+            baseDisplayName
+          );
+          scheduledCount += 1;
+        }
+
+        for (const file of nonImageFiles) {
+          if (!file) {continue;}
+          const fileUrl = await firestoreService.uploadFile(currentChatId, file, 'files');
+          await chatService.scheduleMessage(
+            currentChatId,
+            {
+              text: '',
+              attachments: [{
+                type: 'file',
+                url: fileUrl,
+                name: file.name || null,
+                size: file.size || null,
+                contentType: file.type || null
+              }],
+              file: {
+                url: fileUrl,
+                name: file.name || null,
+                size: file.size || null,
+                type: file.type || null
+              },
+              fileName: file.name || null,
+              fileSize: file.size || null,
+              fileType: file.type || null
+            },
+            scheduledTimestamp,
+            user.uid,
+            baseDisplayName
+          );
+          scheduledCount += 1;
+        }
+
+        if (hasText) {
+          const sanitizedText = validationService.sanitizeInput(trimmedText);
+          await chatService.scheduleMessage(
+            currentChatId,
+            {
+              text: sanitizedText,
+              attachments: []
+            },
+            scheduledTimestamp,
+            user.uid,
+            baseDisplayName
+          );
+          scheduledCount += 1;
+          setMessageText('');
+          stopTyping();
+        }
+
+        setSelectedFiles([]);
+        setPreviewImages([]);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+
+        if (scheduledCount > 0) {
+          showNotification(`Scheduled ${scheduledCount} message${scheduledCount > 1 ? 's' : ''}.`, 'success');
+        }
       }
       setScheduleTargetMessage(null);
       setScheduleMode('create');
@@ -1684,6 +1802,32 @@ export default function ChatArea() {
                           <span className="pill-icon">💬</span>
                           <span className="pill-text">{getMessagePreview(msg)}</span>
                         </button>
+                        {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+                          <div className="scheduled-message-attachments">
+                            {msg.attachments.map((attachment, index) => {
+                              const sizeLabel = formatFileSize(attachment?.size);
+                              return (
+                                <span
+                                  key={`${msg.id}-attachment-${index}`}
+                                  className="scheduled-attachment-chip"
+                                  title={getAttachmentLabel(attachment)}
+                                >
+                                  <span className="scheduled-attachment-icon">
+                                    {getAttachmentIcon(attachment)}
+                                  </span>
+                                  <span className="scheduled-attachment-name">
+                                    {getAttachmentName(attachment)}
+                                  </span>
+                                  {sizeLabel && (
+                                    <span className="scheduled-attachment-size">
+                                      {sizeLabel}
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                         <div className="scheduled-message-meta">
                           <span className="scheduled-time-label">
                             {scheduledAt ? `Scheduled for ${formatScheduleTime(scheduledAt)}` : 'Awaiting delivery'}
@@ -1878,9 +2022,11 @@ export default function ChatArea() {
               title="Schedule message"
               onClick={handleOpenScheduleModal}
               disabled={
-                !messageText.trim() ||
-                selectedFiles.length > 0 ||
-                previewImages.length > 0 ||
+                (
+                  !messageText.trim() &&
+                  selectedFiles.length === 0 &&
+                  previewImages.length === 0
+                ) ||
                 isSchedulingMessage
               }
             >

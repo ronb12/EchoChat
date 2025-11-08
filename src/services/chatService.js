@@ -1328,26 +1328,63 @@ class ChatService {
     const timestamp = Date.now();
     const id =
       customId || `scheduled_${timestamp}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const attachments = Array.isArray(message.attachments)
+      ? message.attachments.map((attachment) => ({
+          type: attachment?.type || 'file',
+          url: attachment?.url || null,
+          name: attachment?.name || null,
+          size: typeof attachment?.size === 'number' ? attachment.size : null,
+          contentType: attachment?.contentType || null
+        }))
+      : [];
+
+    const firstImage = attachments.find((attachment) => attachment.type === 'image');
+    const firstAudio = attachments.find((attachment) => attachment.type === 'audio');
+    const firstVideo = attachments.find((attachment) => attachment.type === 'video');
+    const firstFile = attachments.find((attachment) => attachment.type === 'file');
+
+    const text = message.text || '';
+
     return {
-      ...message,
       id,
       chatId,
       senderId: userId,
       senderName: userName || 'User',
-      text: message.text || '',
-      decryptedText: message.decryptedText || message.text || '',
+      text,
+      decryptedText: text,
+      attachments,
+      image: message.image || firstImage?.url || null,
+      imageName: message.imageName || firstImage?.name || null,
+      imageSize: message.imageSize || firstImage?.size || null,
+      imageType: message.imageType || firstImage?.contentType || null,
+      audio: message.audio || firstAudio?.url || null,
+      audioName: message.audioName || firstAudio?.name || null,
+      audioDuration: message.audioDuration || null,
+      video: message.video || firstVideo?.url || null,
+      videoName: message.videoName || firstVideo?.name || null,
+      videoDuration: message.videoDuration || null,
+      file: message.file || (firstFile
+        ? {
+            url: firstFile.url || null,
+            name: firstFile.name || null,
+            size: firstFile.size || null,
+            type: firstFile.contentType || null
+          }
+        : null),
+      fileName: message.fileName || firstFile?.name || null,
+      fileSize: message.fileSize || firstFile?.size || null,
+      fileType: message.fileType || firstFile?.contentType || null,
+      sticker: message.sticker || null,
+      stickerId: message.stickerId || null,
       scheduled: true,
+      hasAttachments: attachments.length > 0,
       scheduleTime,
       scheduledFor: scheduleTime,
       createdAt: timestamp,
       timestamp: scheduleTime,
       status: 'scheduled',
-      isPlaceholder: true,
-      originalPayload: {
-        text: message.text || '',
-        senderId: userId,
-        senderName: userName || 'User'
-      }
+      isPlaceholder: true
     };
   }
 
@@ -1423,10 +1460,37 @@ class ChatService {
       throw new Error('Please choose a time at least 15 seconds in the future.');
     }
 
+    const attachments = Array.isArray(message.attachments)
+      ? message.attachments.map((attachment) => ({
+          type: attachment?.type || 'file',
+          url: attachment?.url || attachment?.downloadURL || null,
+          name: attachment?.name || null,
+          size: typeof attachment?.size === 'number' ? attachment.size : null,
+          contentType: attachment?.contentType || attachment?.mimeType || attachment?.type || null
+        }))
+      : [];
+
     const sanitizedPayload = {
       text: message.text || '',
       senderId: userId,
-      senderName: userName || 'User'
+      senderName: userName || 'User',
+      attachments,
+      image: message.image || null,
+      imageName: message.imageName || null,
+      imageSize: message.imageSize || null,
+      imageType: message.imageType || null,
+      audio: message.audio || null,
+      audioName: message.audioName || null,
+      audioDuration: message.audioDuration || null,
+      video: message.video || null,
+      videoName: message.videoName || null,
+      videoDuration: message.videoDuration || null,
+      file: message.file || null,
+      fileName: message.fileName || (message.file && message.file.name) || null,
+      fileSize: message.fileSize || (message.file && message.file.size) || null,
+      fileType: message.fileType || (message.file && (message.file.type || message.file.contentType)) || null,
+      sticker: message.sticker || null,
+      stickerId: message.stickerId || null
     };
 
     const placeholder = this.buildScheduledPlaceholder(
@@ -1436,6 +1500,7 @@ class ChatService {
       userId,
       userName
     );
+    placeholder.originalPayload = sanitizedPayload;
 
     this.ensureScheduledQueue(chatId);
     const queue = this.scheduledMessages.get(chatId);
