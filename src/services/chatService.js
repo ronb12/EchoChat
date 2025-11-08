@@ -746,6 +746,20 @@ class ChatService {
     }, 15000);
   }
 
+  getScheduledEntries(chatId) {
+    if (!chatId) {return [];}
+    const queue = this.scheduledMessages?.get(chatId) || [];
+    return queue.slice().sort((a, b) => {
+      return (a.scheduleTime || 0) - (b.scheduleTime || 0);
+    });
+  }
+
+  findScheduledEntry(chatId, entryId) {
+    if (!chatId || !entryId) {return null;}
+    const queue = this.scheduledMessages?.get(chatId) || [];
+    return queue.find((entry) => entry?.id === entryId) || null;
+  }
+
   subscribeToTypingIndicators(chatId, callback) {
     const key = chatId;
     if (!this.chatIdToTypingUsers.has(key)) {
@@ -1335,6 +1349,62 @@ class ChatService {
         senderName: userName || 'User'
       }
     };
+  }
+
+  async cancelScheduledMessage(chatId, entryId) {
+    if (!chatId || !entryId) {return false;}
+    if (!this.scheduledMessages?.has(chatId)) {
+      return false;
+    }
+    this.removeScheduledPlaceholder(chatId, entryId, true);
+    this.persistScheduledQueue();
+    return true;
+  }
+
+  async sendScheduledMessageNow(chatId, entryId) {
+    if (!chatId || !entryId) {
+      throw new Error('Invalid scheduled message reference');
+    }
+    const entry = this.findScheduledEntry(chatId, entryId);
+    if (!entry) {
+      throw new Error('Scheduled message not found');
+    }
+
+    await this.sendMessage(chatId, {
+      ...entry.originalPayload,
+      senderId: entry.senderId,
+      senderName: entry.senderName,
+      scheduled: false,
+      scheduleTime: null
+    }, entry.senderId);
+
+    this.removeScheduledPlaceholder(chatId, entryId, true);
+    this.persistScheduledQueue();
+    return true;
+  }
+
+  async rescheduleScheduledMessage(chatId, entryId, newScheduleTime) {
+    if (!chatId || !entryId || !Number.isFinite(newScheduleTime)) {
+      throw new Error('Invalid reschedule data');
+    }
+
+    this.ensureScheduledQueue(chatId);
+    const entry = this.findScheduledEntry(chatId, entryId);
+    if (!entry) {
+      throw new Error('Scheduled message not found');
+    }
+
+    entry.scheduleTime = newScheduleTime;
+    if (entry.placeholder) {
+      entry.placeholder.scheduleTime = newScheduleTime;
+      entry.placeholder.scheduledFor = newScheduleTime;
+      entry.placeholder.timestamp = newScheduleTime;
+      entry.placeholder.status = 'scheduled';
+    }
+
+    this.addPlaceholderToChat(chatId, entry.placeholder, true);
+    this.persistScheduledQueue();
+    return entry;
   }
 
   async scheduleMessage(chatId, message, scheduleTime, userId, userName) {

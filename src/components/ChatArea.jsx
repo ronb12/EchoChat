@@ -70,9 +70,12 @@ export default function ChatArea() {
   const [videoPreviewBlob, setVideoPreviewBlob] = useState(null);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [showPinnedTray, setShowPinnedTray] = useState(true);
+  const [showScheduledTray, setShowScheduledTray] = useState(true);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleDraftValue, setScheduleDraftValue] = useState('');
   const [isSchedulingMessage, setIsSchedulingMessage] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState('create'); // 'create' | 'reschedule'
+  const [scheduleTargetMessage, setScheduleTargetMessage] = useState(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -105,11 +108,34 @@ export default function ChatArea() {
     return localISOTime;
   }, []);
 
+  const toScheduleInputValue = useCallback((timestamp) => {
+    if (!Number.isFinite(timestamp)) {
+      return computeDefaultScheduleValue();
+    }
+    const base = new Date(timestamp);
+    base.setSeconds(0, 0);
+    const offset = base.getTimezoneOffset() * 60000;
+    return new Date(base.getTime() - offset).toISOString().slice(0, 16);
+  }, [computeDefaultScheduleValue]);
+
   const pinnedMessages = useMemo(() => {
     if (!Array.isArray(messages)) {
       return [];
     }
     return messages.filter((msg) => msg?.pinned && !msg.deleted);
+  }, [messages]);
+
+  const scheduledMessages = useMemo(() => {
+    if (!Array.isArray(messages)) {
+      return [];
+    }
+    return messages
+      .filter((msg) => msg?.scheduled && !msg.deleted)
+      .sort((a, b) => {
+        const timeA = a.scheduleTime || a.scheduledFor || a.timestamp || 0;
+        const timeB = b.scheduleTime || b.scheduledFor || b.timestamp || 0;
+        return timeA - timeB;
+      });
   }, [messages]);
 
   const pinnedCountLabel = useMemo(() => {
@@ -119,7 +145,14 @@ export default function ChatArea() {
     return `${count} pinned messages`;
   }, [pinnedMessages]);
 
-  const getPinnedPreview = useCallback((msg) => {
+  const scheduledCountLabel = useMemo(() => {
+    const count = scheduledMessages.length;
+    if (count === 0) {return '';}
+    if (count === 1) {return '1 scheduled message';}
+    return `${count} scheduled messages`;
+  }, [scheduledMessages]);
+
+  const getMessagePreview = useCallback((msg) => {
     if (!msg || msg.deleted) {return 'Message';}
     const textFields = [
       msg.decryptedText,
@@ -139,12 +172,12 @@ export default function ChatArea() {
     return 'Message';
   }, []);
 
-  const highlightPinnedMessage = useCallback((messageId) => {
+  const highlightMessageById = useCallback((messageId) => {
     if (!messageId) {return;}
     const elementId = `message-${messageId}`;
     const target = typeof document !== 'undefined' ? document.getElementById(elementId) : null;
     if (!target) {
-      showNotification('Pinned message is not available yet. Try scrolling through the chat.', 'info');
+      showNotification('Message is not available yet. Try scrolling through the chat.', 'info');
       return;
     }
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -154,7 +187,22 @@ export default function ChatArea() {
       target.classList.remove('pinned-message-highlight');
     }, 1600);
   }, [showNotification]);
-  const handleOpenScheduleModal = () => {
+
+  const formatScheduleTime = useCallback((timestamp) => {
+    if (!timestamp) {return 'Pending';}
+    return new Date(timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }, []);
+
+  const handleOpenScheduleModal = (targetMessage = null) => {
+    if (targetMessage) {
+      setScheduleMode('reschedule');
+      setScheduleTargetMessage(targetMessage);
+      const targetTime = targetMessage.scheduleTime || targetMessage.scheduledFor || Date.now() + 15 * 60 * 1000;
+      setScheduleDraftValue(toScheduleInputValue(targetTime));
+      setShowScheduleModal(true);
+      return;
+    }
+
     if (!user) {
       showNotification('You need to be signed in to schedule messages.', 'error');
       return;
@@ -171,6 +219,8 @@ export default function ChatArea() {
       showNotification('Scheduling attachments is not supported yet. Please send immediately.', 'info');
       return;
     }
+    setScheduleMode('create');
+    setScheduleTargetMessage(null);
     setScheduleDraftValue(computeDefaultScheduleValue());
     setShowScheduleModal(true);
   };
@@ -180,29 +230,40 @@ export default function ChatArea() {
       showNotification('Please select a chat first.', 'error');
       return;
     }
-    if (!messageText.trim()) {
-      showNotification('Type a message before scheduling.', 'info');
-      return;
-    }
 
     try {
       setIsSchedulingMessage(true);
-      const sanitizedText = validationService.sanitizeInput(messageText.trim());
-      await chatService.scheduleMessage(
-        currentChatId,
-        {
-          text: sanitizedText,
-          senderId: user.uid,
-          senderName: myDisplayName || 'User'
-        },
-        scheduledTimestamp,
-        user.uid,
-        myDisplayName || 'User'
-      );
-      showNotification('Message scheduled successfully.', 'success');
-      setMessageText('');
+      if (scheduleMode === 'reschedule' && scheduleTargetMessage) {
+        await chatService.rescheduleScheduledMessage(
+          currentChatId,
+          scheduleTargetMessage.id,
+          scheduledTimestamp
+        );
+        showNotification('Message rescheduled.', 'success');
+      } else {
+        if (!messageText.trim()) {
+          showNotification('Type a message before scheduling.', 'info');
+          return;
+        }
+        const sanitizedText = validationService.sanitizeInput(messageText.trim());
+        await chatService.scheduleMessage(
+          currentChatId,
+          {
+            text: sanitizedText,
+            senderId: user.uid,
+            senderName: myDisplayName || 'User'
+          },
+          scheduledTimestamp,
+          user.uid,
+          myDisplayName || 'User'
+        );
+        showNotification('Message scheduled successfully.', 'success');
+        setMessageText('');
+        stopTyping();
+      }
+      setScheduleTargetMessage(null);
+      setScheduleMode('create');
       setShowScheduleModal(false);
-      stopTyping();
     } catch (error) {
       console.error('Failed to schedule message:', error);
       showNotification(error?.message || 'Unable to schedule message.', 'error');
@@ -210,6 +271,39 @@ export default function ChatArea() {
       setIsSchedulingMessage(false);
     }
   };
+
+  const handleCloseScheduleModal = () => {
+    setShowScheduleModal(false);
+    setScheduleTargetMessage(null);
+    setScheduleMode('create');
+  };
+
+  const handleCancelScheduledMessage = useCallback(async (message) => {
+    if (!message?.id || !currentChatId) {return;}
+    try {
+      await chatService.cancelScheduledMessage(currentChatId, message.id);
+      showNotification('Scheduled message canceled.', 'success');
+    } catch (error) {
+      console.error('Failed to cancel scheduled message:', error);
+      showNotification(error?.message || 'Unable to cancel scheduled message.', 'error');
+    }
+  }, [currentChatId, showNotification]);
+
+  const handleSendScheduledMessageNow = useCallback(async (message) => {
+    if (!message?.id || !currentChatId) {return;}
+    try {
+      await chatService.sendScheduledMessageNow(currentChatId, message.id);
+      showNotification('Message sent.', 'success');
+    } catch (error) {
+      console.error('Failed to send scheduled message immediately:', error);
+      showNotification(error?.message || 'Unable to send message right now.', 'error');
+    }
+  }, [currentChatId, showNotification]);
+
+  const handleRescheduleScheduledMessage = useCallback((message) => {
+    if (!message) {return;}
+    handleOpenScheduleModal(message);
+  }, [handleOpenScheduleModal]);
 
 
   // Track mobile state
@@ -1553,13 +1647,78 @@ export default function ChatArea() {
           isOpen={showScheduleModal}
           defaultValue={scheduleDraftValue}
           minTimestamp={Date.now() + 15 * 1000}
-          onClose={() => setShowScheduleModal(false)}
+          onClose={handleCloseScheduleModal}
           onConfirm={handleScheduleSubmit}
           isSubmitting={isSchedulingMessage}
+          mode={scheduleMode}
         />
 
         {/* Messages Container */}
         <div className="messages-container">
+          {scheduledMessages.length > 0 && (
+            <div className={`scheduled-messages-tray ${showScheduledTray ? 'expanded' : 'collapsed'}`}>
+              <div className="scheduled-messages-header">
+                <button
+                  type="button"
+                  className="scheduled-messages-toggle"
+                  onClick={() => setShowScheduledTray(prev => !prev)}
+                  aria-expanded={showScheduledTray}
+                >
+                  <span className="scheduled-toggle-icon">⏰</span>
+                  <span className="scheduled-toggle-text">{scheduledCountLabel || 'Scheduled messages'}</span>
+                  <span className="scheduled-toggle-caret">{showScheduledTray ? '▲' : '▼'}</span>
+                </button>
+              </div>
+              {showScheduledTray && (
+                <div className="scheduled-messages-list">
+                  {scheduledMessages.map((msg) => {
+                    const scheduledAt = msg.scheduleTime || msg.scheduledFor || null;
+                    return (
+                      <div key={msg.id} className="scheduled-message-item">
+                        <button
+                          type="button"
+                          className="scheduled-message-pill"
+                          onClick={() => highlightMessageById(msg.id)}
+                          title={getMessagePreview(msg)}
+                        >
+                          <span className="pill-icon">💬</span>
+                          <span className="pill-text">{getMessagePreview(msg)}</span>
+                        </button>
+                        <div className="scheduled-message-meta">
+                          <span className="scheduled-time-label">
+                            {scheduledAt ? `Scheduled for ${formatScheduleTime(scheduledAt)}` : 'Awaiting delivery'}
+                          </span>
+                        </div>
+                        <div className="scheduled-message-actions">
+                          <button
+                            type="button"
+                            className="scheduled-action send-now"
+                            onClick={() => handleSendScheduledMessageNow(msg)}
+                          >
+                            Send now
+                          </button>
+                          <button
+                            type="button"
+                            className="scheduled-action reschedule"
+                            onClick={() => handleRescheduleScheduledMessage(msg)}
+                          >
+                            Reschedule
+                          </button>
+                          <button
+                            type="button"
+                            className="scheduled-action cancel"
+                            onClick={() => handleCancelScheduledMessage(msg)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {pinnedMessages.length > 0 && (
             <div className={`pinned-messages-tray ${showPinnedTray ? 'expanded' : 'collapsed'}`}>
               <div className="pinned-messages-header">
@@ -1581,12 +1740,12 @@ export default function ChatArea() {
                       key={msg.id}
                       type="button"
                       className="pinned-message-pill"
-                      onClick={() => highlightPinnedMessage(msg.id)}
-                      title={getPinnedPreview(msg)}
+                      onClick={() => highlightMessageById(msg.id)}
+                      title={getMessagePreview(msg)}
                       role="listitem"
                     >
                       <span className="pill-icon">📌</span>
-                      <span className="pill-text">{getPinnedPreview(msg)}</span>
+                      <span className="pill-text">{getMessagePreview(msg)}</span>
                     </button>
                   ))}
                 </div>

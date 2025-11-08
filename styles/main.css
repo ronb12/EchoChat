@@ -1928,6 +1928,166 @@ body {
   cursor: not-allowed;
 }
 
+.scheduled-messages-tray {
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.92);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+[data-theme="dark"] .scheduled-messages-tray {
+  background: rgba(17, 24, 32, 0.88);
+}
+
+.scheduled-messages-tray.collapsed {
+  padding-bottom: 10px;
+}
+
+.scheduled-messages-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scheduled-messages-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.scheduled-messages-toggle .scheduled-toggle-icon {
+  font-size: 18px;
+}
+
+.scheduled-messages-toggle .scheduled-toggle-caret {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.scheduled-messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.scheduled-message-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(0, 132, 255, 0.05);
+  border: 1px solid rgba(0, 132, 255, 0.12);
+}
+
+[data-theme="dark"] .scheduled-message-item {
+  background: rgba(0, 132, 255, 0.12);
+  border-color: rgba(0, 132, 255, 0.22);
+}
+
+.scheduled-message-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  background: rgba(0, 132, 255, 0.08);
+  color: var(--text-color);
+  font-size: 13px;
+  cursor: pointer;
+  width: fit-content;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+[data-theme="dark"] .scheduled-message-pill {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 132, 255, 0.18);
+}
+
+.scheduled-message-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 132, 255, 0.16);
+  background: rgba(0, 132, 255, 0.12);
+}
+
+.scheduled-message-meta {
+  font-size: 12px;
+  color: var(--text-color-secondary);
+}
+
+.scheduled-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scheduled-action {
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  background: rgba(0, 132, 255, 0.12);
+  color: var(--primary-color);
+}
+
+.scheduled-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 132, 255, 0.18);
+}
+
+.scheduled-action.send-now {
+  background: rgba(46, 204, 113, 0.16);
+  color: #2ecc71;
+}
+
+[data-theme="dark"] .scheduled-action.send-now {
+  background: rgba(46, 204, 113, 0.24);
+  color: #7bed9f;
+}
+
+.scheduled-action.reschedule {
+  background: rgba(255, 171, 0, 0.16);
+  color: #f5a623;
+}
+
+[data-theme="dark"] .scheduled-action.reschedule {
+  background: rgba(255, 171, 0, 0.28);
+  color: #ffcc6a;
+}
+
+.scheduled-action.cancel {
+  background: rgba(244, 67, 54, 0.16);
+  color: #f44336;
+}
+
+[data-theme="dark"] .scheduled-action.cancel {
+  background: rgba(244, 67, 54, 0.24);
+  color: #ff867c;
+}
+
+.scheduled-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 .message-text {
   white-space: pre-wrap;
   word-wrap: break-word;

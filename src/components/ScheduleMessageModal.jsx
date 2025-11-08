@@ -13,10 +13,12 @@ export default function ScheduleMessageModal({
   minTimestamp,
   onClose,
   onConfirm,
-  isSubmitting = false
+  isSubmitting = false,
+  mode = 'create'
 }) {
   const [dateTimeValue, setDateTimeValue] = useState('');
   const [error, setError] = useState('');
+  const isReschedule = mode === 'reschedule';
 
   const minimumValue = useMemo(() => {
     const effectiveMin = minTimestamp && Number.isFinite(minTimestamp)
@@ -27,7 +29,14 @@ export default function ScheduleMessageModal({
 
   useEffect(() => {
     if (!isOpen) {return;}
-    const initialValue = defaultValue || minimumValue;
+    let initialValue = defaultValue || minimumValue;
+    if (defaultValue) {
+      const defaultDate = new Date(defaultValue);
+      const minDate = new Date(minimumValue);
+      if (defaultDate < minDate) {
+        initialValue = minimumValue;
+      }
+    }
     setDateTimeValue(initialValue);
     setError('');
   }, [isOpen, defaultValue, minimumValue]);
@@ -54,6 +63,9 @@ export default function ScheduleMessageModal({
     }
     onConfirm(scheduledDate.getTime());
   };
+
+  const confirmLabel = isReschedule ? 'Reschedule' : 'Schedule';
+  const submittingLabel = isReschedule ? 'Updating…' : 'Scheduling…';
 
   return (
     <div
@@ -91,10 +103,12 @@ export default function ScheduleMessageModal({
           id="schedule-modal-title"
           style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: 600 }}
         >
-          Schedule Message
+          {isReschedule ? 'Reschedule Message' : 'Schedule Message'}
         </h2>
         <p style={{ margin: '0 0 20px', color: 'var(--text-color-secondary)', fontSize: '14px' }}>
-          Pick a future time and we’ll send it automatically.
+          {isReschedule
+            ? 'Choose a new delivery time for this message.'
+            : 'Pick a future time and we’ll send it automatically.'}
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -167,7 +181,7 @@ export default function ScheduleMessageModal({
                 opacity: isSubmitting ? 0.7 : 1
               }}
             >
-              {isSubmitting ? 'Scheduling…' : 'Schedule'}
+              {isSubmitting ? submittingLabel : confirmLabel}
             </button>
           </div>
         </form>
