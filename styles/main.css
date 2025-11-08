@@ -1780,6 +1780,18 @@ body {
   flex-wrap: wrap;
 }
 
+.message-pinned-indicator {
+  font-size: var(--font-size-xs);
+  opacity: 0.75;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary-color);
+}
+
 .message-text {
   white-space: pre-wrap;
   word-wrap: break-word;

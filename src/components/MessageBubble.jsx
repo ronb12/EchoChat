@@ -416,10 +416,28 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   };
 
   const handlePin = () => {
+    if (!chatId || !message?.id) {
+      showNotification('Unable to pin this message.', 'error');
+      setShowContextMenu(false);
+      return;
+    }
+    if (!user?.uid) {
+      showNotification('You must be signed in to pin messages.', 'error');
+      setShowContextMenu(false);
+      return;
+    }
     if (message.pinned) {
-      chatService.unpinMessage(chatId, message.id);
+      chatService.unpinMessage(chatId, message.id)
+        .catch((error) => {
+          console.error('Error unpinning message:', error);
+          showNotification(error?.message || 'Failed to unpin message.', 'error');
+        });
     } else {
-      chatService.pinMessage(chatId, message.id, user?.uid);
+      chatService.pinMessage(chatId, message.id, user.uid)
+        .catch((error) => {
+          console.error('Error pinning message:', error);
+          showNotification(error?.message || 'Failed to pin message.', 'error');
+        });
     }
     setShowContextMenu(false);
   };
