@@ -117,17 +117,27 @@ service cloud.firestore {
         return request.resource.data[field] == resource.data[field];
       }
       
-      function readsMap(data) {
-        return data.reads == null ? {} : data.reads;
+      function isServerTimestamp(value) {
+        return value == request.time;
+      }
+
+      function mapOrEmpty(data) {
+        return data == null ? {} : data;
       }
       
       function isReadReceiptUpdate() {
-        let existingReads = readsMap(resource.data);
-        let newReads = readsMap(request.resource.data);
-        let existingKeys = existingReads.keys();
-        let newKeys = newReads.keys();
-        let addedKeys = newKeys.difference(existingKeys);
-        let removedKeys = existingKeys.difference(newKeys);
+        let diff = request.resource.data.diff(resource.data);
+        let changed = diff.changedKeys();
+        let added = diff.addedKeys();
+        let removed = diff.removedKeys();
+        let readAtAllowed = !changed.hasAny(['readAt']) ||
+          (resource.data.readAt == null && isServerTimestamp(request.resource.data.readAt));
+        let readsBefore = mapOrEmpty(resource.data.reads);
+        let readsAfter = mapOrEmpty(request.resource.data.reads);
+        let readsDiff = readsAfter.diff(readsBefore);
+        let readsAdded = readsDiff.addedKeys();
+        let readsChanged = readsDiff.changedKeys();
+        let readsRemoved = readsDiff.removedKeys();
 
         return isChatParticipant() &&
           request.resource.data.chatId == resource.data.chatId &&
@@ -157,11 +167,14 @@ service cloud.firestore {
           fieldUnchanged('fileName') &&
           fieldUnchanged('fileSize') &&
           fieldUnchanged('fileType') &&
-          request.resource.data.keys().hasOnly(resource.data.keys()) &&
-          resource.data.keys().hasOnly(request.resource.data.keys()) &&
-          removedKeys.size() == 0 &&
-          addedKeys.hasOnly([request.auth.uid]) &&
-          existingKeys.all(key => newReads[key] == existingReads[key]);
+          readAtAllowed &&
+          (added.size() == 0 || (added.size() == 1 && added.hasOnly(['reads']))) &&
+          removed.size() == 0 &&
+          changed.hasOnly(['reads', 'readAt']) &&
+          readsRemoved.size() == 0 &&
+          readsChanged.hasOnly([request.auth.uid]) &&
+          (readsAdded.size() == 0 || readsAdded.hasOnly([request.auth.uid])) &&
+          readsAfter[request.auth.uid] != null;
       }
       
       // Allow read if user is authenticated (for public messages or participants)
