@@ -459,6 +459,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
 
   return (
     <div
+      id={message?.id ? `message-${message.id}` : undefined}
       className={messageClass}
       onContextMenu={handleContextMenu}
       onDoubleClick={() => !isOwn && setShowReactions(true)}

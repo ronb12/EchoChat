@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useChat } from '../hooks/useChat';
 import { useAuth } from '../hooks/useAuth';
 import { useUI } from '../hooks/useUI';
@@ -68,6 +68,7 @@ export default function ChatArea() {
   const [videoPreviewUrl, setVideoPreviewUrl] = useState('');
   const [videoPreviewBlob, setVideoPreviewBlob] = useState(null);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+  const [showPinnedTray, setShowPinnedTray] = useState(true);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -91,6 +92,56 @@ export default function ChatArea() {
     firstTypingUser?.userId && firstTypingUser.userId !== user?.uid ? firstTypingUser.userId : null,
     firstTypingUser?.displayName || 'Someone'
   );
+
+  const pinnedMessages = useMemo(() => {
+    if (!Array.isArray(messages)) {
+      return [];
+    }
+    return messages.filter((msg) => msg?.pinned && !msg.deleted);
+  }, [messages]);
+
+  const pinnedCountLabel = useMemo(() => {
+    const count = pinnedMessages.length;
+    if (count === 0) {return '';}
+    if (count === 1) {return '1 pinned message';}
+    return `${count} pinned messages`;
+  }, [pinnedMessages]);
+
+  const getPinnedPreview = useCallback((msg) => {
+    if (!msg || msg.deleted) {return 'Message';}
+    const textFields = [
+      msg.decryptedText,
+      msg.displayText,
+      msg.text
+    ].filter((value) => typeof value === 'string' && value.trim().length > 0);
+    if (textFields.length > 0) {
+      const preview = textFields[0].trim();
+      return preview.length > 48 ? `${preview.slice(0, 45)}…` : preview;
+    }
+    if (msg.sticker || msg.stickerId) {return 'Sticker';}
+    if (msg.image || msg.imageUrl || msg.encryptedImage) {return 'Photo';}
+    if (msg.video || msg.videoUrl || msg.encryptedVideo) {return 'Video';}
+    if (msg.audio || msg.audioUrl || msg.encryptedAudio) {return 'Voice message';}
+    if (msg.file || msg.fileUrl) {return msg.fileName || 'File';}
+    if (msg.isPoll || msg.pollId) {return 'Poll';}
+    return 'Message';
+  }, []);
+
+  const highlightPinnedMessage = useCallback((messageId) => {
+    if (!messageId) {return;}
+    const elementId = `message-${messageId}`;
+    const target = typeof document !== 'undefined' ? document.getElementById(elementId) : null;
+    if (!target) {
+      showNotification('Pinned message is not available yet. Try scrolling through the chat.', 'info');
+      return;
+    }
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('pinned-message-highlight');
+    const schedule = typeof window !== 'undefined' ? window.setTimeout : setTimeout;
+    schedule(() => {
+      target.classList.remove('pinned-message-highlight');
+    }, 1600);
+  }, [showNotification]);
 
   // Track mobile state
   useEffect(() => {
@@ -1431,6 +1482,39 @@ export default function ChatArea() {
 
         {/* Messages Container */}
         <div className="messages-container">
+          {pinnedMessages.length > 0 && (
+            <div className={`pinned-messages-tray ${showPinnedTray ? 'expanded' : 'collapsed'}`}>
+              <div className="pinned-messages-header">
+                <button
+                  type="button"
+                  className="pinned-messages-toggle"
+                  onClick={() => setShowPinnedTray(prev => !prev)}
+                  aria-expanded={showPinnedTray}
+                >
+                  <span className="pinned-toggle-icon">📌</span>
+                  <span className="pinned-toggle-text">{pinnedCountLabel || 'Pinned messages'}</span>
+                  <span className="pinned-toggle-caret">{showPinnedTray ? '▲' : '▼'}</span>
+                </button>
+              </div>
+              {showPinnedTray && (
+                <div className="pinned-messages-list" role="list">
+                  {pinnedMessages.map((msg) => (
+                    <button
+                      key={msg.id}
+                      type="button"
+                      className="pinned-message-pill"
+                      onClick={() => highlightPinnedMessage(msg.id)}
+                      title={getPinnedPreview(msg)}
+                      role="listitem"
+                    >
+                      <span className="pill-icon">📌</span>
+                      <span className="pill-text">{getPinnedPreview(msg)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div className="messages-list">
             {messages.length === 0 ? (
               <div className="empty-state">
