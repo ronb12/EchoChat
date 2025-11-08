@@ -74,6 +74,9 @@ class FirestoreService {
         stickerPackId: messageData.stickerPackId || null,
         video: messageData.video || null,
         videoName: messageData.videoName || null,
+        videoDuration: messageData.videoDuration || null,
+        videoSize: messageData.videoSize || null,
+        videoType: messageData.videoType || null,
         imageName: messageData.imageName || null,
         audioName: messageData.audioName || null,
         audioDuration: messageData.audioDuration || null,
@@ -124,6 +127,16 @@ class FirestoreService {
     const rawText = typeof messageData.text === 'string' ? messageData.text.trim() : '';
     const decrypted = typeof messageData.decryptedText === 'string' ? messageData.decryptedText.trim() : '';
     const text = decrypted || rawText;
+    if (messageData.forwarded) {
+      if (text) {
+        const prefix = messageData.originalSenderName
+          ? `↪ ${messageData.originalSenderName}: `
+          : '↪ Forwarded: ';
+        const truncated = text.length > 100 ? `${text.slice(0, 97)}...` : text;
+        return `${prefix}${truncated}`;
+      }
+      return '↪ Forwarded message';
+    }
     if (text) {
       return text.length > 120 ? `${text.slice(0, 117)}...` : text;
     }
@@ -136,16 +149,16 @@ class FirestoreService {
       return '📷 Photo';
     }
 
-    if (messageData.decryptedVideo || messageData.video || messageData.videoName) {
-      return '🎥 Video';
-    }
-
     if (messageData.decryptedAudio || messageData.audio || messageData.audioName) {
       return '🎵 Audio';
     }
 
     if (messageData.file || messageData.fileName) {
       return messageData.fileName ? `📎 ${messageData.fileName}` : '📎 File';
+    }
+
+    if (messageData.video || messageData.videoName) {
+      return '🎥 Video';
     }
 
     return 'New message';

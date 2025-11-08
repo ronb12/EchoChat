@@ -28,6 +28,7 @@ import RatingModal from './components/RatingModal';
 import FeatureRequestModal from './components/FeatureRequestModal';
 import SupportTicketModal from './components/SupportTicketModal';
 import AdminDashboard from './components/AdminDashboard';
+import ForwardModal from './components/ForwardModal';
 import NotificationToast from './components/NotificationToast';
 import { useAuth } from './hooks/useAuth';
 import { useUI } from './hooks/useUI';
@@ -36,7 +37,39 @@ import { usePresenceStatus, useNotifications } from './hooks/useRealtime';
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const { showLoginModal, showSignUpModal, showSettingsModal, showNewChatModal, showCallModal, showBlockUserModal, showStatusModal, showGroupChatModal, showMediaGallery, closeMediaGallery, showPrivacyModal, showTermsModal, showSupportModal, showParentDashboard, showParentApprovalModal, showLinkChildModal, openLinkChildModal, showContactRequestModal, openContactRequestModal, showRatingModal, showFeatureRequestModal, showSupportTicketModal, showAdminDashboard, callModalType, callSession, isIncomingCall, blockUserId, blockUserName, showNotification } = useUI();
+  const {
+    showLoginModal,
+    showSignUpModal,
+    showSettingsModal,
+    showNewChatModal,
+    showCallModal,
+    showBlockUserModal,
+    showStatusModal,
+    showGroupChatModal,
+    showMediaGallery,
+    closeMediaGallery,
+    showPrivacyModal,
+    showTermsModal,
+    showSupportModal,
+    showParentDashboard,
+    showParentApprovalModal,
+    showLinkChildModal,
+    openLinkChildModal,
+    showContactRequestModal,
+    openContactRequestModal,
+    showRatingModal,
+    showFeatureRequestModal,
+    showSupportTicketModal,
+    showAdminDashboard,
+    forwardConfig,
+    closeForwardModal,
+    callModalType,
+    callSession,
+    isIncomingCall,
+    blockUserId,
+    blockUserName,
+    showNotification
+  } = useUI();
   const { messages } = useChat();
   const { currentChatId } = useChat();
   const [isInitialized, setIsInitialized] = useState(false);
@@ -365,6 +398,12 @@ function AppContent() {
       {showFeatureRequestModal && <FeatureRequestModal />}
       {showSupportTicketModal && <SupportTicketModal />}
       {showAdminDashboard && <AdminDashboard />}
+        {forwardConfig && (
+          <ForwardModal
+            config={forwardConfig}
+            onClose={closeForwardModal}
+          />
+        )}
 
       {/* Notifications */}
       <NotificationToast />

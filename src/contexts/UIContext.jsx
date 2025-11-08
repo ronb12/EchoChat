@@ -32,6 +32,7 @@ export function UIProvider({ children }) {
   const [showFeatureRequestModal, setShowFeatureRequestModal] = useState(false);
   const [showSupportTicketModal, setShowSupportTicketModal] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+  const [forwardConfig, setForwardConfig] = useState(null);
   const [callModalType, setCallModalType] = useState('video');
   const [callSession, setCallSession] = useState(null);
   const [isIncomingCall, setIsIncomingCall] = useState(false);
@@ -209,6 +210,11 @@ export function UIProvider({ children }) {
   const closeSupportTicketModal = () => setShowSupportTicketModal(false);
   const openAdminDashboard = () => setShowAdminDashboard(true);
   const closeAdminDashboard = () => setShowAdminDashboard(false);
+  const openForwardModal = (config) => {
+    if (!config) {return;}
+    setForwardConfig(config);
+  };
+  const closeForwardModal = () => setForwardConfig(null);
 
   const value = {
     theme,
@@ -234,6 +240,7 @@ export function UIProvider({ children }) {
     showFeatureRequestModal,
     showSupportTicketModal,
     showAdminDashboard,
+    forwardConfig,
     callModalType,
     callSession,
     isIncomingCall,
@@ -286,7 +293,9 @@ export function UIProvider({ children }) {
     openSupportTicketModal,
     closeSupportTicketModal,
     openAdminDashboard,
-    closeAdminDashboard
+    closeAdminDashboard,
+    openForwardModal,
+    closeForwardModal
   };
 
   return (

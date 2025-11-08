@@ -10,7 +10,7 @@ const COMMON_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 export default function MessageBubble({ message, isOwn = false, chatId = 'demo', participants = [] }) {
   const { user } = useAuth();
-  const { openBlockUserModal, showNotification } = useUI();
+  const { openBlockUserModal, openForwardModal, showNotification } = useUI();
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -404,9 +404,15 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   };
 
   const handleForward = () => {
-    // In production, open a modal to select chat to forward to
-    // TODO: Implement forward modal
     setShowContextMenu(false);
+    if (!message) {
+      showNotification('Unable to forward this message.', 'error');
+      return;
+    }
+    openForwardModal({
+      message,
+      fromChatId: chatId
+    });
   };
 
   const handlePin = () => {
@@ -518,7 +524,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
       )}
       {message.forwarded && (
         <div className="message-forwarded-indicator">
-          ➡️ Forwarded
+          ➡️ Forwarded{message.originalSenderName ? ` from ${message.originalSenderName}` : ''}
         </div>
       )}
       <div className="message-content">

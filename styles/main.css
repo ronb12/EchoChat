@@ -1652,6 +1652,17 @@ body {
   text-align: right;
 }
 
+.message-forwarded-indicator {
+  font-size: var(--font-size-xs);
+  opacity: 0.75;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .poll-card {
   margin-top: var(--spacing-sm);
   padding: 14px;

@@ -2,6 +2,7 @@
 // Falls back to localStorage for offline/demo mode
 import { encryptionService } from './encryptionService';
 import { firestoreService } from './firestoreService';
+import { encryptionConfig } from '../config/encryptionConfig';
 
 class ChatService {
   constructor() {
@@ -9,6 +10,7 @@ class ChatService {
     this.chatIdToTypingUsers = new Map();
     this.userIdToPresence = new Map();
     this.userIdToChats = new Map();
+    this.chatEncryptionKeys = new Map();
     this.notificationListeners = new Set();
     this.chatIdToReadPointers = new Map();
     this.readPointerUnsubscribes = new Map();
@@ -34,6 +36,105 @@ class ChatService {
     this.startScheduledMessageChecker();
   }
 
+  isEncryptionEnabled() {
+    return !!encryptionConfig?.enabled;
+  }
+
+  cacheChatEncryption(chatId, encryptionMeta) {
+    if (!this.isEncryptionEnabled() || !chatId) {
+      return;
+    }
+    if (encryptionMeta && encryptionMeta.enabled && encryptionMeta.key) {
+      this.chatEncryptionKeys.set(chatId, encryptionMeta.key);
+    } else {
+      this.chatEncryptionKeys.delete(chatId);
+    }
+  }
+
+  getChatEncryptionOptions(chatId) {
+    if (!this.isEncryptionEnabled()) {
+      return {};
+    }
+    const key = this.chatEncryptionKeys.get(chatId);
+    if (!key) {
+      return {};
+    }
+    return { chatKey: key };
+  }
+
+  async createChatEncryptionMetadata() {
+    if (!this.isEncryptionEnabled()) {
+      return null;
+    }
+    try {
+      const key = await encryptionService.generateSymmetricKey();
+      return {
+        enabled: true,
+        version: 1,
+        key
+      };
+    } catch (error) {
+      console.error('Failed to generate chat encryption key:', error);
+      return null;
+    }
+  }
+
+  async processIncomingMessages(chatId, messages) {
+    if (!Array.isArray(messages)) {
+      return [];
+    }
+    const options = this.getChatEncryptionOptions(chatId);
+    const shouldDecrypt = !!options.chatKey && this.isEncryptionEnabled();
+
+    if (!shouldDecrypt) {
+      return messages.map((msg) => ({ ...msg }));
+    }
+
+    const decryptedMessages = await Promise.all(messages.map(async (msg) => {
+      const clone = { ...msg };
+      if (clone.isEncrypted && clone.encryptedText && !clone.decryptedText) {
+        try {
+          const decrypted = await encryptionService.decryptMessageText(clone.encryptedText, options);
+          clone.decryptedText = decrypted;
+        } catch (error) {
+          console.error('Failed to decrypt message payload:', error);
+          clone.decryptionError = true;
+        }
+      }
+      if (clone.encryptedImage && !clone.decryptedImage) {
+        try {
+          clone.decryptedImage = await encryptionService.decryptMessageText(clone.encryptedImage, options);
+        } catch (error) {
+          console.error('Failed to decrypt image payload:', error);
+        }
+      }
+      if (clone.encryptedAudio && !clone.decryptedAudio) {
+        try {
+          clone.decryptedAudio = await encryptionService.decryptMessageText(clone.encryptedAudio, options);
+        } catch (error) {
+          console.error('Failed to decrypt audio payload:', error);
+        }
+      }
+      if (clone.encryptedVideo && !clone.decryptedVideo) {
+        try {
+          clone.decryptedVideo = await encryptionService.decryptMessageText(clone.encryptedVideo, options);
+        } catch (error) {
+          console.error('Failed to decrypt video payload:', error);
+        }
+      }
+      if (clone.encryptedSticker && !clone.decryptedSticker) {
+        try {
+          clone.decryptedSticker = await encryptionService.decryptMessageText(clone.encryptedSticker, options);
+        } catch (error) {
+          console.error('Failed to decrypt sticker payload:', error);
+        }
+      }
+      return clone;
+    }));
+
+    return decryptedMessages;
+  }
+
   async initializeBackend() {
     // Check if Firestore is available
     try {
@@ -51,7 +152,13 @@ class ChatService {
       const stored = localStorage.getItem('echochat_messages');
       if (stored) {
         const data = JSON.parse(stored);
-        this.chatIdToMessages = new Map(Object.entries(data));
+        const entries = Object.entries(data).map(([chatId, messages]) => {
+          if (!Array.isArray(messages)) {
+            return [chatId, []];
+          }
+          return [chatId, messages.map((msg) => ({ ...msg }))];
+        });
+        this.chatIdToMessages = new Map(entries);
       }
     } catch (error) {
       console.error('Error loading messages from storage:', error);
@@ -60,7 +167,21 @@ class ChatService {
 
   saveMessagesToStorage() {
     try {
-      const data = Object.fromEntries(this.chatIdToMessages);
+      const sanitizedEntries = Array.from(this.chatIdToMessages.entries()).map(([chatId, messages]) => {
+        const sanitizedMessages = Array.isArray(messages)
+          ? messages.map((msg) => {
+              const clone = { ...msg };
+              delete clone.decryptedText;
+              delete clone.decryptedImage;
+              delete clone.decryptedAudio;
+              delete clone.decryptedVideo;
+              delete clone.decryptedSticker;
+              return clone;
+            })
+          : [];
+        return [chatId, sanitizedMessages];
+      });
+      const data = Object.fromEntries(sanitizedEntries);
       localStorage.setItem('echochat_messages', JSON.stringify(data));
 
       // Trigger storage event for other tabs
@@ -131,7 +252,7 @@ class ChatService {
         : (msg.readAt || null);
       return {
         ...msg,
-        needsDecryption: msg.isEncrypted && msg.encryptedText,
+        needsDecryption: msg.isEncrypted && msg.encryptedText && !msg.decryptedText,
         reads: this.normalizeReadsMap(reads),
         readAt: aggregatedReadAt
       };
@@ -148,9 +269,19 @@ class ChatService {
           callback(processed);
         };
 
-        const unsubscribeMessages = firestoreService.subscribeToMessages(chatId, (messages) => {
-          this.chatIdToMessages.set(chatId, messages);
+        const handleIncomingMessages = async (messages) => {
+          try {
+            const decryptedMessages = await this.processIncomingMessages(chatId, messages);
+            this.chatIdToMessages.set(chatId, decryptedMessages);
+          } catch (error) {
+            console.error('Failed to process incoming messages:', error);
+            this.chatIdToMessages.set(chatId, messages);
+          }
           emitMessages();
+        };
+
+        const unsubscribeMessages = firestoreService.subscribeToMessages(chatId, (messages) => {
+          handleIncomingMessages(messages);
         });
 
         if (!this.readPointerUnsubscribes.has(chatId)) {
@@ -228,35 +359,71 @@ class ChatService {
     this.lastMessageTimes.set(message.senderId, Date.now());
 
     // Encrypt message text if present
+    const encryptionOptions = this.getChatEncryptionOptions(chatId);
+    const shouldEncrypt = !!encryptionOptions.chatKey && this.isEncryptionEnabled();
     let encryptedText = null;
-    let isEncrypted = false;
 
-    if (message.text && message.text.trim()) {
+    if (shouldEncrypt && message.text && message.text.trim()) {
       try {
-        const encryptionResult = await encryptionService.encryptMessageText(
+        encryptedText = await encryptionService.encryptMessageText(
           message.text,
-          userId || message.senderId,
-          chatId
+          encryptionOptions
         );
-
-        if (encryptionResult && encryptionResult.encrypted) {
-          encryptedText = encryptionResult;
-          isEncrypted = true;
-        } else {
-          encryptedText = message.text; // Fallback if encryption fails
-        }
       } catch (error) {
         console.error('Encryption error, sending unencrypted:', error);
-        encryptedText = message.text; // Fallback to unencrypted
+        encryptedText = null;
+      }
+    }
+
+    const sanitizedMessage = { ...message };
+    delete sanitizedMessage.text;
+    delete sanitizedMessage.encryptedText;
+    delete sanitizedMessage.decryptedText;
+    delete sanitizedMessage.image;
+    delete sanitizedMessage.encryptedImage;
+    delete sanitizedMessage.decryptedImage;
+    delete sanitizedMessage.audio;
+    delete sanitizedMessage.encryptedAudio;
+    delete sanitizedMessage.decryptedAudio;
+    delete sanitizedMessage.video;
+    delete sanitizedMessage.encryptedVideo;
+    delete sanitizedMessage.decryptedVideo;
+    delete sanitizedMessage.sticker;
+    delete sanitizedMessage.encryptedSticker;
+    delete sanitizedMessage.decryptedSticker;
+
+    let encryptedImage = null;
+    let encryptedAudio = null;
+    let encryptedVideo = null;
+    let encryptedSticker = null;
+
+    if (shouldEncrypt) {
+      try {
+        if (message.image) {
+          encryptedImage = await encryptionService.encryptMessageText(message.image, encryptionOptions);
+        }
+        if (message.audio) {
+          encryptedAudio = await encryptionService.encryptMessageText(message.audio, encryptionOptions);
+        }
+        if (message.video) {
+          encryptedVideo = await encryptionService.encryptMessageText(message.video, encryptionOptions);
+        }
+        if (message.sticker) {
+          encryptedSticker = await encryptionService.encryptMessageText(message.sticker, encryptionOptions);
+        }
+      } catch (error) {
+        console.error('Attachment encryption error:', error);
       }
     }
 
     // Prepare message data
     const messageData = {
+      ...sanitizedMessage,
       // Keep text for immediate display, even if encrypted (will be decrypted on render)
-      text: message.text || '', // Keep original text for display until decryption
-      encryptedText: encryptedText, // Encrypted message data
-      isEncrypted: isEncrypted,
+      text: shouldEncrypt && encryptedText ? '' : (message.text || ''),
+      encryptedText: shouldEncrypt ? encryptedText : null,
+      decryptedText: shouldEncrypt ? (message.text || '') : null,
+      isEncrypted: shouldEncrypt && !!encryptedText,
       senderId: message.senderId,
       senderName: message.senderName,
       timestamp: Date.now(),
@@ -272,9 +439,18 @@ class ChatService {
       sticker: message.sticker || null,
       stickerId: message.stickerId || null,
       stickerPackId: message.stickerPackId || null,
-      image: message.image || null,
-      audio: message.audio || null,
-      video: message.video || null,
+      image: shouldEncrypt ? null : (message.image || null),
+      encryptedImage: shouldEncrypt ? encryptedImage : null,
+      decryptedImage: shouldEncrypt ? (message.image || null) : null,
+      audio: shouldEncrypt ? null : (message.audio || null),
+      encryptedAudio: shouldEncrypt ? encryptedAudio : null,
+      decryptedAudio: shouldEncrypt ? (message.audio || null) : null,
+      video: shouldEncrypt ? null : (message.video || null),
+      encryptedVideo: shouldEncrypt ? encryptedVideo : null,
+      decryptedVideo: shouldEncrypt ? (message.video || null) : null,
+      sticker: shouldEncrypt ? null : (message.sticker || null),
+      encryptedSticker: shouldEncrypt ? encryptedSticker : null,
+      decryptedSticker: shouldEncrypt ? (message.sticker || null) : null,
       videoName: message.videoName || null,
       file: message.file || null,
       imageName: message.imageName || null,
@@ -282,9 +458,15 @@ class ChatService {
       fileName: message.fileName || null,
       fileSize: message.fileSize || null,
       fileType: message.fileType || null,
-      // Spread rest of message fields
-      ...message
+      // Preserve any additional metadata already included in sanitizedMessage
     };
+
+    const messageForStorage = { ...messageData };
+    delete messageForStorage.decryptedText;
+    delete messageForStorage.decryptedImage;
+    delete messageForStorage.decryptedAudio;
+    delete messageForStorage.decryptedVideo;
+    delete messageForStorage.decryptedSticker;
 
     // Note: We keep text field for immediate display
     // The encryptedText is used for secure storage, but text is kept for UI rendering
@@ -293,12 +475,15 @@ class ChatService {
     // Use Firestore if available, otherwise localStorage
     if (this.useFirestore) {
       try {
-        const newMessage = await firestoreService.sendMessage(chatId, messageData);
+        const newMessage = await firestoreService.sendMessage(chatId, messageForStorage);
         // Update chat metadata (last message, unread counts)
         await this.handlePostSend(chatId, newMessage || messageData);
         // Real-time subscription will handle notifying subscribers
         if (newMessage) {
           newMessage.reads = this.normalizeReadsMap(newMessage.reads);
+          if (shouldEncrypt && message.text) {
+            newMessage.decryptedText = message.text;
+          }
         }
         return newMessage;
       } catch (error) {
@@ -705,6 +890,10 @@ class ChatService {
     }
 
     normalized.unreadCount = this.resolveUnreadCount(chat.unreadCount, userId);
+    if (chat.encryption) {
+      normalized.encryption = { ...chat.encryption };
+      this.cacheChatEncryption(chat.id, chat.encryption);
+    }
 
     return normalized;
   }
@@ -760,10 +949,13 @@ class ChatService {
     let chat = null;
     let chatId = null;
     const fallbackCreatedAt = Date.now();
+    const encryptionMeta = await this.createChatEncryptionMetadata();
 
     if (this.useFirestore) {
       try {
-        const firestoreChat = await firestoreService.createChat(participants, chatName, isGroup);
+        const firestoreChat = await firestoreService.createChat(participants, chatName, isGroup, {
+          encryption: encryptionMeta
+        });
         chatId = firestoreChat.id;
 
         const normalizeTimestamp = (value, fallback) => {
@@ -782,7 +974,8 @@ class ChatService {
           lastMessageAt: normalizeTimestamp(firestoreChat.lastMessageAt, fallbackCreatedAt),
           avatar: null,
           lastMessage: null,
-          unreadCount: 0
+          unreadCount: 0,
+          encryption: firestoreChat.encryption || encryptionMeta || null
         };
       } catch (error) {
         console.error('Firestore createChat failed, falling back to local mode:', error);
@@ -801,9 +994,12 @@ class ChatService {
         lastMessageAt: fallbackCreatedAt,
         avatar: null,
         lastMessage: null,
-        unreadCount: 0
+        unreadCount: 0,
+        encryption: encryptionMeta || null
       };
     }
+
+    this.cacheChatEncryption(chat.id, chat.encryption);
 
     // Add chat to each participant's chat list
     participants.forEach(userId => {
@@ -820,26 +1016,62 @@ class ChatService {
   }
 
   // Forward message to another chat
-  async forwardMessage(messageId, fromChatId, toChatId, userId) {
-    const messages = this.chatIdToMessages.get(fromChatId) || [];
-    const message = messages.find(m => m.id === messageId);
-
-    if (message) {
-      const forwardedMessage = {
-        ...message,
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        forwarded: true,
-        forwardedAt: Date.now(),
-        forwardedBy: userId,
-        originalChatId: fromChatId,
-        timestamp: Date.now(),
-        senderId: userId
-      };
-
-      await this.sendMessage(toChatId, forwardedMessage);
-      return forwardedMessage;
+  async forwardMessage(messageOrId, fromChatId, toChatId, userId, userName = 'You') {
+    if (!toChatId || !userId) {
+      throw new Error('Invalid forwarding request');
     }
-    return null;
+
+    const messages = this.chatIdToMessages.get(fromChatId) || [];
+    let originalMessage = null;
+
+    if (typeof messageOrId === 'object' && messageOrId !== null) {
+      originalMessage = messageOrId;
+    } else if (typeof messageOrId === 'string') {
+      originalMessage = messages.find((m) => m.id === messageOrId);
+    }
+
+    if (!originalMessage) {
+      throw new Error('Message not found or unavailable for forwarding');
+    }
+
+    const now = Date.now();
+    const textContent = originalMessage.decryptedText
+      || originalMessage.text
+      || '';
+
+    const forwardedPayload = {
+      text: textContent,
+      senderId: userId,
+      senderName: userName,
+      image: originalMessage.image || null,
+      audio: originalMessage.audio || null,
+      audioName: originalMessage.audioName || null,
+      audioDuration: originalMessage.audioDuration || null,
+      video: originalMessage.video || null,
+      videoName: originalMessage.videoName || null,
+      videoDuration: originalMessage.videoDuration || null,
+      videoSize: originalMessage.videoSize || null,
+      videoType: originalMessage.videoType || null,
+      file: originalMessage.file || null,
+      fileName: originalMessage.fileName || null,
+      fileSize: originalMessage.fileSize || null,
+      fileType: originalMessage.fileType || null,
+      sticker: originalMessage.sticker || null,
+      stickerId: originalMessage.stickerId || null,
+      stickerPackId: originalMessage.stickerPackId || null,
+      imageName: originalMessage.imageName || null,
+      forwarded: true,
+      forwardedAt: now,
+      forwardedBy: userId,
+      forwardedByName: userName,
+      originalMessageId: originalMessage.id || null,
+      originalChatId: fromChatId,
+      originalSenderId: originalMessage.senderId || null,
+      originalSenderName: originalMessage.senderName || null
+    };
+
+    const forwardedMessage = await this.sendMessage(toChatId, forwardedPayload, userId);
+    return forwardedMessage;
   }
 
   // Pin message
@@ -968,10 +1200,10 @@ class ChatService {
     }
 
     try {
+      const options = this.getChatEncryptionOptions(chatId);
       const decrypted = await encryptionService.decryptMessageText(
         message.encryptedText,
-        userId || message.senderId,
-        chatId
+        options
       );
 
       // Cache decrypted text
