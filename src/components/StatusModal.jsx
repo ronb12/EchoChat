@@ -34,12 +34,22 @@ export default function StatusModal() {
 
     setLoading(true);
     try {
+      const normalizedStatus = status.trim();
+      const expiresTimestamp = expiresIn ? Date.now() + (parseInt(expiresIn, 10) * 60 * 60 * 1000) : null;
       await profileService.setStatus(
         user.uid,
-        status,
+        normalizedStatus,
         emoji,
         expiresIn ? parseInt(expiresIn) : null
       );
+      window.dispatchEvent(new CustomEvent('profile:status-updated', {
+        detail: {
+          userId: user.uid,
+          status: normalizedStatus,
+          statusEmoji: emoji,
+          statusExpiresAt: expiresTimestamp
+        }
+      }));
       closeStatusModal();
     } catch (error) {
       alert('Error updating status: ' + error.message);

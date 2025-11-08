@@ -137,7 +137,7 @@ class StickersService {
     try {
       const usageRef = doc(db, 'stickerUsage', `${userId}_${stickerId}`);
       const docSnapshot = await getDoc(usageRef);
-      
+
       if (docSnapshot.exists()) {
         // Document exists, increment usage count
         await updateDoc(usageRef, {
@@ -166,7 +166,7 @@ class StickersService {
       if (!userId) {
         return [];
       }
-      
+
       const usageRef = collection(db, 'stickerUsage');
       const q = query(
         usageRef,
@@ -194,11 +194,11 @@ class StickersService {
     if (!userId) {
       throw new Error('User ID is required to send sticker');
     }
-    
+
     if (!chatId) {
       throw new Error('Chat ID is required to send sticker');
     }
-    
+
     const messageData = {
       senderId: userId,
       senderName: senderName || 'User',

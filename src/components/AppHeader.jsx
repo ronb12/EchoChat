@@ -21,8 +21,47 @@ export default function AppHeader() {
   const [isBusinessAccount, setIsBusinessAccount] = useState(false);
   const [stripeMode, setStripeMode] = useState(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [statusInfo, setStatusInfo] = useState({
+    text: '',
+    emoji: '',
+    expiresAt: null,
+    updatedAt: null
+  });
   const avatarMenuRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  const deriveStatusState = (profile) => {
+    if (!profile) {
+      return {
+        text: '',
+        emoji: '',
+        expiresAt: null,
+        updatedAt: null
+      };
+    }
+
+    const expiresAt = typeof profile.statusExpiresAt !== 'undefined' && profile.statusExpiresAt !== null
+      ? Number(profile.statusExpiresAt)
+      : null;
+    const isExpired = expiresAt ? Date.now() > expiresAt : false;
+    const trimmedStatus = profile.status ? String(profile.status).trim() : '';
+
+    if (!trimmedStatus || isExpired) {
+      return {
+        text: '',
+        emoji: '',
+        expiresAt: null,
+        updatedAt: profile.updatedAt || null
+      };
+    }
+
+    return {
+      text: trimmedStatus,
+      emoji: profile.statusEmoji || '',
+      expiresAt,
+      updatedAt: profile.updatedAt || null
+    };
+  };
 
   useEffect(() => {
     if (user) {
@@ -105,7 +144,8 @@ export default function AppHeader() {
   const loadUserProfile = async () => {
     if (!user) {return;}
     try {
-      await profileService.getUserProfile(user.uid);
+      const profile = await profileService.getUserProfile(user.uid);
+      setStatusInfo(deriveStatusState(profile));
     } catch (error) {
       // ignore; the hook will fall back to defaults
     }
@@ -123,6 +163,27 @@ export default function AppHeader() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const handleStatusUpdated = (event) => {
+      if (!user) {return;}
+      const detail = event.detail || {};
+      if (detail.userId && detail.userId !== user.uid) {
+        return;
+      }
+      setStatusInfo(deriveStatusState({
+        status: detail.status ?? '',
+        statusEmoji: detail.statusEmoji ?? detail.emoji ?? '',
+        statusExpiresAt: detail.statusExpiresAt ?? detail.expiresAt ?? null,
+        updatedAt: detail.updatedAt ?? Date.now()
+      }));
+    };
+
+    window.addEventListener('profile:status-updated', handleStatusUpdated);
+    return () => {
+      window.removeEventListener('profile:status-updated', handleStatusUpdated);
+    };
+  }, [user]);
 
   const handleProfilePictureChange = async (e) => {
     const file = e.target.files?.[0];
@@ -270,6 +331,33 @@ export default function AppHeader() {
         )}
       </div>
       <div className="header-right">
+        {user && (
+          <button
+            type="button"
+            className={`header-status-chip ${statusInfo.text ? 'active' : 'empty'}`}
+            onClick={() => handleMenuClick('status')}
+            title={
+              statusInfo.text
+                ? statusInfo.expiresAt
+                  ? `Status expires ${new Date(statusInfo.expiresAt).toLocaleString()}`
+                  : 'Status is active'
+                : 'Click to set a status'
+            }
+          >
+            <div className="status-chip-icon" aria-hidden="true">
+              {statusInfo.emoji || '💬'}
+            </div>
+            <div className="status-chip-content">
+              <span className="status-chip-label">
+                {statusInfo.text ? 'My status' : 'Set a status'}
+              </span>
+              <span className="status-chip-text">
+                {statusInfo.text ? statusInfo.text : 'Share what\'s on your mind'}
+              </span>
+            </div>
+            <div className="status-chip-action" aria-hidden="true">✏️</div>
+          </button>
+        )}
         {user && (
           <button
             className="contact-requests-button"

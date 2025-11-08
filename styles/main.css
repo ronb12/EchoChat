@@ -306,6 +306,143 @@ body {
   gap: 8px;
 }
 
+.header-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 20px rgba(0, 60, 136, 0.18);
+  color: #ffffff;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  max-width: clamp(220px, 20vw, 320px);
+  text-align: left;
+}
+
+.header-status-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(0, 60, 136, 0.28);
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.header-status-chip:active {
+  transform: translateY(0);
+}
+
+.header-status-chip .status-chip-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.header-status-chip .status-chip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.header-status-chip .status-chip-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.header-status-chip .status-chip-text {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-status-chip .status-chip-action {
+  margin-left: auto;
+  font-size: 0.85rem;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.header-status-chip:hover .status-chip-action {
+  opacity: 1;
+}
+
+.header-status-chip.empty {
+  background: rgba(255, 255, 255, 0.12);
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.header-status-chip.empty .status-chip-icon {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.header-status-chip.empty .status-chip-text {
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+@media (max-width: 900px) {
+  .header-status-chip {
+    padding: 8px 12px;
+    gap: 10px;
+    max-width: 60vw;
+  }
+
+  .header-status-chip .status-chip-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    font-size: 1.3rem;
+  }
+
+  .header-status-chip .status-chip-text {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-right {
+    gap: 6px;
+  }
+
+  .header-status-chip {
+    padding: 6px 10px;
+    gap: 8px;
+    max-width: 100%;
+  }
+
+  .header-status-chip .status-chip-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .header-status-chip .status-chip-label {
+    font-size: 11px;
+  }
+
+  .header-status-chip .status-chip-text {
+    font-size: 12px;
+  }
+
+  .header-status-chip .status-chip-action {
+    display: none;
+  }
+}
+
 .contact-requests-button {
   padding: 6px 12px !important;
   min-height: 32px !important;
