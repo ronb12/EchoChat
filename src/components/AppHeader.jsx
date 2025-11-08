@@ -484,7 +484,6 @@ export default function AppHeader() {
               cursor: 'pointer',
               fontSize: '14px',
               fontWeight: '600',
-              display: 'flex',
               alignItems: 'center',
               gap: '8px',
               boxShadow: '0 2px 8px rgba(0, 132, 255, 0.3)'
