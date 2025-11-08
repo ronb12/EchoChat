@@ -1202,10 +1202,15 @@ export default function ChatArea() {
             </div>
           )}
           <form onSubmit={handleSendMessage} className="message-input-wrapper" style={{ flex: 1 }}>
+            <label htmlFor="message-input" className="sr-only">
+              Message
+            </label>
             <input
               id="message-input"
               type="text"
               placeholder="Type a message..."
+              autoComplete="off"
+              name="message"
               value={messageText}
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
