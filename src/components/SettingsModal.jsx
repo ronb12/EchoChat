@@ -69,12 +69,14 @@ function SettingsModal() {
   // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
   // In production, use VITE_API_BASE_URL, fallback to localhost only in development
   const isProduction = import.meta.env.PROD;
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || (isProduction ? '' : 'http://localhost:3001');
+  const PRODUCTION_API_FALLBACK = 'https://echochat-app.vercel.app';
+  const baseUrl = import.meta.env.VITE_API_BASE_URL
+    || (isProduction ? PRODUCTION_API_FALLBACK : 'http://localhost:3001');
   const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
 
   // Warn if API URL not set in production
   if (isProduction && !import.meta.env.VITE_API_BASE_URL) {
-    console.error('❌ CRITICAL: VITE_API_BASE_URL not set in production! API calls will fail.');
+    console.warn(`⚠️ VITE_API_BASE_URL not set in production. Falling back to ${PRODUCTION_API_FALLBACK}`);
   }
 
   // Check if this is test business account for sample data fallback
