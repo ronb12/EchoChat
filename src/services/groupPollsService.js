@@ -1,12 +1,53 @@
 // Group Polls Service - Create and manage polls in group chats
 import { db } from './firebaseConfig';
-import { collection, doc, addDoc, updateDoc, getDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, getDoc, getDocs, query, where, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { chatService } from './chatService';
 
 class GroupPollsService {
   constructor() {
     this.maxOptions = 10;
     this.minOptions = 2;
+  }
+
+  formatPollSnapshot(snapshot) {
+    if (!snapshot || !snapshot.exists()) {
+      return null;
+    }
+    const data = snapshot.data() || {};
+    const settings = data.settings || {};
+    const options = Array.isArray(data.options) ? data.options : [];
+
+    const formattedOptions = options.map((opt, index) => {
+      const votesArray = Array.isArray(opt?.votes) ? opt.votes : [];
+      const voteCount = typeof opt?.voteCount === 'number' ? opt.voteCount : votesArray.length;
+      return {
+        id: opt?.id || `opt_${index}`,
+        text: opt?.text || '',
+        votes: votesArray,
+        voteCount
+      };
+    });
+
+    const totalVotes = typeof data.totalVotes === 'number'
+      ? data.totalVotes
+      : formattedOptions.reduce((sum, opt) => sum + (typeof opt.voteCount === 'number' ? opt.voteCount : 0), 0);
+
+    return {
+      id: snapshot.id,
+      ...data,
+      options: formattedOptions,
+      totalVotes,
+      voters: Array.isArray(data.voters) ? data.voters : [],
+      createdAt: data.createdAt?.toMillis?.() || null,
+      updatedAt: data.updatedAt?.toMillis?.() || null,
+      settings: {
+        allowMultipleChoices: !!settings.allowMultipleChoices,
+        allowAddOptions: !!settings.allowAddOptions,
+        anonymous: !!settings.anonymous,
+        expiresAt: settings.expiresAt?.toMillis?.() || null
+      },
+      isActive: data.isActive !== false
+    };
   }
 
   // Create a poll
@@ -147,7 +188,6 @@ class GroupPollsService {
         }
       }
 
-      // Update poll in Firestore
       await updateDoc(pollRef, {
         options: poll.options,
         totalVotes: poll.totalVotes,
@@ -155,7 +195,8 @@ class GroupPollsService {
         updatedAt: serverTimestamp()
       });
 
-      return poll;
+      const updatedSnapshot = await getDoc(pollRef);
+      return this.formatPollSnapshot(updatedSnapshot);
     } catch (error) {
       console.error('Error voting on poll:', error);
       throw error;
@@ -172,14 +213,7 @@ class GroupPollsService {
         throw new Error('Poll not found');
       }
 
-      const poll = pollDoc.data();
-      return {
-        id: pollDoc.id,
-        ...poll,
-        createdAt: poll.createdAt?.toMillis() || Date.now(),
-        updatedAt: poll.updatedAt?.toMillis() || null,
-        expiresAt: poll.settings.expiresAt?.toMillis() || null
-      };
+      return this.formatPollSnapshot(pollDoc);
     } catch (error) {
       console.error('Error getting poll:', error);
       throw error;
@@ -198,12 +232,11 @@ class GroupPollsService {
       const snapshot = await getDocs(q);
 
       const polls = [];
-      snapshot.forEach(doc => {
-        polls.push({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toMillis() || Date.now()
-        });
+      snapshot.forEach(docSnap => {
+        const formatted = this.formatPollSnapshot(docSnap);
+        if (formatted) {
+          polls.push(formatted);
+        }
       });
 
       return polls;
@@ -242,10 +275,29 @@ class GroupPollsService {
     }
   }
 
+  subscribeToPoll(pollId, onUpdate, onError) {
+    if (!pollId) {
+      return () => {};
+    }
+    const pollRef = doc(db, 'polls', pollId);
+    return onSnapshot(pollRef, (snapshot) => {
+      const formatted = this.formatPollSnapshot(snapshot);
+      onUpdate(formatted);
+    }, (error) => {
+      console.error('Error subscribing to poll:', error);
+      if (onError) {
+        onError(error);
+      }
+    });
+  }
+
   // Get poll results (with vote percentages)
   async getPollResults(pollId) {
     try {
       const poll = await this.getPoll(pollId);
+      if (!poll) {
+        throw new Error('Poll not found');
+      }
 
       const results = poll.options.map(option => ({
         ...option,

@@ -1,7 +1,9 @@
 import React from 'react';
 
 export default function MediaGallery({ messages, onClose }) {
-  const mediaMessages = messages?.filter(msg => msg.image || msg.file) || [];
+  const mediaMessages = messages?.filter(msg =>
+    msg.decryptedImage || msg.image || msg.decryptedVideo || msg.video || msg.file
+  ) || [];
 
   return (
     <div className="modal active" id="media-gallery">
@@ -19,11 +21,18 @@ export default function MediaGallery({ messages, onClose }) {
             <div className="media-grid">
               {mediaMessages.map((message, idx) => (
                 <div key={message.id || idx} className="media-item">
-                  {message.image ? (
+                  {(message.decryptedImage || message.image) ? (
                     <img
-                      src={message.image}
+                      src={message.decryptedImage || message.image}
                       alt={message.imageName || 'Media'}
                       className="gallery-image"
+                    />
+                  ) : (message.decryptedVideo || message.video) ? (
+                    <video
+                      src={message.decryptedVideo || message.video}
+                      controls
+                      playsInline
+                      className="gallery-video"
                     />
                   ) : message.file ? (
                     <div className="file-preview">

@@ -137,10 +137,9 @@ class VideoMessageService {
 
       return {
         url: downloadURL,
-        fileName: fileName,
+        fileName,
         fileSize: videoBlob.size,
-        fileType: videoBlob.type || 'video/webm',
-        duration: null // Duration would need to be calculated separately
+        fileType: videoBlob.type || 'video/webm'
       };
     } catch (error) {
       console.error('Error uploading video:', error);
@@ -148,11 +147,52 @@ class VideoMessageService {
     }
   }
 
+  async readVideoMetadata(blob) {
+    return new Promise((resolve, reject) => {
+      try {
+        const videoEl = document.createElement('video');
+        const objectUrl = URL.createObjectURL(blob);
+        const cleanup = () => {
+          videoEl.src = '';
+          URL.revokeObjectURL(objectUrl);
+        };
+
+        videoEl.preload = 'metadata';
+        videoEl.onloadedmetadata = () => {
+          const duration = Number.isFinite(videoEl.duration) ? Math.round(videoEl.duration) : null;
+          const metadata = {
+            durationSeconds: duration,
+            width: videoEl.videoWidth || null,
+            height: videoEl.videoHeight || null
+          };
+          cleanup();
+          resolve(metadata);
+        };
+        videoEl.onerror = () => {
+          cleanup();
+          resolve({
+            durationSeconds: null,
+            width: null,
+            height: null
+          });
+        };
+        videoEl.src = objectUrl;
+      } catch (error) {
+        resolve({
+          durationSeconds: null,
+          width: null,
+          height: null
+        });
+      }
+    });
+  }
+
   // Send video message
   async sendVideoMessage(chatId, userId, senderName, videoBlob, _onUploadProgress) {
     try {
-      // Upload video
-      const videoData = await this.uploadVideo(chatId, userId, videoBlob);
+      const baseFileName = `video-${Date.now()}.webm`;
+      const metadata = await this.readVideoMetadata(videoBlob);
+      const videoData = await this.uploadVideo(chatId, userId, videoBlob, baseFileName);
 
       // Create message data
       const messageData = {
@@ -162,7 +202,9 @@ class VideoMessageService {
         videoName: videoData.fileName,
         videoSize: videoData.fileSize,
         videoType: videoData.fileType,
-        videoDuration: videoData.duration,
+        videoDuration: metadata.durationSeconds,
+        videoWidth: metadata.width,
+        videoHeight: metadata.height,
         timestamp: Date.now()
       };
 

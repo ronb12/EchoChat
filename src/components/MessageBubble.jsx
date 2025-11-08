@@ -4,12 +4,13 @@ import { useUI } from '../hooks/useUI';
 import { chatService } from '../services/chatService';
 import { useDisplayName } from '../hooks/useDisplayName';
 import { useWindowFocus } from '../hooks/useWindowFocus';
+import { groupPollsService } from '../services/groupPollsService';
 
 const COMMON_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 export default function MessageBubble({ message, isOwn = false, chatId = 'demo', participants = [] }) {
   const { user } = useAuth();
-  const { openBlockUserModal } = useUI();
+  const { openBlockUserModal, showNotification } = useUI();
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -17,6 +18,10 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [decryptedText, setDecryptedText] = useState(null);
   const [isDecrypting, setIsDecrypting] = useState(false);
+  const [pollData, setPollData] = useState(null);
+  const [pollLoading, setPollLoading] = useState(false);
+  const [pollError, setPollError] = useState('');
+  const [isVoting, setIsVoting] = useState(false);
   const contextMenuRef = useRef(null);
   const editInputRef = useRef(null);
   const messageRef = useRef(null);
@@ -32,6 +37,20 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   const fallbackSenderName = message?.senderName || 'User';
   const senderDisplayName = useDisplayName(senderId, fallbackSenderName);
   const currentUserId = user?.uid || null;
+  const userOptionIds = useMemo(() => {
+    if (!pollData || !currentUserId || !Array.isArray(pollData.options)) {
+      return new Set();
+    }
+    const ids = pollData.options
+      .filter((opt) => Array.isArray(opt.votes) && opt.votes.includes(currentUserId))
+      .map(opt => opt.id);
+    return new Set(ids);
+  }, [pollData, currentUserId]);
+
+  const userHasVoted = useMemo(() => {
+    if (!pollData || !currentUserId) {return false;}
+    return pollData.voters?.includes(currentUserId) || userOptionIds.size > 0;
+  }, [pollData, currentUserId, userOptionIds]);
 
   useEffect(() => {
     if (isEditing && editInputRef.current) {
@@ -39,6 +58,53 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
       editInputRef.current.select();
     }
   }, [isEditing]);
+
+  const handleVote = async (optionId) => {
+    if (!pollData || !pollData.id) {
+      showNotification('Poll data not available.', 'error');
+      return;
+    }
+    if (!currentUserId) {
+      showNotification('You must be signed in to vote.', 'error');
+      return;
+    }
+    if (!pollData.isActive) {
+      showNotification('This poll is closed.', 'info');
+      return;
+    }
+    if (pollData.settings?.expiresAt && pollData.settings.expiresAt < Date.now()) {
+      showNotification('This poll has expired.', 'info');
+      return;
+    }
+
+    const hasOptionVote = userOptionIds.has(optionId);
+    const allowMultiple = !!pollData.settings?.allowMultipleChoices;
+
+    if (!allowMultiple && userHasVoted && !hasOptionVote) {
+      showNotification('You have already voted on this poll.', 'info');
+      return;
+    }
+
+    setIsVoting(true);
+    try {
+      await groupPollsService.votePoll(
+        pollData.id,
+        optionId,
+        currentUserId,
+        user?.displayName || user?.email || 'You',
+        allowMultiple ? !hasOptionVote : true
+      );
+      if (hasOptionVote && !allowMultiple) {
+        // Single choice polls do not support un-voting in current service
+        showNotification('Vote recorded.', 'success');
+      }
+    } catch (error) {
+      console.error('Error voting on poll:', error);
+      showNotification(error?.message || 'Unable to submit vote.', 'error');
+    } finally {
+      setIsVoting(false);
+    }
+  };
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -86,6 +152,35 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
 
     decryptMessage();
   }, [message, user, chatId]);
+
+  useEffect(() => {
+    if (!message?.isPoll || !message?.pollId) {
+      setPollData(null);
+      setPollError('');
+      setPollLoading(false);
+      return;
+    }
+
+    setPollLoading(true);
+    const unsubscribe = groupPollsService.subscribeToPoll(
+      message.pollId,
+      (poll) => {
+        setPollData(poll);
+        setPollLoading(false);
+        setPollError('');
+      },
+      (error) => {
+        setPollError(error?.message || 'Unable to load poll.');
+        setPollLoading(false);
+      }
+    );
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [message?.pollId, message?.isPoll]);
 
   const attemptMarkAsRead = useCallback(() => {
     if (!currentUserId) {return;}
@@ -159,6 +254,15 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   const displayImage = message.decryptedImage || message.image;
   const displayAudio = message.decryptedAudio || message.audio;
   const displayVideo = message.decryptedVideo || message.video;
+  const videoDurationLabel = (() => {
+    const rawDuration = Number.isFinite(message.videoDuration)
+      ? Math.max(0, Math.round(message.videoDuration))
+      : null;
+    if (rawDuration === null) {return null;}
+    const minutes = Math.floor(rawDuration / 60);
+    const seconds = rawDuration % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  })();
   const displayText = decryptedText || message.text || (message.encryptedText ? '[Encrypted message]' : '');
   const audioDurationLabel = (() => {
     const rawDuration = Number.isFinite(message.audioDuration)
@@ -169,6 +273,81 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
     const seconds = rawDuration % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   })();
+
+  const renderPollCard = () => {
+    if (!message.isPoll) {
+      return null;
+    }
+    if (pollLoading) {
+      return (
+        <div className="poll-card loading">
+          <span>Loading poll…</span>
+        </div>
+      );
+    }
+    if (pollError) {
+      return (
+        <div className="poll-card error">
+          <span>{pollError}</span>
+        </div>
+      );
+    }
+    if (!pollData) {
+      return (
+        <div className="poll-card error">
+          <span>Poll unavailable.</span>
+        </div>
+      );
+    }
+
+    const totalVotes = pollData.totalVotes || 0;
+    const allowMultiple = !!pollData.settings?.allowMultipleChoices;
+    const pollExpired = pollData.settings?.expiresAt && pollData.settings.expiresAt < Date.now();
+    const pollClosed = pollExpired || !pollData.isActive;
+
+    return (
+      <div className={`poll-card ${pollClosed ? 'poll-closed' : ''}`}>
+        <div className="poll-question">
+          <span role="img" aria-hidden="true">📊</span> {pollData.question}
+        </div>
+        <div className="poll-options">
+          {pollData.options.map((option) => {
+            const voteCount = option.voteCount || 0;
+            const percent = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+            const hasVotedOption = userOptionIds.has(option.id);
+            const disableVote = pollClosed || isVoting || (!allowMultiple && userHasVoted && !hasVotedOption);
+            const showPercent = totalVotes > 0;
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                className={`poll-option ${hasVotedOption ? 'selected' : ''}`}
+                onClick={() => handleVote(option.id)}
+                disabled={disableVote}
+              >
+                <div className="poll-option-main">
+                  <span className="poll-option-text">{option.text}</span>
+                  <span className="poll-option-votes">
+                    {showPercent ? `${percent}% · ${voteCount} vote${voteCount === 1 ? '' : 's'}` : '0 votes'}
+                  </span>
+                </div>
+                <div className="poll-option-bar">
+                  <div className="poll-option-bar-fill" style={{ width: `${showPercent ? percent : 0}%` }} />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <div className="poll-meta">
+          <span>{totalVotes} vote{totalVotes === 1 ? '' : 's'}</span>
+          {allowMultiple && <span>• Multiple choices allowed</span>}
+          {pollData.settings?.anonymous && <span>• Anonymous</span>}
+          {pollClosed && <span>• Closed</span>}
+        </div>
+      </div>
+    );
+  };
 
   const handleContextMenu = (e) => {
     e.preventDefault();
@@ -363,6 +542,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
           </div>
         ) : (
           <>
+            {renderPollCard()}
             {/* Show sticker first if it exists */}
             {displaySticker && (
               <div className="message-sticker" style={{
@@ -378,7 +558,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
               </div>
             )}
             {/* Show text if it exists */}
-            {(displayText || message.encryptedText) && (
+            {(displayText || message.encryptedText) && !message.isPoll && (
               <div className="message-text">
                 {isDecrypting ? (
                   <span style={{ opacity: 0.6 }}>Decrypting...</span>
@@ -411,6 +591,21 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
                 </audio>
                 {audioDurationLabel && (
                   <span className="audio-duration">{audioDurationLabel}</span>
+                )}
+              </div>
+            )}
+            {displayVideo && (
+              <div className="message-video">
+                <video
+                  controls
+                  preload="metadata"
+                  src={displayVideo}
+                  style={{ width: '100%', maxHeight: '320px' }}
+                >
+                  Your browser does not support the video element.
+                </video>
+                {videoDurationLabel && (
+                  <span className="video-duration">{videoDurationLabel}</span>
                 )}
               </div>
             )}

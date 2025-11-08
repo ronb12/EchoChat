@@ -52,8 +52,6 @@ export default function ChatArea() {
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showPollCreator, setShowPollCreator] = useState(false);
   const [isBusinessAccount, setIsBusinessAccount] = useState(false);
-  const [_isRecordingVideo, setIsRecordingVideo] = useState(false);
-  const [_showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [availableStickers, setAvailableStickers] = useState([]);
   const [stickerPacks, setStickerPacks] = useState([]);
   const [selectedPack, setSelectedPack] = useState('all');
@@ -64,6 +62,12 @@ export default function ChatArea() {
   const [recordingDurationMs, setRecordingDurationMs] = useState(0);
   const [recordingError, setRecordingError] = useState('');
   const [isSendingVoice, setIsSendingVoice] = useState(false);
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
+  const [videoRecordingDurationMs, setVideoRecordingDurationMs] = useState(0);
+  const [videoRecordingError, setVideoRecordingError] = useState('');
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState('');
+  const [videoPreviewBlob, setVideoPreviewBlob] = useState(null);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -74,6 +78,9 @@ export default function ChatArea() {
   const recordingTimerRef = useRef(null);
   const shouldSendRecordingRef = useRef(false);
   const recordingStartTimeRef = useRef(null);
+  const videoPreviewRef = useRef(null);
+  const videoRecordingTimerRef = useRef(null);
+  const videoRecordingStartRef = useRef(null);
   const { typingUsers, startTyping, stopTyping } = useTypingIndicator(currentChatId);
   const typingUserEntries = Object.values(typingUsers || {});
   const firstTypingUser =
@@ -128,6 +135,31 @@ export default function ChatArea() {
     setRecordingDurationMs(0);
     return () => {};
   }, [isRecordingVoice]);
+
+  // Update video recording timer
+  useEffect(() => {
+    if (isRecordingVideo) {
+      videoRecordingStartRef.current = Date.now();
+      setVideoRecordingDurationMs(0);
+      videoRecordingTimerRef.current = setInterval(() => {
+        setVideoRecordingDurationMs(Date.now() - (videoRecordingStartRef.current || Date.now()));
+      }, 250);
+      return () => {
+        if (videoRecordingTimerRef.current) {
+          clearInterval(videoRecordingTimerRef.current);
+          videoRecordingTimerRef.current = null;
+        }
+      };
+    }
+
+    if (videoRecordingTimerRef.current) {
+      clearInterval(videoRecordingTimerRef.current);
+      videoRecordingTimerRef.current = null;
+    }
+    videoRecordingStartRef.current = null;
+    setVideoRecordingDurationMs(0);
+    return () => {};
+  }, [isRecordingVideo]);
 
   // Load stickers when picker is shown
   useEffect(() => {
@@ -380,6 +412,148 @@ export default function ChatArea() {
   const completeVoiceRecording = () => {
     stopVoiceRecording(true);
   };
+
+  const formatVideoDuration = (milliseconds) => {
+    const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const clearVideoPreview = () => {
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+    }
+    setVideoPreviewUrl('');
+    setVideoPreviewBlob(null);
+  };
+
+  const stopVideoStreamPreview = () => {
+    if (videoPreviewRef.current && videoPreviewRef.current.srcObject) {
+      const stream = videoPreviewRef.current.srcObject;
+      stream?.getTracks()?.forEach(track => track.stop());
+      videoPreviewRef.current.srcObject = null;
+    }
+  };
+
+  const startVideoRecording = async () => {
+    if (isRecordingVideo || isUploadingVideo) {
+      return;
+    }
+    if (!currentChatId || !user) {
+      showNotification('Select a chat before recording video.', 'info');
+      return;
+    }
+    if (!videoMessageService.isSupported()) {
+      setVideoRecordingError('Video recording is not supported in this browser.');
+      showNotification('Video recording is not supported in this browser.', 'error');
+      return;
+    }
+
+    setVideoRecordingError('');
+    try {
+      const stream = await videoMessageService.startRecording(currentChatId, user.uid);
+      if (videoPreviewRef.current) {
+        videoPreviewRef.current.srcObject = stream;
+        videoPreviewRef.current.muted = true;
+        videoPreviewRef.current.playsInline = true;
+        try {
+          await videoPreviewRef.current.play();
+        } catch (playError) {
+          // Autoplay might be blocked; ignore and let user tap to play
+        }
+      }
+      setIsRecordingVideo(true);
+    } catch (error) {
+      console.error('Unable to start video recording:', error);
+      setVideoRecordingError(error?.message || 'Unable to start video recording.');
+      showNotification(error?.message || 'Unable to start video recording.', 'error');
+      videoMessageService.cancelRecording();
+      stopVideoStreamPreview();
+      setIsRecordingVideo(false);
+    }
+  };
+
+  const finalizeVideoRecording = async () => {
+    setIsRecordingVideo(false);
+    if (!videoMessageService.mediaRecorder) {
+      return;
+    }
+    try {
+      const blob = await videoMessageService.stopRecording();
+      stopVideoStreamPreview();
+      videoRecordingStartRef.current = null;
+      setVideoRecordingDurationMs(0);
+      if (blob && blob.size > 0) {
+        clearVideoPreview();
+        const objectUrl = URL.createObjectURL(blob);
+        setVideoPreviewBlob(blob);
+        setVideoPreviewUrl(objectUrl);
+      } else {
+        clearVideoPreview();
+      }
+    } catch (error) {
+      console.error('Failed to stop video recording:', error);
+      setVideoRecordingError('Failed to process recorded video.');
+      showNotification('Failed to process recorded video.', 'error');
+      clearVideoPreview();
+    }
+  };
+
+  const cancelVideoRecording = () => {
+    videoMessageService.cancelRecording();
+    stopVideoStreamPreview();
+    videoRecordingStartRef.current = null;
+    setVideoRecordingDurationMs(0);
+    setIsRecordingVideo(false);
+    setVideoRecordingError('');
+  };
+
+  const discardVideoPreview = () => {
+    clearVideoPreview();
+  };
+
+  const handleSendVideoMessage = async () => {
+    if (!videoPreviewBlob) {
+      showNotification('No video to send.', 'info');
+      return;
+    }
+    if (!currentChatId || !user) {
+      showNotification('Select a chat before sending video.', 'info');
+      return;
+    }
+    setIsUploadingVideo(true);
+    try {
+      await videoMessageService.sendVideoMessage(
+        currentChatId,
+        user.uid,
+        myDisplayName || 'User',
+        videoPreviewBlob
+      );
+      showNotification('Video message sent', 'success');
+      clearVideoPreview();
+    } catch (error) {
+      console.error('Failed to send video message:', error);
+      showNotification(error?.message || 'Failed to send video message', 'error');
+    } finally {
+      setIsUploadingVideo(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      videoMessageService.cancelRecording();
+      stopVideoStreamPreview();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
+    };
+  }, [videoPreviewUrl]);
 
   const removePreview = (index) => {
     const newPreviews = [...previewImages];
@@ -1331,6 +1505,21 @@ export default function ChatArea() {
             >
               😀
             </button>
+            {currentChat?.type === 'group' && (
+              <button
+                className="input-action-btn poll-btn"
+                title="Create poll"
+                onClick={() => {
+                  if (!currentChatId) {
+                    showNotification('Please select a chat before creating a poll.', 'info');
+                    return;
+                  }
+                  setShowPollCreator(true);
+                }}
+              >
+                📊
+              </button>
+            )}
             <button
               className={`input-action-btn voice-btn ${isRecordingVoice ? 'recording' : ''}`}
               title={isRecordingVoice ? 'Stop recording' : 'Record voice message'}
@@ -1411,6 +1600,72 @@ export default function ChatArea() {
           {!isRecordingVoice && recordingError && (
             <div className="voice-recording-error">
               {recordingError}
+            </div>
+          )}
+
+          {isRecordingVideo && (
+            <div className="video-recording-indicator">
+              <div className="video-recording-preview">
+                <video
+                  ref={videoPreviewRef}
+                  autoPlay
+                  muted
+                  playsInline
+                />
+              </div>
+              <div className="video-recording-meta">
+                <span className="recording-dot" aria-hidden="true" />
+                <span className="recording-timer">{formatVideoDuration(videoRecordingDurationMs)}</span>
+              </div>
+              <div className="video-recording-controls">
+                <button
+                  type="button"
+                  className="recording-control-btn cancel"
+                  onClick={cancelVideoRecording}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="recording-control-btn send"
+                  onClick={finalizeVideoRecording}
+                >
+                  Stop
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!isRecordingVideo && videoPreviewUrl && (
+            <div className="video-preview-panel">
+              <video
+                src={videoPreviewUrl}
+                controls
+                playsInline
+              />
+              <div className="video-preview-actions">
+                <button
+                  type="button"
+                  className="recording-control-btn cancel"
+                  onClick={discardVideoPreview}
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  className="recording-control-btn send"
+                  onClick={handleSendVideoMessage}
+                  disabled={isUploadingVideo}
+                >
+                  {isUploadingVideo ? 'Uploading…' : 'Send video'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!isRecordingVideo && videoRecordingError && (
+            <div className="video-recording-error">
+              {videoRecordingError}
             </div>
           )}
 
