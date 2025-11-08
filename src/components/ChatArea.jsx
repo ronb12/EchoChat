@@ -9,7 +9,6 @@ import { validationService } from '../services/validationService';
 import { stickersService } from '../services/stickersService';
 import { videoMessageService } from '../services/videoMessageService';
 import MessageBubble from './MessageBubble';
-import VoiceRecorder from './VoiceRecorder';
 import MessageSearch from './MessageSearch';
 import GifPicker from './GifPicker';
 import SendMoneyModal from './SendMoneyModal';
@@ -61,10 +60,20 @@ export default function ChatArea() {
   const [recentStickers, setRecentStickers] = useState([]);
   const [stickerSearchQuery, setStickerSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [recordingDurationMs, setRecordingDurationMs] = useState(0);
+  const [recordingError, setRecordingError] = useState('');
+  const [isSendingVoice, setIsSendingVoice] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
   const moreMenuRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordingStreamRef = useRef(null);
+  const recordingChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
+  const shouldSendRecordingRef = useRef(false);
+  const recordingStartTimeRef = useRef(null);
   const { typingUsers, startTyping, stopTyping } = useTypingIndicator(currentChatId);
   const typingUserEntries = Object.values(typingUsers || {});
   const firstTypingUser =
@@ -94,6 +103,31 @@ export default function ChatArea() {
       setIsBusinessAccount(isBusiness);
     }
   }, [user]);
+
+  // Update recording timer
+  useEffect(() => {
+    if (isRecordingVoice) {
+      recordingStartTimeRef.current = Date.now();
+      setRecordingDurationMs(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDurationMs(Date.now() - (recordingStartTimeRef.current || Date.now()));
+      }, 200);
+      return () => {
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+      };
+    }
+
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    recordingStartTimeRef.current = null;
+    setRecordingDurationMs(0);
+    return () => {};
+  }, [isRecordingVoice]);
 
   // Load stickers when picker is shown
   useEffect(() => {
@@ -194,6 +228,157 @@ export default function ChatArea() {
       };
       reader.readAsDataURL(file);
     });
+  };
+
+  const formatDuration = (milliseconds) => {
+    const totalSeconds = Math.max(0, Math.round(milliseconds / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const cleanupRecording = () => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (recordingStreamRef.current) {
+      recordingStreamRef.current.getTracks().forEach(track => track.stop());
+      recordingStreamRef.current = null;
+    }
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current = null;
+    }
+    recordingChunksRef.current = [];
+    shouldSendRecordingRef.current = false;
+    recordingStartTimeRef.current = null;
+  };
+
+  const sendVoiceMessage = async (blob, durationMs) => {
+    if (!blob || blob.size === 0 || !currentChatId || !user) {
+      return;
+    }
+
+    const mimeType = blob.type || 'audio/webm';
+    const fileName = `voice-${Date.now()}.webm`;
+    const file = new File([blob], fileName, { type: mimeType });
+
+    setIsSendingVoice(true);
+    try {
+      await chatService.sendMessage(currentChatId, {
+        text: '',
+        audioFile: file,
+        audioName: fileName,
+        audioDuration: Math.round(durationMs / 1000),
+        fileSize: file.size,
+        fileType: file.type,
+        senderId: user.uid,
+        senderName: myDisplayName || 'User'
+      });
+      showNotification('Voice message sent', 'success');
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      showNotification(error?.message || 'Failed to send voice message', 'error');
+    } finally {
+      setIsSendingVoice(false);
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    if (isRecordingVoice || isSendingVoice) {
+      return;
+    }
+
+    if (typeof window === 'undefined' || typeof window.MediaRecorder !== 'function') {
+      setRecordingError('Voice recording is not supported in this environment.');
+      showNotification('Voice recording is not supported in this environment.', 'error');
+      return;
+    }
+
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      setRecordingError('Voice recording is not supported in this browser.');
+      showNotification('Voice recording is not supported in this browser.', 'error');
+      return;
+    }
+
+    setRecordingError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      recordingChunksRef.current = [];
+      shouldSendRecordingRef.current = false;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          recordingChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const duration = Date.now() - (recordingStartTimeRef.current || Date.now());
+        const shouldSend = shouldSendRecordingRef.current;
+        const chunks = recordingChunksRef.current.slice();
+        cleanupRecording();
+        setIsRecordingVoice(false);
+        setRecordingDurationMs(0);
+
+        if (!shouldSend || chunks.length === 0) {
+          return;
+        }
+
+        try {
+          const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+          await sendVoiceMessage(blob, duration);
+        } catch (error) {
+          console.error('Failed to process voice recording:', error);
+          showNotification('Failed to process voice recording.', 'error');
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      recordingStartTimeRef.current = Date.now();
+      setRecordingDurationMs(0);
+      setIsRecordingVoice(true);
+    } catch (error) {
+      console.error('Unable to start voice recording:', error);
+      setRecordingError('Microphone permission denied. Please enable access and try again.');
+      showNotification('Microphone permission denied. Please enable access and try again.', 'error');
+      cleanupRecording();
+    }
+  };
+
+  const stopVoiceRecording = (shouldSend = true) => {
+    if (!mediaRecorderRef.current) {
+      return;
+    }
+    shouldSendRecordingRef.current = shouldSend;
+    try {
+      mediaRecorderRef.current.stop();
+    } catch (error) {
+      console.error('Failed to stop voice recording:', error);
+      cleanupRecording();
+      setIsRecordingVoice(false);
+      if (shouldSend) {
+        showNotification({
+          type: 'error',
+          message: 'Failed to finalize voice recording.'
+        });
+      }
+    }
+  };
+
+  const cancelVoiceRecording = () => {
+    stopVoiceRecording(false);
+    setRecordingDurationMs(0);
+    setIsRecordingVoice(false);
+  };
+
+  const completeVoiceRecording = () => {
+    stopVoiceRecording(true);
   };
 
   const removePreview = (index) => {
@@ -1146,7 +1331,24 @@ export default function ChatArea() {
             >
               😀
             </button>
-                        <VoiceRecorder onRecordingComplete={handleVoiceRecordingComplete} />
+            <button
+              className={`input-action-btn voice-btn ${isRecordingVoice ? 'recording' : ''}`}
+              title={isRecordingVoice ? 'Stop recording' : 'Record voice message'}
+              onClick={() => {
+                if (!currentChatId) {
+                  showNotification('Please select a chat before recording.', 'info');
+                  return;
+                }
+                if (isRecordingVoice) {
+                  completeVoiceRecording();
+                } else {
+                  startVoiceRecording();
+                }
+              }}
+              disabled={isSendingVoice}
+            >
+              {isRecordingVoice ? '⏹️' : '🎙️'}
+            </button>
             <button
               className="input-action-btn money-btn"
               title="Send Money"
@@ -1181,6 +1383,36 @@ export default function ChatArea() {
               />
             )}
           </div>
+
+          {isRecordingVoice && (
+            <div className="voice-recording-indicator" role="status">
+              <span className="recording-dot" aria-hidden="true" />
+              <span className="recording-timer">{formatDuration(recordingDurationMs)}</span>
+              <div className="recording-controls">
+                <button
+                  type="button"
+                  className="recording-control-btn cancel"
+                  onClick={cancelVoiceRecording}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="recording-control-btn send"
+                  onClick={completeVoiceRecording}
+                  disabled={isSendingVoice}
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!isRecordingVoice && recordingError && (
+            <div className="voice-recording-error">
+              {recordingError}
+            </div>
+          )}
 
           {/* Emoji Picker */}
           {showEmojiPicker && (

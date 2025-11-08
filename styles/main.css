@@ -1617,13 +1617,21 @@ body {
   max-width: 250px;
 }
 
-.message-voice {
+.message-audio {
   max-width: 250px;
 }
 
-.message-voice audio {
+.message-audio audio {
   width: 100%;
   outline: none;
+}
+
+.message-audio .audio-duration {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
+  text-align: right;
 }
 
 .message-text {
@@ -2323,6 +2331,120 @@ button:has-text("Browse") {
 
 [data-theme="dark"] .input-action-btn:hover {
   background-color: rgba(255, 255, 255, 0.05);
+}
+
+.input-action-btn.voice-btn {
+  font-size: 22px;
+}
+
+.input-action-btn.voice-btn.recording {
+  color: var(--error-color);
+  background: rgba(244, 67, 54, 0.12);
+  box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.12);
+}
+
+.input-action-btn.voice-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.voice-recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  background: rgba(0, 132, 255, 0.12);
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(0, 132, 255, 0.2);
+}
+
+[data-theme="dark"] .voice-recording-indicator {
+  background: rgba(0, 132, 255, 0.16);
+  border-color: rgba(0, 132, 255, 0.35);
+}
+
+.recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--error-color);
+  box-shadow: 0 0 0 4px rgba(244, 67, 54, 0.25);
+  animation: recording-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes recording-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+}
+
+.recording-timer {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  min-width: 48px;
+}
+
+.recording-controls {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.recording-control-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.recording-control-btn.cancel {
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+}
+
+[data-theme="light"] .recording-control-btn.cancel {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.recording-control-btn.cancel:hover {
+  opacity: 0.8;
+}
+
+.recording-control-btn.send {
+  background: var(--primary-color);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 132, 255, 0.35);
+}
+
+.recording-control-btn.send:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 132, 255, 0.4);
+}
+
+.recording-control-btn.send:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.voice-recording-error {
+  margin-top: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--error-color);
+  opacity: 0.85;
 }
 
 .message-input-wrapper {

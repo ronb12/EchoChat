@@ -76,6 +76,7 @@ class FirestoreService {
         videoName: messageData.videoName || null,
         imageName: messageData.imageName || null,
         audioName: messageData.audioName || null,
+        audioDuration: messageData.audioDuration || null,
         fileName: messageData.fileName || null,
         fileSize: messageData.fileSize || null,
         fileType: messageData.fileType || null,
@@ -120,24 +121,26 @@ class FirestoreService {
   buildMessagePreview(messageData) {
     if (!messageData) {return '';} // Guard
 
-    const text = typeof messageData.text === 'string' ? messageData.text.trim() : '';
+    const rawText = typeof messageData.text === 'string' ? messageData.text.trim() : '';
+    const decrypted = typeof messageData.decryptedText === 'string' ? messageData.decryptedText.trim() : '';
+    const text = decrypted || rawText;
     if (text) {
       return text.length > 120 ? `${text.slice(0, 117)}...` : text;
     }
 
-    if (messageData.sticker || messageData.stickerId) {
+    if (messageData.decryptedSticker || messageData.sticker || messageData.stickerId) {
       return '🗒️ Sticker';
     }
 
-    if (messageData.image || messageData.imageFile) {
+    if (messageData.decryptedImage || messageData.image || messageData.imageFile) {
       return '📷 Photo';
     }
 
-    if (messageData.video || messageData.videoName) {
+    if (messageData.decryptedVideo || messageData.video || messageData.videoName) {
       return '🎥 Video';
     }
 
-    if (messageData.audio || messageData.audioName) {
+    if (messageData.decryptedAudio || messageData.audio || messageData.audioName) {
       return '🎵 Audio';
     }
 
@@ -409,7 +412,7 @@ class FirestoreService {
   }
 
   // Chats
-  async createChat(participants, chatName, isGroup = false) {
+  async createChat(participants, chatName, isGroup = false, options = {}) {
     try {
       const chatData = {
         name: chatName || (isGroup ? 'Group Chat' : 'Direct Chat'),
@@ -420,6 +423,14 @@ class FirestoreService {
         lastMessage: null,
         unreadCount: {}
       };
+
+      if (options.encryption) {
+        chatData.encryption = {
+          enabled: !!options.encryption.enabled,
+          version: options.encryption.version || 1,
+          key: options.encryption.key || null
+        };
+      }
 
       const docRef = await addDoc(collection(this.db, 'chats'), chatData);
       return { id: docRef.id, ...chatData };

@@ -155,6 +155,20 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
 
   const timestamp = formatTimestamp(message.timestamp);
   const messageClass = `message ${isOwn ? 'sent' : 'received'} ${message.deleted ? 'deleted' : ''}`;
+  const displaySticker = message.decryptedSticker || message.sticker;
+  const displayImage = message.decryptedImage || message.image;
+  const displayAudio = message.decryptedAudio || message.audio;
+  const displayVideo = message.decryptedVideo || message.video;
+  const displayText = decryptedText || message.text || (message.encryptedText ? '[Encrypted message]' : '');
+  const audioDurationLabel = (() => {
+    const rawDuration = Number.isFinite(message.audioDuration)
+      ? Math.max(0, Math.round(message.audioDuration))
+      : null;
+    if (rawDuration === null) {return null;}
+    const minutes = Math.floor(rawDuration / 60);
+    const seconds = rawDuration % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  })();
 
   const handleContextMenu = (e) => {
     e.preventDefault();
@@ -162,7 +176,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   };
 
   const handleCopy = () => {
-    const textToCopy = decryptedText || message.text || '';
+    const textToCopy = displayText;
     if (textToCopy) {
       navigator.clipboard.writeText(textToCopy);
       setShowContextMenu(false);
@@ -350,7 +364,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
         ) : (
           <>
             {/* Show sticker first if it exists */}
-            {message.sticker && (
+            {displaySticker && (
               <div className="message-sticker" style={{
                 fontSize: '64px',
                 display: 'flex',
@@ -360,17 +374,17 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
                 background: 'transparent',
                 minHeight: '80px'
               }}>
-                {message.sticker}
+                {displaySticker}
               </div>
             )}
             {/* Show text if it exists */}
-            {(decryptedText || message.text || message.encryptedText) && (
+            {(displayText || message.encryptedText) && (
               <div className="message-text">
                 {isDecrypting ? (
                   <span style={{ opacity: 0.6 }}>Decrypting...</span>
                 ) : (
                   <>
-                    {decryptedText || message.text || (message.encryptedText ? '[Encrypted message]' : '')}
+                    {displayText}
                     {message.edited && (
                       <span className="edited-indicator" title={`Edited at ${formatTimestamp(message.editedAt)}`}>
                         (edited)
@@ -380,9 +394,24 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
                 )}
               </div>
             )}
-            {message.image && (
+            {displayImage && (
               <div className="message-media">
-                <img src={message.image} alt="Shared" className="message-image" />
+                <img src={displayImage} alt="Shared" className="message-image" />
+              </div>
+            )}
+            {displayAudio && (
+              <div className="message-audio">
+                <audio
+                  controls
+                  preload="metadata"
+                  src={displayAudio}
+                  style={{ width: '100%' }}
+                >
+                  Your browser does not support the audio element.
+                </audio>
+                {audioDurationLabel && (
+                  <span className="audio-duration">{audioDurationLabel}</span>
+                )}
               </div>
             )}
             {message.file && (
