@@ -673,6 +673,8 @@ class ChatService {
           ...chat,
           lastMessage: preview,
           lastMessageAt: timestamp,
+          lastMessageSenderId: messageData?.senderId || chat.lastMessageSenderId || null,
+          lastMessageSenderName: messageData?.senderName || chat.lastMessageSenderName || null,
           unreadCount: nextUnread
         };
       });
