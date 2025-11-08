@@ -28,6 +28,12 @@ export default function AppHeader() {
     updatedAt: null
   });
   const [isStatusHovered, setIsStatusHovered] = useState(false);
+  const [isCompactHeader, setIsCompactHeader] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return window.innerWidth <= 720;
+  });
   const avatarMenuRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -186,6 +192,18 @@ export default function AppHeader() {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    const updateHeaderLayout = () => {
+      setIsCompactHeader(window.innerWidth <= 720);
+    };
+    updateHeaderLayout();
+    window.addEventListener('resize', updateHeaderLayout);
+    return () => window.removeEventListener('resize', updateHeaderLayout);
+  }, []);
+
   const handleProfilePictureChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !user) {return;}
@@ -331,15 +349,24 @@ export default function AppHeader() {
           </div>
         )}
       </div>
-      <div className="header-right">
+      <div
+        className="header-right"
+        style={{
+          flex: '1 1 auto',
+          justifyContent: isCompactHeader ? 'space-between' : 'flex-end',
+          alignItems: isCompactHeader ? 'stretch' : 'center',
+          gap: isCompactHeader ? '8px' : '12px',
+          flexWrap: isCompactHeader ? 'wrap' : 'nowrap'
+        }}
+      >
         {user && (
           <button
             type="button"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '14px',
-              padding: '10px 16px',
+              gap: isCompactHeader ? '10px' : '14px',
+              padding: isCompactHeader ? '8px 12px' : '10px 16px',
               borderRadius: '18px',
               background: statusInfo.text
                 ? 'rgba(255, 255, 255, 0.18)'
@@ -356,7 +383,8 @@ export default function AppHeader() {
               transform: isStatusHovered ? 'translateY(-1px)' : 'translateY(0)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
-              maxWidth: 'min(60vw, 320px)',
+              maxWidth: isCompactHeader ? '100%' : 'min(60vw, 320px)',
+              width: isCompactHeader ? '100%' : 'auto',
               textAlign: 'left',
               flexShrink: 1,
               minWidth: 0
@@ -382,7 +410,7 @@ export default function AppHeader() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1.5rem',
+                fontSize: isCompactHeader ? '1.35rem' : '1.5rem',
                 boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.4)',
                 flexShrink: 0
               }}
@@ -412,7 +440,7 @@ export default function AppHeader() {
               </span>
               <span
                 style={{
-                  fontSize: '14px',
+                  fontSize: isCompactHeader ? '13px' : '14px',
                   fontWeight: statusInfo.text ? 600 : 500,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -445,8 +473,10 @@ export default function AppHeader() {
             }}
             style={{
               position: 'relative',
-              padding: '8px 16px',
-              marginRight: '12px',
+              padding: isCompactHeader ? '6px 12px' : '8px 16px',
+              marginRight: isCompactHeader ? '0' : '12px',
+              flex: isCompactHeader ? '1 1 auto' : '0 0 auto',
+              display: isCompactHeader ? 'none' : 'flex',
               background: 'var(--primary-color, #0084ff)',
               color: 'white',
               border: 'none',
