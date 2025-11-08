@@ -7,7 +7,7 @@ import { useWindowFocus } from '../hooks/useWindowFocus';
 
 const COMMON_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
-export default function MessageBubble({ message, isOwn = false, chatId = 'demo' }) {
+export default function MessageBubble({ message, isOwn = false, chatId = 'demo', participants = [] }) {
   const { user } = useAuth();
   const { openBlockUserModal } = useUI();
   const [showContextMenu, setShowContextMenu] = useState(false);
@@ -432,17 +432,44 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo' 
         )}
       </div>
       {isOwn && (
-        <ReadReceipts message={message} currentUserId={currentUserId} />
+        <ReadReceipts
+          message={message}
+          currentUserId={currentUserId}
+          participants={participants}
+        />
       )}
     </div>
   );
 }
 
-function ReadReceipts({ message, currentUserId }) {
+function ReadReceipts({ message, currentUserId, participants = [] }) {
+  const allowedReaders = useMemo(() => {
+    if (!Array.isArray(participants) || participants.length === 0) {
+      return null;
+    }
+    const set = new Set(participants.filter(Boolean));
+    if (message?.senderId) {
+      set.delete(message.senderId);
+    }
+    if (currentUserId) {
+      set.delete(currentUserId);
+    }
+    return set;
+  }, [participants, message?.senderId, currentUserId]);
+
   const readerEntries = useMemo(() => {
     if (!message?.reads) {return [];}
     return Object.entries(message.reads)
-      .filter(([uid]) => uid && uid !== currentUserId && uid !== message.senderId)
+      .filter(([uid]) => {
+        if (!uid) {return false;}
+        if (uid === currentUserId || uid === message?.senderId) {
+          return false;
+        }
+        if (allowedReaders) {
+          return allowedReaders.has(uid);
+        }
+        return true;
+      })
       .map(([uid, readAt]) => ({
         uid,
         readAt: typeof readAt === 'number' && Number.isFinite(readAt)

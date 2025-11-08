@@ -1090,6 +1090,7 @@ export default function ChatArea() {
                     message={message}
                     isOwn={message.senderId === user?.uid}
                     chatId={currentChatId}
+                    participants={participants}
                   />
                 ))}
                 <div ref={messagesEndRef} />
