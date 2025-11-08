@@ -99,6 +99,25 @@ service cloud.firestore {
       // Allow deleting chats if user is a participant
       allow delete: if isAuthenticated() && 
         request.auth.uid in resource.data.participants;
+
+      match /readPointers/{readerId} {
+        function chatSnapshot() {
+          return get(/databases/$(database)/documents/chats/$(chatId));
+        }
+
+        function isParticipant() {
+          let chatSnap = chatSnapshot();
+          return chatSnap.data != null &&
+            chatSnap.data.participants != null &&
+            request.auth.uid in chatSnap.data.participants;
+        }
+
+        allow read: if isAuthenticated() && isParticipant();
+        allow create, update: if isAuthenticated() &&
+          request.auth.uid == readerId &&
+          isParticipant();
+        allow delete: if false;
+      }
     }
     
     // Messages collection
@@ -121,27 +140,11 @@ service cloud.firestore {
         return value == request.time;
       }
 
-      function mapOrEmpty(data) {
-        return data == null ? {} : data;
-      }
-      
       function isReadReceiptUpdate() {
-        let diff = request.resource.data.diff(resource.data);
-        let changed = diff.changedKeys();
-        let removed = diff.removedKeys();
-        let allowedKeys = resource.data.keys().concat(['reads', 'readAt']);
-        let readAtAllowed = !changed.hasAny(['readAt']) ||
+        let readAtUnchangedOrSet = request.resource.data.readAt == resource.data.readAt ||
           (resource.data.readAt == null && isServerTimestamp(request.resource.data.readAt));
-        let readsBefore = mapOrEmpty(resource.data.reads);
-        let readsAfter = mapOrEmpty(request.resource.data.reads);
-        let readsDiff = readsAfter.diff(readsBefore);
-        let readsAdded = readsDiff.addedKeys();
-        let readsChanged = readsDiff.changedKeys();
-        let readsRemoved = readsDiff.removedKeys();
 
         return isChatParticipant() &&
-          request.resource.data.keys().hasOnly(allowedKeys) &&
-          resource.data.keys().hasOnly(request.resource.data.keys()) &&
           request.resource.data.chatId == resource.data.chatId &&
           request.resource.data.senderId == resource.data.senderId &&
           fieldUnchanged('text') &&
@@ -169,12 +172,7 @@ service cloud.firestore {
           fieldUnchanged('fileName') &&
           fieldUnchanged('fileSize') &&
           fieldUnchanged('fileType') &&
-          readAtAllowed &&
-          removed.size() == 0 &&
-          changed.hasOnly(['reads', 'readAt']) &&
-          readsRemoved.size() == 0 &&
-          (readsChanged.size() == 0 || readsChanged.hasOnly([request.auth.uid])) &&
-          (readsAdded.size() == 0 || readsAdded.hasOnly([request.auth.uid]));
+          readAtUnchangedOrSet;
       }
       
       // Allow read if user is authenticated (for public messages or participants)
@@ -185,6 +183,7 @@ service cloud.firestore {
       // Allow update/delete if user is the sender
       allow update, delete: if isAuthenticated() && 
         (resource.data.senderId == request.auth.uid || isReadReceiptUpdate());
+
     }
     
     // Groups collection

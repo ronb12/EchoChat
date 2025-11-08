@@ -15,7 +15,8 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
-  writeBatch
+  writeBatch,
+  setDoc
 } from 'firebase/firestore';
 import {
   ref,
@@ -198,41 +199,25 @@ class FirestoreService {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       console.log(`📬 Real-time message update for chatId: ${chatId}, messages count: ${snapshot.size}`);
-      const messages = snapshot.docs.map(doc => {
-        const data = doc.data();
-        const readsRaw = data.reads || {};
-        const reads = {};
-        Object.entries(readsRaw).forEach(([uid, value]) => {
-          if (!uid) {return;}
-          if (value && typeof value.toMillis === 'function') {
-            reads[uid] = value.toMillis();
-          } else if (typeof value === 'number') {
-            reads[uid] = value;
-          } else if (value && typeof value.seconds === 'number') {
-            reads[uid] = value.seconds * 1000;
-          } else {
-            reads[uid] = Date.now();
-          }
-        });
+
+      const messages = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           ...data,
-          // Preserve timestamp conversions
           timestamp: data.timestamp?.toMillis() || Date.now(),
           deliveredAt: data.deliveredAt?.toMillis() || null,
-          readAt: data.readAt?.toMillis() || null,
-          editedAt: data.editedAt?.toMillis() || null,
-          deletedAt: data.deletedAt?.toMillis() || null,
-          // Explicitly preserve sticker fields from Firestore
+          readAt: data.readAt?.toMillis?.() || null,
+          editedAt: data.editedAt?.toMillis?.() || null,
+          deletedAt: data.deletedAt?.toMillis?.() || null,
           sticker: data.sticker || null,
           stickerId: data.stickerId || null,
           stickerPackId: data.stickerPackId || null,
-          // Preserve video fields
           video: data.video || null,
-          videoName: data.videoName || null,
-          reads
+          videoName: data.videoName || null
         };
       });
+
       console.log(`📬 Calling callback with ${messages.length} messages for chatId: ${chatId}`);
       callback(messages);
     }, (error) => {
@@ -326,36 +311,59 @@ class FirestoreService {
 
   async markMessageAsRead(chatId, messageId, userId) {
     try {
+      if (!userId) {return;}
+
       const messageRef = doc(this.db, 'messages', messageId);
       const messageDoc = await getDoc(messageRef);
-      if (messageDoc.exists()) {
-        const data = messageDoc.data();
-        if (data.chatId !== chatId) {
-          return;
-        }
-        if (userId && data.senderId === userId) {
-          return;
-        }
-
-        const updates = {};
-        if (!data.readAt) {
-          updates.readAt = serverTimestamp();
-        }
-        if (userId) {
-          const reads = data.reads || {};
-          if (!reads[userId]) {
-            updates[`reads.${userId}`] = serverTimestamp();
-          }
-        }
-
-        if (Object.keys(updates).length > 0) {
-          await updateDoc(messageRef, updates);
-        }
+      if (!messageDoc.exists()) {
+        return;
       }
+
+      const data = messageDoc.data();
+      if (data.chatId !== chatId) {
+        return;
+      }
+      if (data.senderId === userId) {
+        return;
+      }
+
+      const messageData = messageDoc.data();
+      const messageTimestamp = messageData.timestamp?.toMillis?.() || Date.now();
+
+      const pointerRef = doc(this.db, 'chats', chatId, 'readPointers', userId);
+      await setDoc(pointerRef, {
+        messageId,
+        messageTimestamp,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
     } catch (error) {
-      console.error('Error marking message as read:', error);
+      console.error(
+        'Error marking message as read:',
+        error?.code || error,
+        error?.message,
+        JSON.stringify({ chatId, messageId, userId })
+      );
       throw error;
     }
+  }
+
+  subscribeToReadPointers(chatId, callback) {
+    const pointersRef = collection(this.db, 'chats', chatId, 'readPointers');
+    const unsubscribe = onSnapshot(pointersRef, (snapshot) => {
+      const pointers = {};
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        pointers[docSnap.id] = {
+          messageId: data.messageId || null,
+          messageTimestamp: data.messageTimestamp || null,
+          updatedAt: data.updatedAt?.toMillis?.() || Date.now()
+        };
+      });
+      callback(pointers);
+    }, (error) => {
+      console.error('Error subscribing to read pointers:', error);
+    });
+    return unsubscribe;
   }
 
   async pinMessage(messageId, userId) {

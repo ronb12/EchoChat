@@ -10,6 +10,8 @@ class ChatService {
     this.userIdToPresence = new Map();
     this.userIdToChats = new Map();
     this.notificationListeners = new Set();
+    this.chatIdToReadPointers = new Map();
+    this.readPointerUnsubscribes = new Map();
     this.scheduledMessages = new Map();
     this.lastMessageTimes = new Map();
     this.useFirestore = true; // Use Firestore as primary backend
@@ -94,28 +96,83 @@ class ChatService {
     return normalized;
   }
 
+  deriveReadsFromPointers(message, pointerMap) {
+    if (!pointerMap || typeof pointerMap !== 'object') {return {};}
+    const reads = {};
+    const messageTimestamp = message.timestamp || 0;
+
+    Object.entries(pointerMap).forEach(([uid, pointer]) => {
+      if (!uid || !pointer) {return;}
+      const pointerMessageId = pointer.messageId;
+      const pointerTimestamp = pointer.messageTimestamp || pointer.updatedAt || 0;
+      if (!pointerTimestamp && pointerMessageId !== message.id) {
+        return;
+      }
+      const hasRead =
+        pointerMessageId === message.id ||
+        (pointerTimestamp && messageTimestamp <= pointerTimestamp);
+      if (!hasRead) {return;}
+      const readAt = pointerTimestamp || Date.now();
+      reads[uid] = readAt;
+    });
+
+    return reads;
+  }
+
+  buildMessagesWithReadPointers(chatId, baseMessages = null) {
+    const rawMessages = baseMessages || this.chatIdToMessages.get(chatId) || [];
+    const pointerMap = this.chatIdToReadPointers.get(chatId) || {};
+
+    return rawMessages.map((msg) => {
+      const reads = this.deriveReadsFromPointers(msg, pointerMap);
+      const readValues = Object.values(reads);
+      const aggregatedReadAt = readValues.length > 0
+        ? Math.min(...readValues)
+        : (msg.readAt || null);
+      return {
+        ...msg,
+        needsDecryption: msg.isEncrypted && msg.encryptedText,
+        reads: this.normalizeReadsMap(reads),
+        readAt: aggregatedReadAt
+      };
+    });
+  }
+
   // Messages - Uses Firestore for real-time sync, localStorage as fallback
   subscribeToMessages(chatId, callback) {
     if (this.useFirestore) {
       // Use Firestore real-time subscription
       try {
-        const unsubscribe = firestoreService.subscribeToMessages(chatId, (messages) => {
-          // Decrypt messages that need decryption
-          const processedMessages = messages.map(msg => ({
-            ...msg,
-            needsDecryption: msg.isEncrypted && msg.encryptedText,
-            reads: this.normalizeReadsMap(msg.reads)
-          }));
-          callback(processedMessages);
+        const emitMessages = () => {
+          const processed = this.buildMessagesWithReadPointers(chatId);
+          callback(processed);
+        };
+
+        const unsubscribeMessages = firestoreService.subscribeToMessages(chatId, (messages) => {
+          this.chatIdToMessages.set(chatId, messages);
+          emitMessages();
         });
 
-        this.firestoreUnsubscribes.set(chatId, unsubscribe);
-        return () => {
-          if (this.firestoreUnsubscribes.has(chatId)) {
-            this.firestoreUnsubscribes.get(chatId)();
-            this.firestoreUnsubscribes.delete(chatId);
+        if (!this.readPointerUnsubscribes.has(chatId)) {
+          const unsubscribeReadPointers = firestoreService.subscribeToReadPointers(chatId, (readPointers) => {
+            this.chatIdToReadPointers.set(chatId, readPointers);
+            emitMessages();
+          });
+          this.readPointerUnsubscribes.set(chatId, unsubscribeReadPointers);
+        }
+
+        const cleanup = () => {
+          unsubscribeMessages();
+          this.chatIdToMessages.delete(chatId);
+          if (this.readPointerUnsubscribes.has(chatId)) {
+            this.readPointerUnsubscribes.get(chatId)();
+            this.readPointerUnsubscribes.delete(chatId);
           }
+          this.chatIdToReadPointers.delete(chatId);
         };
+
+        this.firestoreUnsubscribes.set(chatId, cleanup);
+        return cleanup;
       } catch (error) {
         console.warn('Firestore subscription failed, falling back to localStorage:', error);
         this.useFirestore = false;
@@ -128,12 +185,12 @@ class ChatService {
       this.chatIdToMessages.set(chatId, []);
     }
     // Immediately deliver current state
-    callback(this.chatIdToMessages.get(chatId));
+    callback(this.buildMessagesWithReadPointers(chatId));
 
     // Set up polling to check for updates (simulating real-time)
     const interval = setInterval(() => {
       const messages = this.chatIdToMessages.get(chatId) || [];
-      callback(messages);
+      callback(this.buildMessagesWithReadPointers(chatId, messages));
     }, 500);
 
     const unsubscribe = () => {
@@ -294,6 +351,14 @@ class ChatService {
       }
       this.saveMessagesToStorage();
       this.notifyMessageSubscribers(chatId);
+
+      const pointerMap = { ...(this.chatIdToReadPointers.get(chatId) || {}) };
+      pointerMap[userId] = {
+        messageId,
+        messageTimestamp: message.timestamp || now,
+        updatedAt: now
+      };
+      this.chatIdToReadPointers.set(chatId, pointerMap);
     }
 
     if (this.useFirestore) {
