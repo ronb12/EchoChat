@@ -5,22 +5,19 @@ import { useChat } from '../hooks/useChat';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../services/firebaseConfig';
 import { profileService } from '../services/profileService';
+import { useDisplayName } from '../hooks/useDisplayName';
 import { getStripeMode } from '../utils/stripeMode';
 // import { getDisplayName } from '../utils/userDisplayName';
-const getDisplayName = (user, profile = null) => {
-  if (!user) {return 'User';}
-  if (profile?.alias) {return profile.alias;}
-  if (user.displayName) {return user.displayName;}
-  if (user.email) {return user.email.split('@')[0];}
-  return 'User';
-};
+function useAlias(user) {
+  const displayName = useDisplayName(user?.uid, user?.email || 'User');
+  return displayName;
+}
 
 export default function AppHeader() {
   const { toggleSidebar, openSettingsModal, openStatusModal, openContactRequestModal, showNotification } = useUI();
   const { user, signOut, setUser } = useAuth();
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [userProfile, setUserProfile] = useState(null);
   const [isBusinessAccount, setIsBusinessAccount] = useState(false);
   const [stripeMode, setStripeMode] = useState(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
@@ -108,16 +105,13 @@ export default function AppHeader() {
   const loadUserProfile = async () => {
     if (!user) {return;}
     try {
-      const profile = await profileService.getUserProfile(user.uid);
-      setUserProfile(profile);
+      await profileService.getUserProfile(user.uid);
     } catch (error) {
-      // Error is already handled in profileService with fallback
-      // Just set a minimal profile if needed
-      setUserProfile({ alias: null, realName: null });
+      // ignore; the hook will fall back to defaults
     }
   };
 
-  const displayName = getDisplayName(user, userProfile);
+  const displayName = useAlias(user);
 
   // Close menu when clicking outside
   useEffect(() => {
