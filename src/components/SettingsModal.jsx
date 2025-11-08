@@ -3,6 +3,7 @@ import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { twoFactorService } from '../services/twoFactorService';
 import { profileService } from '../services/profileService';
+import { clearDisplayNameCache } from '../hooks/useDisplayName';
 // import { getDisplayName, getRealName } from '../utils/userDisplayName';
 const _getDisplayName = (user, profile = null) => {
   if (!user) {return 'User';}
@@ -776,6 +777,8 @@ function SettingsModal() {
         alias: alias.trim() || null,
         realName: realName.trim() || user.displayName || null
       });
+
+      clearDisplayNameCache();
 
       // Reload profile to reflect changes without full page reload
       await loadProfile();
