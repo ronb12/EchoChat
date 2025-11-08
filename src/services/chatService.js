@@ -1080,12 +1080,29 @@ class ChatService {
     const message = messages.find(m => m.id === messageId);
 
     if (message) {
+      const previousState = { pinned: message.pinned, pinnedAt: message.pinnedAt, pinnedBy: message.pinnedBy };
       message.pinned = true;
       message.pinnedAt = Date.now();
       message.pinnedBy = userId;
       this.saveMessagesToStorage();
       this.notifyMessageSubscribers(chatId);
+      try {
+        if (this.useFirestore) {
+          await firestoreService.pinMessage(messageId, userId);
+        }
+      } catch (error) {
+        // revert optimistic update on failure
+        message.pinned = previousState.pinned;
+        message.pinnedAt = previousState.pinnedAt;
+        message.pinnedBy = previousState.pinnedBy;
+        this.saveMessagesToStorage();
+        this.notifyMessageSubscribers(chatId);
+        throw error;
+      }
       return message;
+    }
+    if (this.useFirestore) {
+      return firestoreService.pinMessage(messageId, userId);
     }
     return null;
   }
@@ -1096,12 +1113,28 @@ class ChatService {
     const message = messages.find(m => m.id === messageId);
 
     if (message) {
+      const previousState = { pinned: message.pinned, pinnedAt: message.pinnedAt, pinnedBy: message.pinnedBy };
       message.pinned = false;
       message.pinnedAt = null;
       message.pinnedBy = null;
       this.saveMessagesToStorage();
       this.notifyMessageSubscribers(chatId);
+      try {
+        if (this.useFirestore) {
+          await firestoreService.unpinMessage(messageId);
+        }
+      } catch (error) {
+        message.pinned = previousState.pinned;
+        message.pinnedAt = previousState.pinnedAt;
+        message.pinnedBy = previousState.pinnedBy;
+        this.saveMessagesToStorage();
+        this.notifyMessageSubscribers(chatId);
+        throw error;
+      }
       return message;
+    }
+    if (this.useFirestore) {
+      return firestoreService.unpinMessage(messageId);
     }
     return null;
   }
