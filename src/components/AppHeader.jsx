@@ -27,6 +27,7 @@ export default function AppHeader() {
     expiresAt: null,
     updatedAt: null
   });
+  const [isStatusHovered, setIsStatusHovered] = useState(false);
   const avatarMenuRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -334,8 +335,35 @@ export default function AppHeader() {
         {user && (
           <button
             type="button"
-            className={`header-status-chip ${statusInfo.text ? 'active' : 'empty'}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '14px',
+              padding: '10px 16px',
+              borderRadius: '18px',
+              background: statusInfo.text
+                ? 'rgba(255, 255, 255, 0.18)'
+                : 'rgba(255, 255, 255, 0.12)',
+              border: statusInfo.text
+                ? '1px solid rgba(255, 255, 255, 0.25)'
+                : '1px dashed rgba(255, 255, 255, 0.35)',
+              color: '#ffffff',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
+              boxShadow: isStatusHovered
+                ? '0 12px 28px rgba(0, 60, 136, 0.28)'
+                : '0 8px 20px rgba(0, 60, 136, 0.18)',
+              transform: isStatusHovered ? 'translateY(-1px)' : 'translateY(0)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              maxWidth: 'min(60vw, 320px)',
+              textAlign: 'left',
+              flexShrink: 1,
+              minWidth: 0
+            }}
             onClick={() => handleMenuClick('status')}
+            onMouseEnter={() => setIsStatusHovered(true)}
+            onMouseLeave={() => setIsStatusHovered(false)}
             title={
               statusInfo.text
                 ? statusInfo.expiresAt
@@ -344,18 +372,68 @@ export default function AppHeader() {
                 : 'Click to set a status'
             }
           >
-            <div className="status-chip-icon" aria-hidden="true">
+            <div
+              aria-hidden="true"
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '14px',
+                background: 'rgba(255, 255, 255, 0.22)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.5rem',
+                boxShadow: 'inset 0 1px 2px rgba(255, 255, 255, 0.4)',
+                flexShrink: 0
+              }}
+            >
               {statusInfo.emoji || '💬'}
             </div>
-            <div className="status-chip-content">
-              <span className="status-chip-label">
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
+                overflow: 'hidden',
+                flex: '1 1 auto',
+                minWidth: 0
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '12px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  fontWeight: 600,
+                  opacity: statusInfo.text ? 0.85 : 0.75
+                }}
+              >
                 {statusInfo.text ? 'My status' : 'Set a status'}
               </span>
-              <span className="status-chip-text">
-                {statusInfo.text ? statusInfo.text : 'Share what\'s on your mind'}
+              <span
+                style={{
+                  fontSize: '14px',
+                  fontWeight: statusInfo.text ? 600 : 500,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  opacity: statusInfo.text ? 1 : 0.85
+                }}
+              >
+                {statusInfo.text ? statusInfo.text : 'Share what\u2019s on your mind'}
               </span>
             </div>
-            <div className="status-chip-action" aria-hidden="true">✏️</div>
+            <div
+              aria-hidden="true"
+              style={{
+                marginLeft: 'auto',
+                fontSize: '0.85rem',
+                opacity: isStatusHovered ? 1 : 0.8,
+                transition: 'opacity 0.2s ease'
+              }}
+            >
+              ✏️
+            </div>
           </button>
         )}
         {user && (
