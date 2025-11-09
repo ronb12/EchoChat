@@ -18,6 +18,7 @@ class ChatService {
     this.lastMessageTimes = new Map();
     this.useFirestore = true; // Use Firestore as primary backend
     this.firestoreUnsubscribes = new Map();
+    this.messageListeners = new Map();
 
     // Try to use Firestore, fall back to localStorage if unavailable
     this.initializeBackend();
@@ -263,6 +264,11 @@ class ChatService {
 
   // Messages - Uses Firestore for real-time sync, localStorage as fallback
   subscribeToMessages(chatId, callback) {
+    if (!this.messageListeners.has(chatId)) {
+      this.messageListeners.set(chatId, new Set());
+    }
+    this.messageListeners.get(chatId).add(callback);
+
     if (this.useFirestore) {
       // Use Firestore real-time subscription
       try {
@@ -304,6 +310,13 @@ class ChatService {
             this.readPointerUnsubscribes.delete(chatId);
           }
           this.chatIdToReadPointers.delete(chatId);
+          if (this.messageListeners.has(chatId)) {
+            const listeners = this.messageListeners.get(chatId);
+            listeners.delete(callback);
+            if (listeners.size === 0) {
+              this.messageListeners.delete(chatId);
+            }
+          }
         };
 
         this.firestoreUnsubscribes.set(chatId, cleanup);
@@ -331,6 +344,13 @@ class ChatService {
 
     const unsubscribe = () => {
       clearInterval(interval);
+      if (this.messageListeners.has(chatId)) {
+        const listeners = this.messageListeners.get(chatId);
+        listeners.delete(callback);
+        if (listeners.size === 0) {
+          this.messageListeners.delete(chatId);
+        }
+      }
     };
     return unsubscribe;
   }
@@ -713,8 +733,18 @@ class ChatService {
 
   // Internal method to notify subscribers
   notifyMessageSubscribers(chatId) {
-    // This will be called by the polling in subscribeToMessages
-    // In a real implementation, this would push to subscribers
+    if (!chatId || !this.messageListeners.has(chatId)) {
+      return;
+    }
+    const listeners = this.messageListeners.get(chatId);
+    const processed = this.buildMessagesWithReadPointers(chatId);
+    for (const listener of listeners) {
+      try {
+        listener(processed);
+      } catch (error) {
+        console.error('Error notifying message subscriber:', error);
+      }
+    }
   }
 
   // Typing indicators
@@ -1445,6 +1475,16 @@ class ChatService {
   }
 
   async scheduleMessage(chatId, message, scheduleTime, userId, userName) {
+    console.debug('[scheduleMessage] called', {
+      chatId,
+      hasMessage: !!message,
+      scheduleTime,
+      userId,
+      userName,
+      attachmentsCount: Array.isArray(message?.attachments) ? message.attachments.length : 'n/a',
+      imagePresent: !!message?.image,
+      filePresent: !!message?.file
+    });
     if (!chatId || !message || !userId || !scheduleTime) {
       throw new Error('Invalid scheduling data');
     }

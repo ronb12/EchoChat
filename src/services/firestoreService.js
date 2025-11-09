@@ -415,11 +415,18 @@ class FirestoreService {
     try {
       const fileName = `${Date.now()}_${file.name}`;
       const storageRef = ref(this.storage, `chats/${chatId}/${folder}/${fileName}`);
+      console.debug('[storage] Uploading file', {
+        path: storageRef.fullPath,
+        size: file?.size || null,
+        type: file?.type || null,
+        name: file?.name || null
+      });
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
+      console.debug('[storage] Upload complete', { path: storageRef.fullPath, url });
       return url;
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('Error uploading file:', error?.message || error, error?.code || 'no-code', error);
       throw error;
     }
   }

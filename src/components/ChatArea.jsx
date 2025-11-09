@@ -77,6 +77,15 @@ export default function ChatArea() {
   const [isSchedulingMessage, setIsSchedulingMessage] = useState(false);
   const [scheduleMode, setScheduleMode] = useState('create'); // 'create' | 'reschedule'
   const [scheduleTargetMessage, setScheduleTargetMessage] = useState(null);
+  const scheduleModeRef = useRef('create');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.__echochatScheduleState = {
+        mode: scheduleModeRef.current,
+        targetId: scheduleTargetMessage?.id || null
+      };
+    }
+  }, [scheduleMode, scheduleTargetMessage]);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -234,10 +243,17 @@ export default function ChatArea() {
 
   const handleOpenScheduleModal = (targetMessage = null) => {
     if (targetMessage) {
+      scheduleModeRef.current = 'reschedule';
       setScheduleMode('reschedule');
       setScheduleTargetMessage(targetMessage);
       const targetTime = targetMessage.scheduleTime || targetMessage.scheduledFor || Date.now() + 15 * 60 * 1000;
       setScheduleDraftValue(toScheduleInputValue(targetTime));
+      if (typeof window !== 'undefined') {
+        window.__echochatScheduleState = {
+          mode: scheduleModeRef.current,
+          targetId: targetMessage?.id || null
+        };
+      }
       setShowScheduleModal(true);
       return;
     }
@@ -257,9 +273,16 @@ export default function ChatArea() {
       showNotification('Add text or attachments before scheduling.', 'info');
       return;
     }
+    scheduleModeRef.current = 'create';
     setScheduleMode('create');
     setScheduleTargetMessage(null);
     setScheduleDraftValue(computeDefaultScheduleValue());
+    if (typeof window !== 'undefined') {
+      window.__echochatScheduleState = {
+        mode: scheduleModeRef.current,
+        targetId: null
+      };
+    }
     setShowScheduleModal(true);
   };
 
@@ -271,7 +294,12 @@ export default function ChatArea() {
 
     try {
       setIsSchedulingMessage(true);
-      if (scheduleMode === 'reschedule' && scheduleTargetMessage) {
+      console.debug('handleScheduleSubmit invoked', {
+        scheduledTimestamp,
+        scheduleMode: scheduleModeRef.current,
+        hasTarget: !!scheduleTargetMessage
+      });
+      if (scheduleModeRef.current === 'reschedule' && scheduleTargetMessage) {
         await chatService.rescheduleScheduledMessage(
           currentChatId,
           scheduleTargetMessage.id,
@@ -286,6 +314,12 @@ export default function ChatArea() {
         const nonImageFiles = Array.isArray(selectedFiles)
           ? selectedFiles.filter(file => !(file?.type || '').startsWith('image/'))
           : [];
+    console.debug('Scheduling payload summary', {
+          hasText,
+          imagePreviewCount: imagePreviews.length,
+          nonImageFileCount: nonImageFiles.length,
+          scheduleMode: scheduleModeRef.current
+        });
 
         if (!hasText && imagePreviews.length === 0 && nonImageFiles.length === 0) {
           showNotification('Nothing to schedule. Add text or attachments.', 'info');
@@ -324,6 +358,12 @@ export default function ChatArea() {
         for (const file of nonImageFiles) {
           if (!file) {continue;}
           const fileUrl = await firestoreService.uploadFile(currentChatId, file, 'files');
+          console.debug('Scheduling non-image file', {
+            fileName: file?.name,
+            fileSize: file?.size,
+            fileType: file?.type,
+            fileUrl
+          });
           await chatService.scheduleMessage(
             currentChatId,
             {
@@ -380,10 +420,22 @@ export default function ChatArea() {
         }
       }
       setScheduleTargetMessage(null);
+      scheduleModeRef.current = 'create';
       setScheduleMode('create');
+      if (typeof window !== 'undefined') {
+        window.__echochatScheduleState = {
+          mode: scheduleModeRef.current,
+          targetId: null
+        };
+      }
       setShowScheduleModal(false);
     } catch (error) {
-      console.error('Failed to schedule message:', error);
+      console.error(
+        'Failed to schedule message:',
+        error?.message || String(error),
+        error?.code || 'no-code',
+        error?.stack || error
+      );
       showNotification(error?.message || 'Unable to schedule message.', 'error');
     } finally {
       setIsSchedulingMessage(false);
@@ -393,7 +445,14 @@ export default function ChatArea() {
   const handleCloseScheduleModal = () => {
     setShowScheduleModal(false);
     setScheduleTargetMessage(null);
+    scheduleModeRef.current = 'create';
     setScheduleMode('create');
+    if (typeof window !== 'undefined') {
+      window.__echochatScheduleState = {
+        mode: scheduleModeRef.current,
+        targetId: null
+      };
+    }
   };
 
   const handleCancelScheduledMessage = useCallback(async (message) => {
@@ -2020,7 +2079,7 @@ export default function ChatArea() {
             <button
               className="input-action-btn schedule-btn"
               title="Schedule message"
-              onClick={handleOpenScheduleModal}
+              onClick={() => handleOpenScheduleModal()}
               disabled={
                 (
                   !messageText.trim() &&
