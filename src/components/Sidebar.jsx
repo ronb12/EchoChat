@@ -7,8 +7,8 @@ import { useDisplayName } from '../hooks/useDisplayName';
 import { chatService } from '../services/chatService';
 
 const ACTION_WIDTH = 128;
-const MIN_SWIPE_DISTANCE = 60;
-const CLOSE_SWIPE_DISTANCE = 40;
+const MIN_SWIPE_DISTANCE = 45;
+const CLOSE_SWIPE_DISTANCE = 35;
 
 function ChatListRow({
   chat,
@@ -25,6 +25,7 @@ function ChatListRow({
   const pointerCurrentRef = useRef(null);
   const pointerIdRef = useRef(null);
   const pointerTypeRef = useRef(null);
+  const pointerLastTypeRef = useRef(null);
   const suppressClickRef = useRef(false);
 
   const participants = Array.isArray(chat?.participants) ? chat.participants : [];
@@ -66,6 +67,7 @@ function ChatListRow({
     if (event.pointerType === 'mouse' && event.button !== 0) {return;}
     pointerIdRef.current = event.pointerId;
     pointerTypeRef.current = event.pointerType;
+    pointerLastTypeRef.current = event.pointerType;
     pointerStartRef.current = event.clientX;
     pointerCurrentRef.current = event.clientX;
     try {
@@ -131,11 +133,21 @@ function ChatListRow({
       suppressClickRef.current = false;
       return;
     }
+    const lastPointerType = pointerLastTypeRef.current;
+    if (lastPointerType === 'mouse') {
+      if (!isOpen) {
+        openActions();
+        suppressClickRef.current = true;
+      } else {
+        resetPosition();
+      }
+      return;
+    }
     if (isOpen) {
-      resetPosition();
       return;
     }
     onSelect(chat.id);
+    pointerLastTypeRef.current = null;
   };
 
   const handleMute = (event) => {
