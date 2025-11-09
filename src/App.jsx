@@ -83,6 +83,26 @@ function AppContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Listen for service worker version messages to ensure latest build is displayed
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {return;}
+    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
+    const handleServiceWorkerMessage = (event) => {
+      const data = event?.data || {};
+      if (data.type === 'SW_VERSION') {
+        const swVersion = data.version || '';
+        if (swVersion && swVersion !== appVersion && !window.__SW_FORCE_RELOAD__) {
+          console.log('New service worker version detected. Reloading...', swVersion, appVersion);
+          window.__SW_FORCE_RELOAD__ = true;
+          window.location.reload();
+        }
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+  }, []);
+
   // Initialize real-time features
   usePresenceStatus();
   useNotifications();

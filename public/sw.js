@@ -66,30 +66,38 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating service worker...');
   
-  event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            // Delete old caches that don't match current version
-            if (cacheName !== STATIC_CACHE && 
-                cacheName !== DYNAMIC_CACHE && 
-                cacheName !== IMAGE_CACHE && 
-                cacheName !== API_CACHE &&
-                cacheName.startsWith('echochat-')) {
-              console.log('[SW] Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      })
-      .then(() => {
-        console.log('[SW] Service worker activated');
-        // Don't claim clients immediately - this can cause reload loops
-        // Let the service worker activate naturally without forcing control
+  event.waitUntil((async () => {
+    const cacheNames = await caches.keys();
+    await Promise.all(
+      cacheNames.map((cacheName) => {
+        if (cacheName !== STATIC_CACHE &&
+            cacheName !== DYNAMIC_CACHE &&
+            cacheName !== IMAGE_CACHE &&
+            cacheName !== API_CACHE &&
+            cacheName.startsWith('echochat-')) {
+          console.log('[SW] Deleting old cache:', cacheName);
+          return caches.delete(cacheName);
+        }
         return Promise.resolve();
       })
-  );
+    );
+
+    await self.clients.claim();
+
+    const clientList = await self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    });
+
+    clientList.forEach((client) => {
+      client.postMessage({
+        type: 'SW_VERSION',
+        version: resolvedVersion
+      });
+    });
+
+    console.log('[SW] Service worker activated and clients claimed');
+  })());
 });
 
 // Determine cache strategy based on request
