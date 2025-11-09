@@ -309,6 +309,15 @@ npm run build
 firebase deploy --only hosting
 ```
 
+### Vercel Production
+```bash
+# Deploy latest build and automatically point alias to echochat.vercel.app
+npm run deploy:prod
+
+# Optional: override alias domain
+npm run deploy:prod your-alias.vercel.app
+```
+
 ### Firebase Functions (Backend API)
 ```bash
 cd functions

@@ -26,6 +26,7 @@
     "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes,storage",
     "deploy:all": "npm run deploy:build && firebase deploy",
     "deploy:firebase": "firebase deploy",
+    "deploy:prod": "bash scripts/deploy-with-alias.sh",
     "functions:install": "cd functions && npm install",
     "functions:serve": "firebase emulators:start --only functions",
     "test": "jest",
