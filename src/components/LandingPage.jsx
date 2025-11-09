@@ -1,13 +1,21 @@
 import React from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
+import { chatService } from '../services/chatService';
 
 export default function LandingPage() {
   const { openLoginModal, openSignUpModal, openPrivacyModal, openTermsModal, openSupportModal } = useUI();
   const { setUser } = useAuth();
 
   const continueAsDemo = () => {
-    setUser({ uid: 'demo-user', displayName: 'Demo User', email: 'demo@example.com' });
+    const demoUser = {
+      uid: 'demo-user',
+      displayName: 'Demo User',
+      email: 'demo@example.com',
+      isDemo: true
+    };
+    setUser(demoUser);
+    chatService.seedDemoChats(demoUser);
   };
 
   return (

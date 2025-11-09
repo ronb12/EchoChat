@@ -10,6 +10,7 @@ class ChatService {
     this.chatIdToTypingUsers = new Map();
     this.userIdToPresence = new Map();
     this.userIdToChats = new Map();
+    this.demoSeededUsers = new Set();
     this.chatEncryptionKeys = new Map();
     this.notificationListeners = new Set();
     this.chatIdToReadPointers = new Map();
@@ -146,6 +147,173 @@ class ChatService {
       console.warn('Firestore not available, using localStorage fallback:', error);
       this.useFirestore = false;
       this.loadMessagesFromStorage();
+    }
+  }
+
+  seedDemoChats(user) {
+    if (typeof window === 'undefined') {return;}
+    if (!user || !user.uid) {return;}
+    try {
+      // Avoid reseeding repeatedly within the same session
+      if (this.demoSeededUsers.has(user.uid)) {
+        return;
+      }
+
+      // If demo chats already exist, skip seeding
+      if (this.chatIdToMessages.has('demo_support_chat')) {
+        this.demoSeededUsers.add(user.uid);
+        return;
+      }
+
+      this.useFirestore = false;
+
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+      const tenMinutes = 10 * 60 * 1000;
+      const oneHour = 60 * 60 * 1000;
+
+      const makeMessage = (chatId, { id, senderId, senderName, text, offset }) => {
+        const timestamp = now - offset;
+        return {
+          id,
+          chatId,
+          text,
+          senderId,
+          senderName,
+          timestamp,
+          createdAt: timestamp,
+          deliveredAt: timestamp + 2000,
+          readAt: timestamp + 4000,
+          status: 'seen',
+          type: 'text'
+        };
+      };
+
+      const otherParticipants = {
+        support: { id: 'support-agent', name: 'Echo Support' },
+        onboarding: { id: 'onboarding-coach', name: 'Onboarding Coach' },
+        product: { id: 'product-updates', name: 'Product Updates' }
+      };
+
+      const demoChats = [
+        {
+          id: 'demo_support_chat',
+          name: 'Echo Support',
+          type: 'direct',
+          participants: [user.uid, otherParticipants.support.id],
+          createdOffset: oneHour,
+          messages: [
+            {
+              id: 'support_msg_1',
+              senderId: otherParticipants.support.id,
+              senderName: otherParticipants.support.name,
+              text: 'Hey there! 👋 Welcome to EchoChat — let me know if you need anything.',
+              offset: oneHour - fiveMinutes
+            },
+            {
+              id: 'support_msg_2',
+              senderId: otherParticipants.support.id,
+              senderName: otherParticipants.support.name,
+              text: 'Tip: swipe left on this chat to mute notifications or delete it.',
+              offset: oneHour - (fiveMinutes / 2)
+            }
+          ]
+        },
+        {
+          id: 'demo_onboarding_chat',
+          name: 'Team Onboarding',
+          type: 'group',
+          participants: [user.uid, otherParticipants.onboarding.id, 'teammate-anna'],
+          createdOffset: tenMinutes,
+          messages: [
+            {
+              id: 'onboard_msg_1',
+              senderId: otherParticipants.onboarding.id,
+              senderName: otherParticipants.onboarding.name,
+              text: 'Welcome to the team space! We use this chat to coordinate launches.',
+              offset: tenMinutes - fiveMinutes
+            },
+            {
+              id: 'onboard_msg_2',
+              senderId: 'teammate-anna',
+              senderName: 'Anna (Design)',
+              text: 'Hi Demo User! Feel free to pin or forward any of the launch assets.',
+              offset: tenMinutes - (fiveMinutes / 2)
+            },
+            {
+              id: 'onboard_msg_3',
+              senderId: user.uid,
+              senderName: user.displayName || 'You',
+              text: 'Thanks Anna! Looking forward to trying everything out. 🙌',
+              offset: tenMinutes - (fiveMinutes / 4)
+            }
+          ]
+        },
+        {
+          id: 'demo_updates_chat',
+          name: 'Product Updates',
+          type: 'direct',
+          participants: [user.uid, otherParticipants.product.id],
+          createdOffset: fiveMinutes,
+          messages: [
+            {
+              id: 'updates_msg_1',
+              senderId: otherParticipants.product.id,
+              senderName: otherParticipants.product.name,
+              text: '📣 New! Voice & video calls now support screen sharing.',
+              offset: fiveMinutes - (fiveMinutes / 2)
+            },
+            {
+              id: 'updates_msg_2',
+              senderId: otherParticipants.product.id,
+              senderName: otherParticipants.product.name,
+              text: 'Try the money tab to send or request payments in seconds.',
+              offset: fiveMinutes - (fiveMinutes / 3)
+            }
+          ]
+        }
+      ];
+
+      const seededChats = [];
+
+      demoChats.forEach((chatDef) => {
+        const chatCreatedAt = now - chatDef.createdOffset;
+        const messages = chatDef.messages.map((msg) => makeMessage(chatDef.id, msg));
+        const lastMessage = messages[messages.length - 1];
+
+        const chatEntry = {
+          id: chatDef.id,
+          name: chatDef.name,
+          participants: chatDef.participants,
+          type: chatDef.type,
+          createdAt: chatCreatedAt,
+          lastMessageAt: lastMessage.timestamp,
+          lastMessage: lastMessage.text,
+          lastMessageSenderId: lastMessage.senderId,
+          lastMessageSenderName: lastMessage.senderName,
+          unreadCount: 0,
+          avatar: null,
+          encryption: null
+        };
+
+        this.chatIdToMessages.set(chatDef.id, messages);
+        seededChats.push(chatEntry);
+      });
+
+      const existingChats = this.userIdToChats.get(user.uid) || [];
+      const nonDemoChats = existingChats.filter(chat => chat && !String(chat.id || '').startsWith('demo_'));
+      this.userIdToChats.set(user.uid, [...seededChats, ...nonDemoChats]);
+      this.saveMessagesToStorage();
+
+      try {
+        localStorage.setItem(`echochat_demo_seed_${user.uid}`, '1');
+      } catch (storageError) {
+        console.warn('Unable to persist demo seed flag:', storageError);
+      }
+
+      this.demoSeededUsers.add(user.uid);
+    } catch (error) {
+      console.error('Error seeding demo chats:', error);
     }
   }
 

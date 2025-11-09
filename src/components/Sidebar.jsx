@@ -7,6 +7,8 @@ import { useDisplayName } from '../hooks/useDisplayName';
 import { chatService } from '../services/chatService';
 
 const ACTION_WIDTH = 128;
+const MIN_SWIPE_DISTANCE = 60;
+const CLOSE_SWIPE_DISTANCE = 40;
 
 function ChatListRow({
   chat,
@@ -81,6 +83,10 @@ function ChatListRow({
     const delta = currentX - pointerStartRef.current;
     if (delta < 0) {
       setOffsetX(Math.max(delta, -ACTION_WIDTH - 32));
+      if (delta <= -MIN_SWIPE_DISTANCE) {
+        openActions();
+        suppressClickRef.current = true;
+      }
     } else if (isOpen) {
       setOffsetX(Math.min(delta - ACTION_WIDTH, 0));
     } else {
@@ -96,10 +102,10 @@ function ChatListRow({
     const start = pointerStartRef.current ?? 0;
     const current = pointerCurrentRef.current ?? start;
     const delta = current - start;
-    if (!isOpen && delta <= -60) {
+    if (!isOpen && delta <= -MIN_SWIPE_DISTANCE) {
       openActions();
       suppressClickRef.current = true;
-    } else if (isOpen && delta >= 40) {
+    } else if (isOpen && delta >= CLOSE_SWIPE_DISTANCE) {
       resetPosition();
     } else if (isOpen) {
       openActions();

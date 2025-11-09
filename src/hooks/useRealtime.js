@@ -121,6 +121,10 @@ export function useRealtimeChats() {
   useEffect(() => {
     if (!user) {return;}
 
+    if (user.isDemo || user.uid === 'demo-user' || user.email === 'demo@example.com') {
+      chatService.seedDemoChats(user);
+    }
+
     const unsubscribe = chatService.subscribeToUserChats(user.uid, (userChats) => {
       // Deduplicate chats by ID to prevent duplicates
       // Merge with existing chats to preserve any additional properties (like avatar from NewChatModal)
