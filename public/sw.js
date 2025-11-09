@@ -90,10 +90,20 @@ self.addEventListener('activate', (event) => {
     });
 
     clientList.forEach((client) => {
-      client.postMessage({
-        type: 'SW_VERSION',
-        version: resolvedVersion
-      });
+      try {
+        client.postMessage({
+          type: 'SW_VERSION',
+          version: resolvedVersion
+        });
+      } catch (err) {
+        console.warn('[SW] Failed to post version message:', err?.message);
+      }
+
+      if (client && typeof client.navigate === 'function') {
+        client.navigate(client.url).catch(() => {
+          // Ignore navigation errors (e.g., ignored by some browsers)
+        });
+      }
     });
 
     console.log('[SW] Service worker activated and clients claimed');
