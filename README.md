@@ -4,117 +4,44 @@ EchoChat is a cutting-edge messaging application that combines enterprise-grade 
 
 ## 🚀 Key Features
 
-### 💬 Core Messaging
-- **End-to-End Encryption**: AES-256-GCM encryption with perfect forward secrecy
-- **Real-time Messaging**: Instant message delivery with Firebase Firestore
-- **File Sharing**: Support for images, videos, documents, and more
-- **Voice Messages**: High-quality voice recording and playback
-- **Video Messages**: Record and send video messages
-- **Group Chats**: Create and manage group conversations with polls
-- **Message Reactions**: Express yourself with emoji reactions
-- **Message Editing**: Edit sent messages
-- **Message Deletion**: Delete messages for yourself or everyone
-- **Message Forwarding**: Forward messages to other chats
-- **Message Pinning**: Pin important messages
-- **Message Search**: Search through conversation history
-- **Read Receipts**: See when messages are read (✓ delivered, ✓✓ read)
-- **Typing Indicators**: Know when someone is typing
-- **Last Seen**: See when users were last active
-- **Online Status**: Real-time online/offline status
-- **Context Menu**: Right-click menu for message actions
-- **Copy Message**: Copy message text to clipboard
-- **Keyboard Shortcuts**: Cmd+K (new chat), Cmd+F (search)
+### 💬 Messaging & Collaboration
+- Real-time 1:1 and group chats backed by Firebase Firestore
+- Rich media support for images, videos, voice notes, documents, stickers, and GIFs
+- Message reactions, editing, deletion (self or everyone), forwarding, pinning, and disappearing timers
+- Built-in polls, message scheduling, and powerful search across conversation history
+- Read receipts, typing indicators, online presence, and handy keyboard shortcuts (Cmd/Ctrl+K for new chat, Cmd/Ctrl+F for search)
+
+### 📞 Calls & Live Collaboration
+- WebRTC voice and video calling with in-call mute/video controls and connection state monitoring
+- Screen sharing for collaborative sessions directly from the chat
+- Call invitations surfaced through `CallModal` for seamless transitions from messaging to live conversations
 
 ### 🔐 Security & Privacy
-- **End-to-End Encryption**: AES-256-GCM using Web Crypto API (hardware-accelerated)
-- **Perfect Forward Secrecy**: Automatic key rotation every 100 messages
-- **Key Derivation**: PBKDF2 with 600,000 iterations (6x more secure than Signal)
-- **Key Storage**: IndexedDB with zero-knowledge architecture
-- **Message Authentication**: 128-bit authentication tags
-- **Key Isolation**: Per-chat session keys for better security
-- **Biometric Authentication**: Touch ID/Face ID support for app unlock
-- **Two-Factor Authentication (2FA)**: SMS-based 2FA for enhanced security
-- **Privacy Controls**: Granular privacy settings
-- **Data Retention**: Configurable message expiry
-- **No Data Collection**: Your data stays on your device
-- **Secure Key Exchange**: Safe key sharing between users
+- End-to-end AES-256-GCM encryption with per-chat session keys and automatic rotation for forward secrecy
+- Zero-knowledge IndexedDB key storage and optional disappearing messages
+- Biometric unlock (Face ID / Touch ID) plus SMS-based two-factor authentication
+- Privacy protections such as contact-only mode for minors and granular safety checks
 
-### 💼 Business Features
-- **Business Accounts**: Dedicated business account type with enhanced features
-- **Stripe Integration**: Full payment processing with Stripe Connect
-- **Send Money**: Send money to other users via Stripe
-- **Request Money**: Request payments from contacts
-- **Cashout**: Withdraw funds to bank account or debit card
-- **Business Subscriptions**: 7-day free trial, then monthly subscription
-- **Stripe Checkout**: Secure payment method collection
-- **Customer Portal**: Manage subscriptions and payment methods
-- **Business Profile**: Custom business name, status, hours
-- **Auto-Reply**: Automated response messages
-- **Quick Replies**: Pre-written response templates
-- **Business Hours**: Set operating hours for your business
-- **Transaction History**: View all payment transactions
-- **Analytics Dashboard**: Business performance metrics
-- **Payment Notifications**: Real-time payment alerts
+### 💼 Business & Payments
+- Stripe Connect integration for sending or requesting money, complete with fee calculators
+- Cashout flows, transaction history, and subscription management (trial + recurring billing)
+- Business profiles with hours, status, auto-replies, and reusable quick-reply templates
+- Customer portal launchers and in-app analytics for response times, conversations, and satisfaction
 
-### 👨‍👩‍👧‍👦 Family Safety & Parental Controls
-- **Parent Accounts**: Dedicated parent account type for guardians
-- **Child Account Linking**: Link parent accounts to child accounts
-- **Age Verification**: Date of birth verification for minors
-- **Parent Email Verification**: Secure parent verification system
-- **Parent Dashboard**: Monitor child's messaging activity
-- **Contact Approval**: Parents must approve all child contacts
-- **Contact-Only Mode**: Mandatory for minors, optional for adults
-- **Safety Alerts**: Real-time alerts for safety concerns
-- **Activity Monitoring**: View child's chat history and contacts
-- **Contact Management**: Parents can view and remove child's contacts
-- **COPPA Compliance**: Children's Online Privacy Protection Act compliance
-- **Minor Safety Checks**: Automatic safety checks before chatting
+### 👨‍👩‍👧 Family Safety Controls
+- Parent and child account types with secure linking and verification
+- Parent dashboard for contact approvals, safety alerts, and visibility into activity
+- Automatic enforcement of contact-only mode and policy checks for minors
 
-### 👥 Contact Management
-- **Contact Requests**: Send and receive contact requests
-- **Contact Approval**: Approve or reject contact requests
-- **Contact Search**: Search for users by email or username
-- **Block Users**: Block unwanted contacts
-- **Unblock Users**: Remove users from block list
-- **Contact List**: View all approved contacts
-- **Pending Requests Badge**: Notification badge for pending requests
-- **Contact Status**: See contact's online/offline status
+### ✨ Productivity & Experience
+- Installable PWA with offline messaging, background sync, and push notifications
+- Responsive layout for mobile, tablet, and desktop with light/dark themes
+- Media gallery, emoji picker, sticker packs, and rich toast/error messaging
+- Context menus, copy-to-clipboard, and other small touches that speed daily use
 
-### 🎨 User Experience
-- **Dark/Light Themes**: Automatic theme switching with manual toggle
-- **Responsive Design**: Works on all device sizes (mobile, tablet, desktop)
-- **PWA Support**: Install as a native app on any device
-- **Offline Support**: Send messages offline, sync when connected
-- **Push Notifications**: Get notified of new messages
-- **Background Sync**: Sync messages in the background
-- **Loading States**: Smooth loading indicators
-- **Error Handling**: Graceful error handling with user-friendly messages
-- **Toast Notifications**: Non-intrusive notification system
-- **Media Gallery**: View all shared media in conversations
-- **GIF Support**: Search and send GIFs
-- **Stickers**: Custom sticker support
-- **Emoji Picker**: Full emoji picker with search
-
-### 📊 Admin & Feedback
-- **Admin Dashboard**: Centralized admin panel for managing feedback
-- **App Ratings**: Submit and view app ratings (1-5 stars)
-- **Feature Requests**: Submit feature requests with categories
-- **Support Tickets**: Submit support tickets with priority levels
-- **Feedback Categories**: Organized categories for requests and tickets
-- **Admin Email**: `ronellbradley@bradleyvs.com` (admin account)
-- **Feedback Management**: View all ratings, requests, and tickets
-
-### 🔧 Advanced Features
-- **Message Scheduling**: Schedule messages for later delivery
-- **Custom Emojis**: Add custom emoji support
-- **Group Polls**: Create polls in group chats
-- **Video Calls**: WebRTC-based video calling (via callService)
-- **Voice Calls**: WebRTC-based voice calling
-- **Screen Sharing**: Share your screen during calls
-- **Location Sharing**: Share your location (via locationService)
-- **Status Updates**: Set custom status messages
-- **Profile Customization**: Custom display names, aliases, profile pictures
-- **Account Types**: Personal, Business, and Parent account types
+### 📊 Feedback & Administration
+- In-app ratings, feature requests, and support ticket workflows
+- Admin dashboard for triaging feedback, monitoring stats, and managing the queue
 
 ## 🛠️ Technology Stack
 
@@ -437,15 +364,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [x] Biometric authentication
 - [x] Admin dashboard
 - [x] Feedback system
-- [ ] Video calling (WebRTC integration)
-- [ ] Screen sharing
-- [ ] Advanced search filters
-- [ ] Custom themes
+- [x] Video calling (WebRTC integration)
+- [x] Screen sharing
+- [ ] Advanced search filters (date ranges, attachment filters)
+- [ ] Custom themes & branding controls
 - [ ] Multi-language support
 - [ ] Voice message transcription
 - [ ] Message translation
-- [ ] Advanced group management
-- [ ] Bot integration
+- [ ] Advanced group management (roles & permissions)
+- [ ] Bot / automation integrations
 
 ## 📈 API Architecture
 

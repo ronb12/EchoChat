@@ -24,19 +24,19 @@ export default function LandingPage() {
 
             <div className="hero-features">
               <div className="feature-item">
-                <div className="feature-icon">🔒</div>
-                <h3>End-to-End Encryption</h3>
-                <p>Your messages are protected</p>
+                <div className="feature-icon">🔐</div>
+                <h3>Enterprise Security</h3>
+                <p>End-to-end encrypted chats with biometric & 2FA</p>
               </div>
               <div className="feature-item">
-                <div className="feature-icon">⚡</div>
-                <h3>Real-Time</h3>
-                <p>Instant messaging experience</p>
+                <div className="feature-icon">🎥</div>
+                <h3>Voice & Video Calls</h3>
+                <p>WebRTC calling with screen sharing built-in</p>
               </div>
               <div className="feature-item">
-                <div className="feature-icon">📱</div>
-                <h3>Cross-Platform</h3>
-                <p>Works everywhere</p>
+                <div className="feature-icon">💼</div>
+                <h3>Business & Family Ready</h3>
+                <p>Stripe payments plus parental controls</p>
               </div>
             </div>
 
@@ -59,18 +59,33 @@ export default function LandingPage() {
           <div className="features-grid">
             <div className="feature-card">
               <div className="feature-icon-large">💬</div>
-              <h3>Secure Messaging</h3>
-              <p>Send encrypted messages with end-to-end encryption to keep your conversations private and secure.</p>
+              <h3>Rich Messaging</h3>
+              <p>Share images, videos, voice notes, GIFs, polls, reactions, and more in real time.</p>
             </div>
             <div className="feature-card">
-              <div className="feature-icon-large">📎</div>
-              <h3>File Sharing</h3>
-              <p>Share images, documents, and files seamlessly with your contacts.</p>
+              <div className="feature-icon-large">📞</div>
+              <h3>Live Collaboration</h3>
+              <p>Hop into voice or video calls and share your screen without leaving the chat.</p>
             </div>
             <div className="feature-card">
-              <div className="feature-icon-large">👥</div>
-              <h3>Group Chats</h3>
-              <p>Create group conversations and stay connected with multiple people at once.</p>
+              <div className="feature-icon-large">💸</div>
+              <h3>Payments Built-In</h3>
+              <p>Send or request money with Stripe Connect, track cashouts, and manage subscriptions.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon-large">🛡️</div>
+              <h3>Family Safety</h3>
+              <p>Link parent and child accounts, approve contacts, and monitor activity with safety alerts.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon-large">⚙️</div>
+              <h3>Productivity Tools</h3>
+              <p>Pin, forward, schedule, and search messages with responsive layouts across every device.</p>
+            </div>
+            <div className="feature-card">
+              <div className="feature-icon-large">📲</div>
+              <h3>Installable PWA</h3>
+              <p>Use EchoChat offline, receive push notifications, and enjoy a native app experience.</p>
             </div>
           </div>
         </section>
