@@ -311,7 +311,7 @@ firebase deploy --only hosting
 
 ### Vercel Production
 ```bash
-# Deploy latest build and automatically point alias to echochat.vercel.app
+# Deploy latest build and automatically point alias to echochat-app.vercel.app
 npm run deploy:prod
 
 # Optional: override alias domain
