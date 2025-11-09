@@ -806,6 +806,42 @@ body {
   line-height: 1;
 }
 
+.chat-action-trigger {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .chat-action-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.05);
+    color: inherit;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+
+  .chat-action-trigger:hover {
+    background: rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+
+  [data-theme="dark"] .chat-action-trigger {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  [data-theme="dark"] .chat-action-trigger:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}
+
 .chat-muted-indicator {
   margin-left: 6px;
   font-size: 0.85em;

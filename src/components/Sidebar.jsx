@@ -64,6 +64,7 @@ function ChatListRow({
   };
 
   const handlePointerDown = (event) => {
+    if (event.target?.closest('.chat-action-trigger')) {return;}
     if (event.pointerType === 'mouse' && event.button !== 0) {return;}
     pointerIdRef.current = event.pointerId;
     const type = event.pointerType || 'mouse';
@@ -80,7 +81,7 @@ function ChatListRow({
 
   const handlePointerMove = (event) => {
     if (pointerIdRef.current !== event.pointerId) {return;}
-    if (pointerTypeRef.current === 'mouse' && (event.buttons & 1) !== 1) {return;}
+    if (pointerTypeRef.current !== 'touch') {return;}
 
     const currentX = event.clientX;
     const delta = currentX - pointerStartRef.current;
@@ -105,28 +106,20 @@ function ChatListRow({
 
   const handlePointerUp = (event) => {
     if (pointerIdRef.current !== event.pointerId) {return;}
+    if (pointerTypeRef.current !== 'touch') {return;}
 
     const start = pointerStartRef.current ?? 0;
     const current = pointerCurrentRef.current ?? start;
     const delta = current - start;
-    if (pointerTypeRef.current === 'touch') {
-      if (!isOpen && delta <= -MIN_SWIPE_DISTANCE_TOUCH) {
-        openActions();
-        suppressClickRef.current = true;
-      } else if (isOpen && delta >= CLOSE_SWIPE_DISTANCE_TOUCH) {
-        resetPosition();
-      } else if (isOpen) {
-        openActions();
-      } else {
-        resetPosition();
-      }
+    if (!isOpen && delta <= -MIN_SWIPE_DISTANCE_TOUCH) {
+      openActions();
+      suppressClickRef.current = true;
+    } else if (isOpen && delta >= CLOSE_SWIPE_DISTANCE_TOUCH) {
+      resetPosition();
+    } else if (isOpen) {
+      openActions();
     } else {
-      if (!isOpen && delta < -20) {
-        openActions();
-        suppressClickRef.current = true;
-      } else if (isOpen && delta > 20) {
-        resetPosition();
-      }
+      resetPosition();
     }
     pointerStartRef.current = null;
     pointerCurrentRef.current = null;
@@ -143,18 +136,8 @@ function ChatListRow({
     if (event) {
       event.stopPropagation();
     }
-    if (suppressClickRef.current) {
+    if (suppressClickRef.current || event.target?.closest('.chat-action-trigger')) {
       suppressClickRef.current = false;
-      return;
-    }
-    const lastPointerType = pointerLastTypeRef.current;
-    if (lastPointerType === 'mouse') {
-      if (!isOpen) {
-        openActions();
-        suppressClickRef.current = true;
-      } else {
-        resetPosition();
-      }
       return;
     }
     if (isOpen) {
@@ -174,6 +157,17 @@ function ChatListRow({
     event.stopPropagation();
     onDelete(chat.id);
     resetPosition();
+  };
+
+  const handleDesktopTrigger = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (isOpen) {
+      resetPosition();
+    } else {
+      openActions();
+      suppressClickRef.current = true;
+    }
   };
 
   const actionsClassName = `chat-item-actions${isOpen ? ' visible' : ''}`;
@@ -242,6 +236,17 @@ function ChatListRow({
             <div className="unread-count">{chat.unreadCount}</div>
           )}
         </div>
+        <button
+          type="button"
+          className="chat-action-trigger"
+      type="button"
+      onClick={handleDesktopTrigger}
+      onMouseDown={(event) => event.stopPropagation()}
+      onMouseUp={(event) => event.stopPropagation()}
+          aria-label="Chat actions"
+        >
+          ⋯
+        </button>
       </div>
     </li>
   );
