@@ -27,6 +27,8 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   const messageRef = useRef(null);
   const hasMarkedReadRef = useRef(false);
   const isIntersectingRef = useRef(false);
+  const longPressTimeoutRef = useRef(null);
+  const touchMovedRef = useRef(false);
   const windowFocused = useWindowFocus();
 
   useEffect(() => {
@@ -58,6 +60,12 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
       editInputRef.current.select();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    return () => {
+      cancelLongPressTimer();
+    };
+  }, []);
 
   const handleVote = async (optionId) => {
     if (!pollData || !pollData.id) {
@@ -358,6 +366,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   const handleContextMenu = (e) => {
     e.preventDefault();
     setShowContextMenu(true);
+    setShowReactions(false);
   };
 
   const handleCopy = () => {
@@ -421,6 +430,43 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
     });
   };
 
+  const cancelLongPressTimer = () => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  };
+
+  const handleTouchStart = (event) => {
+    if (event.touches?.length !== 1) {return;}
+    touchMovedRef.current = false;
+    cancelLongPressTimer();
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      setShowContextMenu(true);
+      setShowReactions(false);
+    }, 550);
+  };
+
+  const handleTouchMove = () => {
+    touchMovedRef.current = true;
+    cancelLongPressTimer();
+  };
+
+  const handleTouchEnd = () => {
+    cancelLongPressTimer();
+    if (touchMovedRef.current) {
+      setShowContextMenu(false);
+      setShowReactions(false);
+    }
+  };
+
+  const handleTouchCancel = () => {
+    touchMovedRef.current = false;
+    cancelLongPressTimer();
+    setShowContextMenu(false);
+    setShowReactions(false);
+  };
+
   const handlePin = () => {
     if (!chatId || !message?.id) {
       showNotification('Unable to pin this message.', 'error');
@@ -469,6 +515,10 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
       className={messageClass}
       onContextMenu={handleContextMenu}
       onDoubleClick={() => !isOwn && setShowReactions(true)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
       ref={messageRef}
     >
       {/* Context Menu */}

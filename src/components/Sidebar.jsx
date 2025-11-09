@@ -7,8 +7,8 @@ import { useDisplayName } from '../hooks/useDisplayName';
 import { chatService } from '../services/chatService';
 
 const ACTION_WIDTH = 128;
-const MIN_SWIPE_DISTANCE = 45;
-const CLOSE_SWIPE_DISTANCE = 35;
+const MIN_SWIPE_DISTANCE_TOUCH = 45;
+const CLOSE_SWIPE_DISTANCE_TOUCH = 35;
 
 function ChatListRow({
   chat,
@@ -66,8 +66,9 @@ function ChatListRow({
   const handlePointerDown = (event) => {
     if (event.pointerType === 'mouse' && event.button !== 0) {return;}
     pointerIdRef.current = event.pointerId;
-    pointerTypeRef.current = event.pointerType;
-    pointerLastTypeRef.current = event.pointerType;
+    const type = event.pointerType || 'mouse';
+    pointerTypeRef.current = type;
+    pointerLastTypeRef.current = type;
     pointerStartRef.current = event.clientX;
     pointerCurrentRef.current = event.clientX;
     try {
@@ -85,12 +86,16 @@ function ChatListRow({
     const delta = currentX - pointerStartRef.current;
     if (delta < 0) {
       setOffsetX(Math.max(delta, -ACTION_WIDTH - 32));
-      if (delta <= -MIN_SWIPE_DISTANCE) {
+      if (pointerTypeRef.current === 'touch' && delta <= -MIN_SWIPE_DISTANCE_TOUCH) {
         openActions();
         suppressClickRef.current = true;
       }
     } else if (isOpen) {
-      setOffsetX(Math.min(delta - ACTION_WIDTH, 0));
+      if (pointerTypeRef.current === 'touch') {
+        setOffsetX(Math.min(delta - ACTION_WIDTH, 0));
+      } else {
+        setOffsetX(0);
+      }
     } else {
       setOffsetX(0);
     }
@@ -104,15 +109,24 @@ function ChatListRow({
     const start = pointerStartRef.current ?? 0;
     const current = pointerCurrentRef.current ?? start;
     const delta = current - start;
-    if (!isOpen && delta <= -MIN_SWIPE_DISTANCE) {
-      openActions();
-      suppressClickRef.current = true;
-    } else if (isOpen && delta >= CLOSE_SWIPE_DISTANCE) {
-      resetPosition();
-    } else if (isOpen) {
-      openActions();
+    if (pointerTypeRef.current === 'touch') {
+      if (!isOpen && delta <= -MIN_SWIPE_DISTANCE_TOUCH) {
+        openActions();
+        suppressClickRef.current = true;
+      } else if (isOpen && delta >= CLOSE_SWIPE_DISTANCE_TOUCH) {
+        resetPosition();
+      } else if (isOpen) {
+        openActions();
+      } else {
+        resetPosition();
+      }
     } else {
-      resetPosition();
+      if (!isOpen && delta < -20) {
+        openActions();
+        suppressClickRef.current = true;
+      } else if (isOpen && delta > 20) {
+        resetPosition();
+      }
     }
     pointerStartRef.current = null;
     pointerCurrentRef.current = null;
