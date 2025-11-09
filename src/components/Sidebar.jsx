@@ -23,6 +23,7 @@ function ChatListRow({
   const pointerCurrentRef = useRef(null);
   const pointerIdRef = useRef(null);
   const pointerTypeRef = useRef(null);
+  const suppressClickRef = useRef(false);
 
   const participants = Array.isArray(chat?.participants) ? chat.participants : [];
   const otherParticipantId = chat?.type === 'group'
@@ -51,6 +52,7 @@ function ChatListRow({
   const resetPosition = () => {
     setOffsetX(0);
     setIsOpen(false);
+    suppressClickRef.current = false;
   };
 
   const openActions = () => {
@@ -96,6 +98,7 @@ function ChatListRow({
     const delta = current - start;
     if (!isOpen && delta <= -60) {
       openActions();
+      suppressClickRef.current = true;
     } else if (isOpen && delta >= 40) {
       resetPosition();
     } else if (isOpen) {
@@ -114,7 +117,14 @@ function ChatListRow({
     }
   };
 
-  const handleRowClick = () => {
+  const handleRowClick = (event) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
     if (isOpen) {
       resetPosition();
       return;
@@ -169,7 +179,7 @@ function ChatListRow({
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            handleRowClick();
+            handleRowClick(event);
           }
           if (event.key === 'Escape' && isOpen) {
             resetPosition();

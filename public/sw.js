@@ -1,5 +1,5 @@
 // Enhanced Service Worker for EchoChat PWA - Advanced Offline Support
-const DEFAULT_CACHE_VERSION = '2.1.2';
+const DEFAULT_CACHE_VERSION = '2.1.3';
 let resolvedVersion = DEFAULT_CACHE_VERSION;
 try {
   const swUrl = new URL(self.location.href);
