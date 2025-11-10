@@ -217,6 +217,9 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
       return;
     }
     hasEndedRef.current = true;
+    if (triggerSource === 'manual' && !skipServiceCall && hasAccepted) {
+      callService.setCallHistoryStatus('completed');
+    }
     if (!skipServiceCall) {
       callService.endCall();
     }
@@ -227,10 +230,12 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
   };
 
   const acceptCall = () => {
+    callService.setCallHistoryStatus('completed');
     setHasAccepted(true);
   };
 
   const declineCall = () => {
+    callService.setCallHistoryStatus('declined');
     handleEndCall();
   };
 

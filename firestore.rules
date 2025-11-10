@@ -282,6 +282,15 @@ service cloud.firestore {
         allow update: if false;
       }
     }
+
+    match /callHistory/{recordId} {
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.callerId;
+      allow read, update: if isAuthenticated() &&
+        (resource.data.callerId == request.auth.uid ||
+         resource.data.receiverId == request.auth.uid);
+      allow delete: if false;
+    }
     
     // Sticker packs collection
     match /stickerPacks/{packId} {

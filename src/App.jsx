@@ -29,6 +29,7 @@ import FeatureRequestModal from './components/FeatureRequestModal';
 import SupportTicketModal from './components/SupportTicketModal';
 import AdminDashboard from './components/AdminDashboard';
 import ForwardModal from './components/ForwardModal';
+import CallHistoryModal from './components/CallHistoryModal';
 import NotificationToast from './components/NotificationToast';
 import { useAuth } from './hooks/useAuth';
 import { useUI } from './hooks/useUI';
@@ -476,6 +477,7 @@ function AppContent() {
           isIncoming={isIncomingCall}
         />
       )}
+      <CallHistoryModal />
       {showBlockUserModal && <BlockUserModal userId={blockUserId} userName={blockUserName} />}
       {showStatusModal && <StatusModal />}
       {showGroupChatModal && <GroupChatModal />}
@@ -491,12 +493,12 @@ function AppContent() {
       {showFeatureRequestModal && <FeatureRequestModal />}
       {showSupportTicketModal && <SupportTicketModal />}
       {showAdminDashboard && <AdminDashboard />}
-        {forwardConfig && (
-          <ForwardModal
-            config={forwardConfig}
-            onClose={closeForwardModal}
-          />
-        )}
+      {forwardConfig && (
+        <ForwardModal
+          config={forwardConfig}
+          onClose={closeForwardModal}
+        />
+      )}
 
       {/* Notifications */}
       <NotificationToast />

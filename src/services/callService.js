@@ -1,5 +1,6 @@
 // WebRTC Call Service for Video/Voice Calls with Screen Sharing
 import { callSignalingService } from './callSignalingService';
+import { callHistoryService } from './callHistoryService';
 
 class CallService {
   constructor() {
@@ -30,6 +31,14 @@ class CallService {
     this.answerOscillator = null;
     this.ringIntervalId = null;
     this.ringtoneGainNode = null;
+    this.callHistoryDocId = null;
+    this.callStartTime = null;
+    this.callHistoryStatus = 'completed';
+  }
+
+  setCallHistoryStatus(status) {
+    if (!status) {return;}
+    this.callHistoryStatus = status;
   }
 
   isRecoverableMediaError(error) {
@@ -242,6 +251,12 @@ class CallService {
       this.currentCallerId = callerId;
       this.currentReceiverId = receiverId;
       this.receivedCandidateKeys.clear();
+      this.callHistoryStatus = 'completed';
+      this.callStartTime = null;
+      this.callHistoryDocId = null;
+      this.callHistoryStatus = 'completed';
+      this.callStartTime = Date.now();
+      this.callHistoryDocId = null;
 
       const mediaResult = await this.acquireLocalMedia(callType);
       this.localStream = mediaResult.stream;
@@ -269,6 +284,15 @@ class CallService {
         }
       }
 
+      const historyDocRef = await callHistoryService.logCallStart({
+        callId,
+        chatId,
+        callerId,
+        receiverId,
+        callType: this.callType
+      });
+      this.callHistoryDocId = historyDocRef?.id || null;
+
       await this.initializePeerConnection({ callId, role: this.localRole });
 
       // Create offer
@@ -285,6 +309,7 @@ class CallService {
       await callSignalingService.createOffer(callId, {
         chatId,
         callType: this.callType,
+        historyDocId: this.callHistoryDocId,
         callerId,
         callerName,
         receiverId,
@@ -294,16 +319,31 @@ class CallService {
 
       this.callDocListener = callSignalingService.listenToCall(callId, async (callData) => {
         if (!callData) {return;}
+
+        if (callData.historyDocId && !this.callHistoryDocId) {
+          this.callHistoryDocId = callData.historyDocId;
+        }
+
         if (callData.status === 'ended') {
+          if (!callData.answer) {
+            this.setCallHistoryStatus('missed');
+          } else {
+            this.setCallHistoryStatus('remote-ended');
+          }
           this.endCall();
           return;
         }
+
         if (callData.callType && callData.callType !== this.callType) {
           this.callType = callData.callType;
           this.notifyCallListeners('callTypeChanged', this.callType);
         }
+
         if (callData.answer && this.peerConnection) {
           this.stopRingtone();
+          if (!this.callStartTime) {
+            this.callStartTime = Date.now();
+          }
           if (this.peerConnection.signalingState === 'have-local-offer' || this.peerConnection.signalingState === 'stable') {
             try {
               await this.peerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
@@ -331,6 +371,7 @@ class CallService {
       return { offer, type: this.callType, callId };
     } catch (error) {
       console.error('Error starting call:', error);
+      this.setCallHistoryStatus('failed');
       this.endCall();
       throw error;
     }
@@ -409,8 +450,13 @@ class CallService {
 
       this.callDocListener = callSignalingService.listenToCall(callId, (callData) => {
         if (!callData) {return;}
+        if (callData.historyDocId && !this.callHistoryDocId) {
+          this.callHistoryDocId = callData.historyDocId;
+        }
         if (callData.status === 'ended') {
+          this.setCallHistoryStatus('remote-ended');
           this.endCall();
+          return;
         }
         if (callData.callType && callData.callType !== this.callType) {
           this.callType = callData.callType;
@@ -436,6 +482,7 @@ class CallService {
       return answer;
     } catch (error) {
       console.error('Error answering call:', error);
+      this.setCallHistoryStatus('failed');
       this.endCall();
       throw error;
     }
@@ -503,6 +550,23 @@ class CallService {
       } catch (_) {}
       this.remoteAudioSource = null;
     }
+
+    const status = this.callHistoryStatus || 'completed';
+    const durationSeconds = this.callStartTime
+      ? Math.max(0, Math.round((Date.now() - this.callStartTime) / 1000))
+      : null;
+
+    if (this.callHistoryDocId) {
+      callHistoryService.logCallEnd({
+        historyDocId: this.callHistoryDocId,
+        durationSeconds,
+        status
+      });
+    }
+
+    this.callHistoryDocId = null;
+    this.callStartTime = null;
+    this.callHistoryStatus = 'completed';
 
     this.remoteStream = null;
     this.isCallActive = false;

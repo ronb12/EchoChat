@@ -14,7 +14,7 @@ function useAlias(user) {
 }
 
 export default function AppHeader() {
-  const { toggleSidebar, openSettingsModal, openStatusModal, openContactRequestModal, showNotification } = useUI();
+  const { toggleSidebar, openSettingsModal, openStatusModal, openContactRequestModal, openCallHistoryModal, showNotification } = useUI();
   const { user, signOut, setUser } = useAuth();
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -463,6 +463,37 @@ export default function AppHeader() {
             >
               ✏️
             </div>
+          </button>
+        )}
+        {user && (
+          <button
+            className="call-history-button"
+            onClick={openCallHistoryModal}
+            style={{
+              padding: isCompactHeader ? '6px 12px' : '8px 16px',
+              background: 'rgba(0, 0, 0, 0.2)',
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.25)',
+              borderRadius: '20px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              transition: 'transform 0.15s ease',
+              width: isCompactHeader ? '100%' : 'auto',
+              justifyContent: 'center'
+            }}
+            onMouseEnter={(event) => { event.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={(event) => { event.currentTarget.style.transform = 'translateY(0)'; }}
+            title="View recent calls"
+          >
+            <span>📞</span>
+            <span>Call History</span>
           </button>
         )}
         {user && (
