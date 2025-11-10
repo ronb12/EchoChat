@@ -213,14 +213,14 @@ export default function CallHistoryModal() {
                             <div style={{ fontWeight: 600 }}>
                               {entry.otherPartyName}
                             </div>
-                            <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                              {entry.callerId === user.uid ? 'You → Them' : 'Them → You'}
-                            </div>
                           </div>
                         </div>
                       </td>
                       <td style={{ textTransform: 'capitalize' }}>
-                        {entry.callType || 'audio'}
+                        {(entry.callType || 'audio')}{' '}
+                        <span style={{ opacity: 0.7 }}>
+                          · {entry.isCaller ? 'Outgoing' : 'Incoming'}
+                        </span>
                       </td>
                       <td style={{ textTransform: 'capitalize' }}>
                         {formatStatus(entry.status)}
