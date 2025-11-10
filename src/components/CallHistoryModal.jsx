@@ -89,34 +89,41 @@ export default function CallHistoryModal() {
 
   useEffect(() => {
     if (!entries || !user?.uid) {return;}
-    const missingIds = new Set();
+    const idsToFetch = [];
+    const nameFallbacks = {};
+
     entries.forEach((entry) => {
       const isCaller = entry.callerId === user.uid;
       const otherId = isCaller ? entry.receiverId : entry.callerId;
-      if (otherId && !profileCache[otherId]) {
-        missingIds.add(otherId);
+      if (!otherId) {return;}
+      const storedName = isCaller ? entry.receiverName : entry.callerName;
+      if (storedName && !nameFallbacks[otherId]) {
+        nameFallbacks[otherId] = storedName;
+      }
+      if (!profileCache[otherId]) {
+        idsToFetch.push(otherId);
       }
     });
 
-    if (missingIds.size === 0) {
+    if (idsToFetch.length === 0) {
       return;
     }
 
     let cancelled = false;
     (async () => {
       const updates = {};
-      for (const otherId of missingIds) {
+      for (const otherId of idsToFetch) {
         if (!otherId) {continue;}
         try {
           const profile = await profileService.getUserProfile(otherId);
           const name = getDisplayName(profile, otherId);
           updates[otherId] = {
-            name: name || otherId || 'Unknown',
+            name: name || nameFallbacks[otherId] || otherId || 'Unknown',
             avatar: profile?.photoURL || profile?.avatar || '/icons/default-avatar.png'
           };
         } catch (_) {
           updates[otherId] = {
-            name: otherId || 'Unknown',
+            name: nameFallbacks[otherId] || otherId || 'Unknown',
             avatar: '/icons/default-avatar.png'
           };
         }
@@ -138,11 +145,12 @@ export default function CallHistoryModal() {
       const isCaller = entry.callerId === user.uid;
       const otherPartyId = isCaller ? entry.receiverId : entry.callerId;
       const cached = profileCache[otherPartyId] || {};
+      const storedName = isCaller ? entry.receiverName : entry.callerName;
       return {
         ...entry,
         otherPartyId,
         isCaller,
-        otherPartyName: cached.name || otherPartyId || 'Unknown',
+        otherPartyName: cached.name || storedName || otherPartyId || 'Unknown',
         otherPartyAvatar: cached.avatar || '/icons/default-avatar.png'
       };
     });

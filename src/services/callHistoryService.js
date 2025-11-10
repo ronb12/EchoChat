@@ -24,6 +24,8 @@ export class CallHistoryService {
     chatId = null,
     callerId,
     receiverId,
+    callerName = null,
+    receiverName = null,
     callType = 'audio',
     startedAt = serverTimestamp()
   }) {
@@ -38,6 +40,8 @@ export class CallHistoryService {
         chatId,
         callerId,
         receiverId,
+        callerName,
+        receiverName,
         participants,
         callType,
         startedAt,

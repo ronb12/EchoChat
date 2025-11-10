@@ -284,11 +284,16 @@ class CallService {
         }
       }
 
+      const callerDisplayName = callerName || 'Unknown Caller';
+      const receiverDisplayName = receiverName || 'Unknown Receiver';
+
       const historyDocRef = await callHistoryService.logCallStart({
         callId,
         chatId,
         callerId,
         receiverId,
+        callerName: callerDisplayName,
+        receiverName: receiverDisplayName,
         callType: this.callType
       });
       this.callHistoryDocId = historyDocRef?.id || null;
