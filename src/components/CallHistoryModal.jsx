@@ -192,7 +192,7 @@ export default function CallHistoryModal() {
         }
       }}
     >
-      <div className="modal-content" style={{ maxWidth: '720px' }}>
+      <div className="modal-content" style={{ maxWidth: '900px', width: '95%' }}>
         <div className="modal-header">
           <h2>Call History</h2>
           <button className="modal-close" onClick={closeCallHistoryModal}>&times;</button>
