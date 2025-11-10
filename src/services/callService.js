@@ -22,7 +22,7 @@ class CallService {
     this.receivedCandidateKeys = new Set();
   }
 
-  isRecoverableMediaError(error) {
+implment   isRecoverableMediaError(error) {
     if (!error) {return false;}
     const name = (error.name || '').toLowerCase();
     const message = (error.message || '').toLowerCase();
