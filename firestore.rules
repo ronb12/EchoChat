@@ -291,12 +291,7 @@ service cloud.firestore {
         (resource.data.callerId == request.auth.uid ||
          resource.data.receiverId == request.auth.uid);
 
-      allow list: if isAuthenticated() &&
-        request.query.limit <= 100 &&
-        request.query.where.size() == 1 &&
-        request.query.where[0].field.fieldPath == 'participants' &&
-        request.query.where[0].op == 'array_contains' &&
-        request.query.where[0].value == request.auth.uid;
+      allow list: if isAuthenticated();
 
       allow delete: if false;
     }
