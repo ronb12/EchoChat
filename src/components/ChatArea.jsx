@@ -1045,7 +1045,35 @@ export default function ChatArea() {
     }
 
     const receiverId = otherParticipants[0];
-    const receiverName = currentChatContactName;
+    const receiverNameCandidates = [
+      currentChat?.alias,
+      currentChat?.displayName,
+      currentChat?.name,
+      currentChatContactName,
+      otherParticipantName,
+      receiverId
+    ];
+    const receiverName = receiverNameCandidates.find((value) => {
+      if (!value) {return false;}
+      const trimmed = String(value).trim();
+      if (!trimmed) {return false;}
+      const lower = trimmed.toLowerCase();
+      return lower !== 'user' && lower !== 'contact';
+    }) || 'Contact';
+
+    const callerNameCandidates = [
+      myDisplayName,
+      user?.displayName,
+      user?.email,
+      'Me'
+    ];
+    const callerName = callerNameCandidates.find((value) => {
+      if (!value) {return false;}
+      const trimmed = String(value).trim();
+      if (!trimmed) {return false;}
+      const lower = trimmed.toLowerCase();
+      return lower !== 'you' && lower !== 'user';
+    }) || 'Me';
 
     const hasPermissions = await requestCallPermissions(type);
     if (!hasPermissions) {
@@ -1058,7 +1086,7 @@ export default function ChatArea() {
       receiverId,
       receiverName,
       callerId: user?.uid || null,
-      callerName: myDisplayName || 'You'
+      callerName
     });
   };
 
