@@ -260,8 +260,6 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
     attemptMarkAsRead();
   }, [attemptMarkAsRead, windowFocused]);
 
-  if (!message) {return null;}
-
   const toDate = (value) => {
     if (!value) {return null;}
     if (value instanceof Date) {return value;}
@@ -330,18 +328,18 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   })();
   const editHistoryEntries = useMemo(() => {
-    if (!Array.isArray(message.editHistory)) {return [];}
-    return message.editHistory
+    const history = Array.isArray(message?.editHistory) ? message.editHistory : [];
+    return history
       .map((entry) => ({
         ...entry,
-        editedAtDate: toDate(entry.editedAt)
+        editedAtDate: toDate(entry?.editedAt)
       }))
       .sort((a, b) => {
         const timeA = a.editedAtDate?.getTime?.() || 0;
         const timeB = b.editedAtDate?.getTime?.() || 0;
         return timeB - timeA;
       });
-  }, [message.editHistory]);
+  }, [message?.editHistory]);
 
   const formatHistoryTimestamp = useCallback((value) => {
     const date = toDate(value);
@@ -352,12 +350,15 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   const formatEditorLabel = useCallback((editorId) => {
     if (!editorId) {return 'Unknown';}
     if (editorId === user?.uid) {return 'You';}
-    if (editorId === message.senderId) {
+    if (editorId === (message?.senderId || null)) {
       return senderDisplayName || 'Original sender';
     }
     return editorId.length > 12 ? `${editorId.slice(0, 12)}…` : editorId;
-  }, [message.senderId, senderDisplayName, user?.uid]);
-  const displayText = decryptedText || message.text || (message.encryptedText ? '[Encrypted message]' : '');
+  }, [message?.senderId, senderDisplayName, user?.uid]);
+
+  if (!message) {return null;}
+
+  const displayText = decryptedText || message?.text || (message?.encryptedText ? '[Encrypted message]' : '');
   const audioDurationLabel = (() => {
     const rawDuration = Number.isFinite(message.audioDuration)
       ? Math.max(0, Math.round(message.audioDuration))

@@ -80,16 +80,12 @@ class CallService {
       };
     } catch (error) {
       if (wantsVideo && this.isRecoverableMediaError(error)) {
-        try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-          return {
-            stream: audioStream,
-            effectiveType: 'audio',
-            permissionIssue: error
-          };
-        } catch (audioError) {
-          throw audioError;
-        }
+        const audioStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        return {
+          stream: audioStream,
+          effectiveType: 'audio',
+          permissionIssue: error
+        };
       }
       throw error;
     }
@@ -552,7 +548,9 @@ class CallService {
     if (this.remoteAudioSource) {
       try {
         this.remoteAudioSource.disconnect();
-      } catch (_) {}
+      } catch (error) {
+        console.warn('Failed to disconnect remote audio source:', error);
+      }
       this.remoteAudioSource = null;
     }
 
@@ -682,12 +680,18 @@ class CallService {
         try {
           osc.stop();
           osc.disconnect();
-        } catch (_) {}
+        } catch (error) {
+          console.warn('Failed to stop ringtone oscillator:', error);
+        }
       });
       this.ringtoneOscillator = null;
     }
     if (this.ringtoneGainNode) {
-      try { this.ringtoneGainNode.disconnect(); } catch (_) {}
+      try {
+        this.ringtoneGainNode.disconnect();
+      } catch (error) {
+        console.warn('Failed to disconnect ringtone gain node:', error);
+      }
       this.ringtoneGainNode = null;
     }
     if (this.ringIntervalId) {
@@ -737,7 +741,9 @@ class CallService {
       try {
         this.answerOscillator.stop();
         this.answerOscillator.disconnect();
-      } catch (_) {}
+      } catch (error) {
+        console.warn('Failed to stop answer tone oscillator:', error);
+      }
       this.answerOscillator = null;
     }
   }
