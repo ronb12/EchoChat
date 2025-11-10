@@ -43,6 +43,7 @@ export default function CallHistoryModal() {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [nameCache, setNameCache] = useState({});
 
   useEffect(() => {
     if (!showCallHistoryModal || !user?.uid) {
@@ -63,16 +64,60 @@ export default function CallHistoryModal() {
     };
   }, [showCallHistoryModal, user]);
 
+  useEffect(() => {
+    if (!entries || !user?.uid) {return;}
+    const uniqueUserIds = new Set();
+    entries.forEach((entry) => {
+      const isCaller = entry.callerId === user.uid;
+      const otherPartyId = isCaller ? entry.receiverId : entry.callerId;
+      if (otherPartyId && !nameCache[otherPartyId]) {
+        uniqueUserIds.add(otherPartyId);
+      }
+    });
+
+    if (uniqueUserIds.size === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { profileService } = await import('../services/profileService');
+      const { getDisplayName } = await import('../utils/userDisplayName');
+
+      const updates = {};
+      for (const otherId of uniqueUserIds) {
+        try {
+          const profile = await profileService.getUserProfile(otherId);
+          const name = getDisplayName(profile, otherId);
+          updates[otherId] = name || otherId;
+        } catch (error) {
+          updates[otherId] = otherId || 'Unknown';
+        }
+      }
+
+      if (!cancelled) {
+        setNameCache((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entries, nameCache, user]);
+
   const enrichedEntries = useMemo(() => {
     if (!entries || !user?.uid) {return [];}
     return entries.map((entry) => {
-      const otherPartyId = entry.callerId === user.uid ? entry.receiverId : entry.callerId;
+      const isCaller = entry.callerId === user.uid;
+      const otherPartyId = isCaller ? entry.receiverId : entry.callerId;
       return {
         ...entry,
-        otherPartyId
+        otherPartyId,
+        isCaller,
+        otherPartyName: nameCache[otherPartyId] || otherPartyId || 'Unknown'
       };
     });
-  }, [entries, user]);
+  }, [entries, nameCache, user]);
 
   if (!showCallHistoryModal) {
     return null;
