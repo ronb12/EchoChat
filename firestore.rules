@@ -296,12 +296,7 @@ service cloud.firestore {
         request.query.where.size() == 1 &&
         request.query.where[0].field.fieldPath == 'participants' &&
         request.query.where[0].op == 'array_contains' &&
-        request.query.where[0].value == request.auth.uid &&
-        request.query.orderBy.size() == 1 &&
-        request.query.orderBy[0].field.fieldPath == 'startedAt' &&
-        request.query.orderBy[0].direction == 'DESCENDING' &&
-        (resource.data.callerId == request.auth.uid ||
-         resource.data.receiverId == request.auth.uid);
+        request.query.where[0].value == request.auth.uid;
 
       allow delete: if false;
     }
