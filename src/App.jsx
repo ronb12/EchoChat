@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { ChatProvider } from './contexts/ChatContext';
 import { UIProvider } from './contexts/UIContext';
@@ -36,6 +36,11 @@ import { useChat } from './hooks/useChat';
 import { usePresenceStatus, useNotifications } from './hooks/useRealtime';
 
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || import.meta.env.VITE_COMMIT_HASH || '0.0.0';
+
+const buildStorageKey = (prefix, version) => {
+  if (!version) {return '';}
+  return `${prefix}-${version}`;
+};
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -76,6 +81,53 @@ function AppContent() {
   const { currentChatId } = useChat();
   const [isInitialized, setIsInitialized] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [updateAvailableVersion, setUpdateAvailableVersion] = useState('');
+
+  const hasReloadedForVersion = useCallback((version) => {
+    if (!version) {return false;}
+    try {
+      return sessionStorage.getItem(buildStorageKey('sw-reloaded', version)) === 'true';
+    } catch (_) {
+      return false;
+    }
+  }, []);
+
+  const markReloadedForVersion = useCallback((version) => {
+    if (!version) {return;}
+    try {
+      sessionStorage.setItem(buildStorageKey('sw-reloaded', version), 'true');
+    } catch (_) {
+      // ignore storage errors
+    }
+  }, []);
+
+  const hasNotifiedForVersion = useCallback((version) => {
+    if (!version) {return false;}
+    try {
+      return sessionStorage.getItem(buildStorageKey('sw-notified', version)) === 'true';
+    } catch (_) {
+      return false;
+    }
+  }, []);
+
+  const markNotifiedForVersion = useCallback((version) => {
+    if (!version) {return;}
+    try {
+      sessionStorage.setItem(buildStorageKey('sw-notified', version), 'true');
+    } catch (_) {
+      // ignore storage errors
+    }
+  }, []);
+
+  const handleReloadForUpdate = useCallback(() => {
+    if (!updateAvailableVersion) {return;}
+    markReloadedForVersion(updateAvailableVersion);
+    window.location.reload();
+  }, [markReloadedForVersion, updateAvailableVersion]);
+
+  const handleDismissUpdate = useCallback(() => {
+    setUpdateAvailableVersion('');
+  }, []);
 
   // Detect mobile
   useEffect(() => {
@@ -89,42 +141,26 @@ function AppContent() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) {return;}
     const appVersion = APP_VERSION;
-    const hasReloadedForVersion = (version) => {
-      if (!version) {return false;}
-      try {
-        return sessionStorage.getItem(`sw-reloaded-${version}`) === 'true';
-      } catch (_) {
-        return false;
-      }
-    };
-    const markReloadedForVersion = (version) => {
-      if (!version) {return;}
-      try {
-        sessionStorage.setItem(`sw-reloaded-${version}`, 'true');
-      } catch (_) {
-        // ignore storage errors
-      }
-    };
     const handleServiceWorkerMessage = (event) => {
       const data = event?.data || {};
       if (data.type === 'SW_VERSION') {
         const swVersion = data.version || '';
         if (swVersion && swVersion !== appVersion) {
-          if (!hasReloadedForVersion(swVersion) && !window.__SW_FORCE_RELOAD__) {
-            console.log('New service worker version detected. Reloading...', swVersion, appVersion);
-            window.__SW_FORCE_RELOAD__ = true;
-            markReloadedForVersion(swVersion);
-            window.location.reload();
-          } else {
-            console.log('Service worker version mismatch detected but reload already attempted for', swVersion);
+          if (!hasNotifiedForVersion(swVersion)) {
+            markNotifiedForVersion(swVersion);
+            setUpdateAvailableVersion(swVersion);
+            console.log('New service worker version detected. Prompting user to reload.', swVersion, appVersion);
+            showNotification('A new EchoDynamo update is ready. Press Reload to apply it.', 'info');
           }
+        } else if (swVersion && swVersion === appVersion) {
+          setUpdateAvailableVersion('');
         }
       }
     };
 
     navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
     return () => navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
-  }, []);
+  }, [hasNotifiedForVersion, markNotifiedForVersion, setUpdateAvailableVersion, showNotification]);
 
   // Initialize real-time features
   usePresenceStatus();
@@ -401,6 +437,21 @@ function AppContent() {
 
   return (
     <div className="app-container">
+      {updateAvailableVersion && (
+        <div className="update-available-banner" role="status" aria-live="polite">
+          <span className="update-available-text">
+            New EchoDynamo update is ready.
+          </span>
+          <div className="update-available-buttons">
+            <button type="button" className="btn btn-primary" onClick={handleReloadForUpdate}>
+              Reload now
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={handleDismissUpdate}>
+              Later
+            </button>
+          </div>
+        </div>
+      )}
       {/* Header - hidden on mobile when sidebar is shown */}
       {showHeader && <AppHeader />}
 

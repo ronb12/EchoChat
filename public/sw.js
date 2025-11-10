@@ -98,12 +98,6 @@ self.addEventListener('activate', (event) => {
       } catch (err) {
         console.warn('[SW] Failed to post version message:', err?.message);
       }
-
-      if (client && typeof client.navigate === 'function') {
-        client.navigate(client.url).catch(() => {
-          // Ignore navigation errors (e.g., ignored by some browsers)
-        });
-      }
     });
 
     console.log('[SW] Service worker activated and clients claimed');

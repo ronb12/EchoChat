@@ -2893,6 +2893,14 @@ button:has-text("Browse") {
   height: 22px;
 }
 
+[data-theme="dark"] .input-action-btn.voice-btn:not(.recording) {
+  color: #4aa8ff;
+}
+
+[data-theme="dark"] .input-action-btn.voice-btn:not(.recording):hover {
+  background: rgba(74, 168, 255, 0.12);
+}
+
 .input-action-btn.voice-btn:hover {
   transform: scale(1.05);
 }
@@ -2906,6 +2914,44 @@ button:has-text("Browse") {
 .input-action-btn.voice-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.update-available-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface-color, #1f2933);
+  color: var(--text-color, #f5f7fa);
+  border-radius: 999px;
+  padding: 12px 20px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .update-available-banner {
+  background: #ffffff;
+  color: #1f2933;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+}
+
+.update-available-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.update-available-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.update-available-banner .btn {
+  pointer-events: auto;
 }
 
 .input-action-btn.poll-btn {
