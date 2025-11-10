@@ -38,6 +38,27 @@ const formatDuration = (seconds) => {
   return `${mins}m ${secs}s`;
 };
 
+const formatStatus = (status) => {
+  if (!status) {return 'Unknown';}
+  const normalized = String(status).toLowerCase();
+  switch (normalized) {
+    case 'completed':
+      return 'Connected';
+    case 'remote-ended':
+      return 'Ended by other person';
+    case 'declined':
+      return 'Declined';
+    case 'failed':
+      return 'Failed to connect';
+    case 'missed':
+      return 'Missed call';
+    case 'in_progress':
+      return 'In progress';
+    default:
+      return normalized.replace(/[-_]/g, ' ');
+  }
+};
+
 export default function CallHistoryModal() {
   const { showCallHistoryModal, closeCallHistoryModal } = useUI();
   const { user } = useAuth();
@@ -176,7 +197,7 @@ export default function CallHistoryModal() {
                         {entry.callType || 'audio'}
                       </td>
                       <td style={{ textTransform: 'capitalize' }}>
-                        {entry.status?.replace(/[-_]/g, ' ') || 'completed'}
+                        {formatStatus(entry.status)}
                       </td>
                       <td>{formatTimestamp(entry.startedAt)}</td>
                       <td>{formatDuration(entry.durationSeconds)}</td>
