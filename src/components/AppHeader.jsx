@@ -266,6 +266,8 @@ export default function AppHeader() {
       openSettingsModal();
     } else if (action === 'status') {
       openStatusModal();
+    } else if (action === 'callHistory') {
+      openCallHistoryModal();
     } else if (action === 'profile') {
       fileInputRef.current?.click();
     } else if (action === 'logout') {
@@ -467,37 +469,6 @@ export default function AppHeader() {
         )}
         {user && (
           <button
-            className="call-history-button"
-            onClick={openCallHistoryModal}
-            style={{
-              padding: isCompactHeader ? '6px 12px' : '8px 16px',
-              background: 'rgba(0, 0, 0, 0.2)',
-              color: '#fff',
-              border: '1px solid rgba(255,255,255,0.25)',
-              borderRadius: '20px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              transition: 'transform 0.15s ease',
-              width: isCompactHeader ? '100%' : 'auto',
-              justifyContent: 'center'
-            }}
-            onMouseEnter={(event) => { event.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={(event) => { event.currentTarget.style.transform = 'translateY(0)'; }}
-            title="View recent calls"
-          >
-            <span>📞</span>
-            <span>Call History</span>
-          </button>
-        )}
-        {user && (
-          <button
             className="contact-requests-button"
             onClick={() => {
               console.log('📬 Opening contact requests modal');
@@ -643,6 +614,13 @@ export default function AppHeader() {
                 >
                   <span className="menu-icon">✏️</span>
                   <span>Status</span>
+                </button>
+                <button
+                  className="avatar-menu-item"
+                  onClick={() => handleMenuClick('callHistory')}
+                >
+                  <span className="menu-icon">📞</span>
+                  <span>Call History</span>
                 </button>
                 <button
                   className="avatar-menu-item"
