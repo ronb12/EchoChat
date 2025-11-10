@@ -185,9 +185,16 @@ function SettingsModal() {
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         console.error('Failed to load Stripe account status:', response.status, errorData);
+        showNotification(
+          errorData?.error
+            ? `Failed to load payment account: ${errorData.error}`
+            : 'Failed to load payment account details. Please ensure the backend Stripe service is running.',
+          'error'
+        );
       }
     } catch (error) {
       console.error('Error loading Stripe account:', error);
+      showNotification('Unable to reach the Stripe service. Please check your connection or backend server.', 'error');
       // If API fails and it's test business account, use sample data
       if (isTestBusinessAccount()) {
         console.log('API failed, using sample data for test business account');
@@ -1342,8 +1349,16 @@ function SettingsModal() {
                           showNotification('Account created. You can now send and receive money.', 'success');
                           loadStripeAccount();
                         }
+                      } else {
+                        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                        console.error('Failed to create Stripe account:', response.status, errorData);
+                        showNotification(
+                          errorData?.error || 'Failed to connect to Stripe. Please ensure the backend Stripe service is running.',
+                          'error'
+                        );
                       }
                     } catch (error) {
+                      console.error('Error creating Stripe account:', error);
                       showNotification('Failed to create account', 'error');
                     }
                   }}
