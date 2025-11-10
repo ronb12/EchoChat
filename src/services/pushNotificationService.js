@@ -157,4 +157,4 @@ class PushNotificationService {
 }
 
 export const pushNotificationService = new PushNotificationService();
-export default pushNotificationService
+export default pushNotificationService;

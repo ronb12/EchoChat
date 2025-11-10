@@ -192,4 +192,13 @@ export function useNotifications() {
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(notification.title || 'EchoDynamo', {
           body: notification.message,
-          icon: '/icons/icon-192x19
+          icon: '/icons/icon-192x192.png'
+        });
+      }
+    });
+
+    return () => {
+      if (unsubscribe) {unsubscribe();}
+    };
+  }, [user, showNotification]);
+}
