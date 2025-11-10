@@ -96,7 +96,8 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
     setSending(true);
     try {
       // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL
+        || (import.meta.env.PROD ? 'https://echodynamo-app.vercel.app' : 'http://localhost:3001');
       const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
 
       if (mode === 'send') {

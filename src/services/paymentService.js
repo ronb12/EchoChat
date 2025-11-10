@@ -8,7 +8,8 @@ class PaymentService {
     // In production, this should be: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
     this.stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null;
     this.stripePromise = null;
-    this.apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+    this.apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+      || (import.meta.env.PROD ? 'https://echodynamo-app.vercel.app/api' : '/api');
 
     // Initialize Stripe if key is available
     if (this.stripePublishableKey) {

@@ -1674,7 +1674,8 @@ export default function ChatArea() {
                         // Check subscription status before allowing Quick Reply
                         try {
                           const isProduction = import.meta.env.PROD;
-                          const baseUrl = import.meta.env.VITE_API_BASE_URL || (isProduction ? '' : 'http://localhost:3001');
+      const baseUrl = import.meta.env.VITE_API_BASE_URL
+        || (isProduction ? 'https://echodynamo-app.vercel.app' : 'http://localhost:3001');
                           const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
                           const response = await fetch(`${API_BASE_URL}/api/stripe/subscription/${user?.uid}`);
                           if (response.ok) {

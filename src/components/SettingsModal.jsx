@@ -69,9 +69,9 @@ function SettingsModal() {
   // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
   // In production, use VITE_API_BASE_URL, fallback to localhost only in development
   const isProduction = import.meta.env.PROD;
-  const fallbackOrigin = typeof window !== 'undefined'
-    ? window.location.origin
-    : 'https://echodynamo.vercel.app';
+  const fallbackOrigin = import.meta.env.PROD
+    ? 'https://echodynamo-app.vercel.app'
+    : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
   const baseUrl = import.meta.env.VITE_API_BASE_URL
     || (isProduction ? fallbackOrigin : 'http://localhost:3001');
   const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
