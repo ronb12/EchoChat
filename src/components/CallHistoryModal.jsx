@@ -192,7 +192,13 @@ export default function CallHistoryModal() {
         }
       }}
     >
-      <div className="modal-content" style={{ maxWidth: '900px', width: '95%' }}>
+      <div
+        className="modal-content"
+        style={{
+          maxWidth: '1100px',
+          width: 'min(95vw, 1100px)'
+        }}
+      >
         <div className="modal-header">
           <h2>Call History</h2>
           <button className="modal-close" onClick={closeCallHistoryModal}>&times;</button>
@@ -227,7 +233,7 @@ export default function CallHistoryModal() {
                   {enrichedEntries.map((entry) => (
                     <tr key={entry.id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: '260px' }}>
                           <img
                             src={entry.otherPartyAvatar}
                             alt={entry.otherPartyName}
