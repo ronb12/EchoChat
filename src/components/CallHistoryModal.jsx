@@ -61,6 +61,17 @@ const formatStatus = (status) => {
   }
 };
 
+const isGenericName = (value) => {
+  if (!value) {return true;}
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) {return true;}
+  return normalized === 'user' ||
+    normalized === 'contact' ||
+    normalized === 'unknown' ||
+    normalized === 'you' ||
+    normalized === 'me';
+};
+
 export default function CallHistoryModal() {
   const { showCallHistoryModal, closeCallHistoryModal } = useUI();
   const { user } = useAuth();
@@ -91,19 +102,30 @@ export default function CallHistoryModal() {
     if (!entries || !user?.uid) {return;}
     const idsToFetch = [];
     const nameFallbacks = {};
+    const immediateUpdates = {};
 
     entries.forEach((entry) => {
       const isCaller = entry.callerId === user.uid;
       const otherId = isCaller ? entry.receiverId : entry.callerId;
       if (!otherId) {return;}
       const storedName = isCaller ? entry.receiverName : entry.callerName;
-      if (storedName && !nameFallbacks[otherId]) {
+      if (storedName && !isGenericName(storedName)) {
         nameFallbacks[otherId] = storedName;
+        if (!profileCache[otherId]) {
+          immediateUpdates[otherId] = {
+            name: storedName,
+            avatar: '/icons/default-avatar.png'
+          };
+        }
       }
       if (!profileCache[otherId]) {
         idsToFetch.push(otherId);
       }
     });
+
+    if (Object.keys(immediateUpdates).length > 0) {
+      setProfileCache((prev) => ({ ...immediateUpdates, ...prev }));
+    }
 
     if (idsToFetch.length === 0) {
       return;
@@ -117,8 +139,9 @@ export default function CallHistoryModal() {
         try {
           const profile = await profileService.getUserProfile(otherId);
           const name = getDisplayName(profile, otherId);
+          const resolvedName = !isGenericName(name) ? name : nameFallbacks[otherId];
           updates[otherId] = {
-            name: name || nameFallbacks[otherId] || otherId || 'Unknown',
+            name: resolvedName || otherId || 'Unknown',
             avatar: profile?.photoURL || profile?.avatar || '/icons/default-avatar.png'
           };
         } catch (_) {
@@ -150,7 +173,7 @@ export default function CallHistoryModal() {
         ...entry,
         otherPartyId,
         isCaller,
-        otherPartyName: cached.name || storedName || otherPartyId || 'Unknown',
+        otherPartyName: cached.name || (!isGenericName(storedName) ? storedName : null) || otherPartyId || 'Unknown',
         otherPartyAvatar: cached.avatar || '/icons/default-avatar.png'
       };
     });
