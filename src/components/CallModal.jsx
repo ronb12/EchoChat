@@ -5,9 +5,10 @@ import { useAuth } from '../hooks/useAuth';
 import { callService } from '../services/callService';
 
 export default function CallModal({ callType = 'video', callSession = null, isIncoming = false, onEndCall }) {
-  const { closeCallModal } = useUI();
+  const { closeCallModal, showNotification } = useUI();
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
+  const [activeCallType, setActiveCallType] = useState(callType);
   const [isVideoEnabled, setIsVideoEnabled] = useState(callType === 'video');
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [connectionState, setConnectionState] = useState('connecting');
@@ -24,6 +25,12 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
   const displayName = isIncoming ? callerName : receiverName;
   const hasInitializedRef = useRef(false);
   const hasEndedRef = useRef(false);
+  const permissionWarningShownRef = useRef(false);
+  const showNotificationRef = useRef(showNotification);
+
+  useEffect(() => {
+    showNotificationRef.current = showNotification;
+  }, [showNotification]);
 
   useEffect(() => {
     let interval;
@@ -38,7 +45,10 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
   useEffect(() => {
     hasInitializedRef.current = false;
     hasEndedRef.current = false;
-  }, [callId, isIncoming]);
+    setActiveCallType(callType);
+    setIsVideoEnabled(callType === 'video');
+    permissionWarningShownRef.current = false;
+  }, [callId, isIncoming, callType]);
 
   useEffect(() => {
     const unsubscribe = callService.subscribeToCallEvents((event, data) => {
@@ -61,6 +71,26 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
             setIsConnected(true);
           }
           break;
+        case 'callTypeChanged':
+          if (typeof data === 'string') {
+            setActiveCallType(data);
+            if (data !== 'video') {
+              setIsVideoEnabled(false);
+            }
+          }
+          break;
+        case 'mediaPermissionWarning': {
+          if (!permissionWarningShownRef.current) {
+            const resolvedType = data?.resolvedType;
+            const originalType = data?.originalType;
+            const message = resolvedType === 'audio' && originalType === 'video'
+              ? 'We could only access your microphone. The call will continue without video. Please enable camera access in your browser settings if you want to share video.'
+              : 'We were unable to access your camera or microphone. Please review your browser permissions.';
+            showNotificationRef.current?.(message, 'warning', 8000);
+            permissionWarningShownRef.current = true;
+          }
+          break;
+        }
         case 'callEnded':
           handleEndCall({ triggerSource: 'listener', skipServiceCall: true });
           break;
@@ -165,7 +195,7 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
       }}>
         {/* Remote Video */}
         <div className="remote-video" style={{ flex: 1, position: 'relative' }}>
-          {callType === 'video' ? (
+          {activeCallType === 'video' ? (
             <video
               ref={remoteVideoRef}
               autoPlay
@@ -211,7 +241,7 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
         </div>
 
         {/* Local Video (Video calls only) */}
-        {callType === 'video' && (
+        {activeCallType === 'video' && (
           <div className="local-video" style={{
             position: 'absolute',
             top: 20,
@@ -243,7 +273,7 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
           gap: '1rem',
           alignItems: 'center'
         }}>
-          {callType === 'video' && (
+          {activeCallType === 'video' && (
             <button
               className="call-control-btn"
               onClick={() => {

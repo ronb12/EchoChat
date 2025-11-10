@@ -113,6 +113,19 @@ class CallSignalingService {
     }
   }
 
+  async updateCallSession(callId, data = {}) {
+    if (!callId || !data) {return;}
+    const callRef = doc(db, 'callSessions', callId);
+    try {
+      await updateDoc(callRef, {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.warn('Unable to update call session:', error.message);
+    }
+  }
+
   listenForIncomingCalls(userId, callback) {
     if (!userId) {return () => {};}
     const listenersKey = userId;

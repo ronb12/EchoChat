@@ -22,6 +22,60 @@ class CallService {
     this.receivedCandidateKeys = new Set();
   }
 
+  isRecoverableMediaError(error) {
+    if (!error) {return false;}
+    const name = (error.name || '').toLowerCase();
+    const message = (error.message || '').toLowerCase();
+    const recoverableNames = [
+      'notallowederror',
+      'permissiondeniederror',
+      'notfounderror',
+      'overconstrainederror',
+      'notreadableerror',
+      'aborterror',
+      'securityerror',
+      'constraintserror'
+    ];
+    if (recoverableNames.includes(name)) {
+      return true;
+    }
+    return message.includes('permission') ||
+      message.includes('denied') ||
+      message.includes('not allowed') ||
+      message.includes('hardware access');
+  }
+
+  async acquireLocalMedia(callType) {
+    const wantsVideo = callType === 'video';
+    const constraints = {
+      video: wantsVideo,
+      audio: true
+    };
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      return {
+        stream,
+        effectiveType: wantsVideo ? 'video' : 'audio',
+        permissionIssue: null
+      };
+    } catch (error) {
+      if (wantsVideo && this.isRecoverableMediaError(error)) {
+        try {
+          const audioStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          return {
+            stream: audioStream,
+            effectiveType: 'audio',
+            permissionIssue: error
+          };
+        } catch (audioError) {
+          throw audioError;
+        }
+      }
+      throw error;
+    }
+  }
+
   // Initialize peer connection
   async initializePeerConnection({ callId = null, role = null } = {}) {
     const configuration = {
@@ -94,14 +148,31 @@ class CallService {
       this.currentReceiverId = receiverId;
       this.receivedCandidateKeys.clear();
 
-      // Get user media
-      const constraints = {
-        video: callType === 'video',
-        audio: true
-      };
-
-      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const mediaResult = await this.acquireLocalMedia(callType);
+      this.localStream = mediaResult.stream;
+      this.callType = mediaResult.effectiveType;
       this.notifyCallListeners('localStream', this.localStream);
+      if (mediaResult.permissionIssue) {
+        this.notifyCallListeners('mediaPermissionWarning', {
+          originalType: callType,
+          resolvedType: mediaResult.effectiveType,
+          error: mediaResult.permissionIssue
+        });
+      }
+      if (this.callType !== callType) {
+        this.notifyCallListeners('callTypeChanged', this.callType);
+      }
+      if (mediaResult.permissionIssue) {
+        if (callId) {
+          await callSignalingService.updateCallSession(callId, {
+            callType: this.callType,
+            permissionWarning: {
+              name: mediaResult.permissionIssue?.name || 'PermissionError',
+              message: mediaResult.permissionIssue?.message || 'Media permission denied'
+            }
+          });
+        }
+      }
 
       await this.initializePeerConnection({ callId, role: this.localRole });
 
@@ -116,7 +187,7 @@ class CallService {
 
       await callSignalingService.createOffer(callId, {
         chatId,
-        callType,
+        callType: this.callType,
         callerId,
         callerName,
         receiverId,
@@ -129,6 +200,10 @@ class CallService {
         if (callData.status === 'ended') {
           this.endCall();
           return;
+        }
+        if (callData.callType && callData.callType !== this.callType) {
+          this.callType = callData.callType;
+          this.notifyCallListeners('callTypeChanged', this.callType);
         }
         if (callData.answer && this.peerConnection) {
           if (this.peerConnection.signalingState === 'have-local-offer' || this.peerConnection.signalingState === 'stable') {
@@ -153,9 +228,9 @@ class CallService {
         }
       });
 
-      this.notifyCallListeners('callStarted', { type: callType, userId: callerId, offer });
+      this.notifyCallListeners('callStarted', { type: this.callType, userId: callerId, offer });
 
-      return { offer, type: callType, callId };
+      return { offer, type: this.callType, callId };
     } catch (error) {
       console.error('Error starting call:', error);
       this.endCall();
@@ -188,14 +263,31 @@ class CallService {
       this.currentReceiverId = receiverId;
       this.receivedCandidateKeys.clear();
 
-      // Get user media
-      const constraints = {
-        video: callType === 'video',
-        audio: true
-      };
-
-      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const mediaResult = await this.acquireLocalMedia(callType);
+      this.localStream = mediaResult.stream;
+      this.callType = mediaResult.effectiveType;
       this.notifyCallListeners('localStream', this.localStream);
+      if (mediaResult.permissionIssue) {
+        this.notifyCallListeners('mediaPermissionWarning', {
+          originalType: callType,
+          resolvedType: mediaResult.effectiveType,
+          error: mediaResult.permissionIssue
+        });
+      }
+      if (this.callType !== callType) {
+        this.notifyCallListeners('callTypeChanged', this.callType);
+      }
+      if (mediaResult.permissionIssue) {
+        if (callId) {
+          await callSignalingService.updateCallSession(callId, {
+            callType: this.callType,
+            permissionWarning: {
+              name: mediaResult.permissionIssue?.name || 'PermissionError',
+              message: mediaResult.permissionIssue?.message || 'Media permission denied'
+            }
+          });
+        }
+      }
 
       await this.initializePeerConnection({ callId, role: this.localRole });
 
@@ -211,7 +303,8 @@ class CallService {
         type: answer.type,
         sdp: answer.sdp,
         receiverId,
-        receiverName
+        receiverName,
+        callType: this.callType
       };
 
       await callSignalingService.setAnswer(callId, answerPayload);
@@ -220,6 +313,10 @@ class CallService {
         if (!callData) {return;}
         if (callData.status === 'ended') {
           this.endCall();
+        }
+        if (callData.callType && callData.callType !== this.callType) {
+          this.callType = callData.callType;
+          this.notifyCallListeners('callTypeChanged', this.callType);
         }
       });
 
@@ -235,7 +332,7 @@ class CallService {
         }
       });
 
-      this.notifyCallListeners('callAnswered', { type: callType, answer });
+      this.notifyCallListeners('callAnswered', { type: this.callType, answer });
 
       return answer;
     } catch (error) {
