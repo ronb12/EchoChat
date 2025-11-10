@@ -21,19 +21,8 @@ export default function QuickReplyModal({ onClose }) {
     if (!user) {return;}
     try {
       setLoading(true);
-      const profile = await businessService.getBusinessProfile(user.uid);
-
-      // Fallback to localStorage for demo
-      if (!profile || !profile.quickReplies) {
-        const stored = localStorage.getItem(`business_${user.uid}`);
-        if (stored) {
-          const business = JSON.parse(stored);
-          setQuickReplies(business.quickReplies || []);
-          return;
-        }
-      }
-
-      setQuickReplies(profile?.quickReplies || []);
+      const replies = await businessService.getQuickReplies(user.uid);
+      setQuickReplies(replies);
     } catch (error) {
       console.error('Error loading quick replies:', error);
       showNotification('Failed to load quick replies', 'error');
@@ -54,10 +43,14 @@ export default function QuickReplyModal({ onClose }) {
     }
 
     try {
-      await chatService.sendMessage(currentChatId, {
+      const payload = {
         text: reply.text,
         senderId: user.uid,
         senderName: user.displayName || user.email || 'User'
+      };
+      await chatService.sendMessage(currentChatId, payload);
+      businessService.recordQuickReplyUsage(user.uid, reply.id).catch((error) => {
+        console.warn('Failed to record quick reply usage:', error);
       });
 
       showNotification('Quick reply sent!', 'success');
@@ -135,6 +128,15 @@ export default function QuickReplyModal({ onClose }) {
                           /{reply.shortcut}
                         </span>
                       )}
+                  {Number.isFinite(reply.usageCount) && reply.usageCount > 0 && (
+                    <span style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--text-color-secondary)',
+                      marginLeft: '0.5rem'
+                    }}>
+                      {reply.usageCount}× used
+                    </span>
+                  )}
                     </button>
                   ))}
                 </div>

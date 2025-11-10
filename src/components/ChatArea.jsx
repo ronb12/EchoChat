@@ -9,6 +9,7 @@ import { validationService } from '../services/validationService';
 import { stickersService } from '../services/stickersService';
 import { videoMessageService } from '../services/videoMessageService';
 import { firestoreService } from '../services/firestoreService';
+import { businessService } from '../services/businessService';
 import MessageBubble from './MessageBubble';
 import MessageSearch from './MessageSearch';
 import GifPicker from './GifPicker';
@@ -90,6 +91,11 @@ export default function ChatArea() {
   const [showQuickReplyModal, setShowQuickReplyModal] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showPollCreator, setShowPollCreator] = useState(false);
+  const [quickReplies, setQuickReplies] = useState([]);
+  const [smartReplySuggestions, setSmartReplySuggestions] = useState([]);
+  const [quickRepliesLoading, setQuickRepliesLoading] = useState(false);
+  const [hideSmartReplies, setHideSmartReplies] = useState(false);
+  const [isSendingSmartReplyId, setIsSendingSmartReplyId] = useState(null);
   const [isBusinessAccount, setIsBusinessAccount] = useState(false);
   const [availableStickers, setAvailableStickers] = useState([]);
   const [stickerPacks, setStickerPacks] = useState([]);
@@ -124,6 +130,7 @@ export default function ChatArea() {
     }
   }, [scheduleMode, scheduleTargetMessage]);
   const fileInputRef = useRef(null);
+  const messageInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
   const moreMenuRef = useRef(null);
@@ -146,6 +153,30 @@ export default function ChatArea() {
     firstTypingUser?.userId && firstTypingUser.userId !== user?.uid ? firstTypingUser.userId : null,
     firstTypingUser?.displayName || 'Someone'
   );
+
+  const loadQuickReplies = useCallback(async () => {
+    if (!user?.uid) {
+      setQuickReplies([]);
+      return;
+    }
+    try {
+      setQuickRepliesLoading(true);
+      const replies = await businessService.getQuickReplies(user.uid);
+      setQuickReplies(replies);
+      if (replies.length === 0) {
+        const defaultSuggestions = [
+          { id: 'default-1', text: 'Thanks for reaching out!', usageCount: 0, lastUsedAt: null },
+          { id: 'default-2', text: 'I will check on this and get back to you shortly.', usageCount: 0, lastUsedAt: null },
+          { id: 'default-3', text: 'Can you provide a bit more detail?', usageCount: 0, lastUsedAt: null }
+        ];
+        setSmartReplySuggestions(defaultSuggestions.slice(0, 3));
+      }
+    } catch (error) {
+      console.error('Failed to load quick replies:', error);
+    } finally {
+      setQuickRepliesLoading(false);
+    }
+  }, [user?.uid]);
 
   const computeDefaultScheduleValue = useCallback(() => {
     const base = new Date(Date.now() + 15 * 60 * 1000);
@@ -184,6 +215,145 @@ export default function ChatArea() {
         return timeA - timeB;
       });
   }, [messages]);
+
+  const lastIncomingMessage = useMemo(() => {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return null;
+    }
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i];
+      if (!msg || msg.senderId === user?.uid) {
+        continue;
+      }
+      if (msg.deleted) {
+        continue;
+      }
+      return msg;
+    }
+    return null;
+  }, [messages, user?.uid]);
+
+  const evaluateSmartReplies = useCallback(() => {
+    if (hideSmartReplies || quickRepliesLoading) {
+      return;
+    }
+
+    const suggestions = [];
+    const seen = new Set();
+
+    const addSuggestion = (item, reason = 'default') => {
+      if (!item || !item.text) {return;}
+      const text = item.text.trim();
+      if (!text) {return;}
+      const normalized = text.toLowerCase();
+      if (seen.has(normalized)) {return;}
+      seen.add(normalized);
+      suggestions.push({
+        id: item.id || `${reason}-${text.slice(0, 12)}`,
+        text,
+        reason,
+        usageCount: item.usageCount || 0
+      });
+    };
+
+    // include frequently used quick replies
+    quickReplies
+      .filter((reply) => reply && reply.text)
+      .sort((a, b) => {
+        const aUsage = Number.isFinite(a.usageCount) ? a.usageCount : 0;
+        const bUsage = Number.isFinite(b.usageCount) ? b.usageCount : 0;
+        if (bUsage !== aUsage) {
+          return bUsage - aUsage;
+        }
+        const aTime = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+        const bTime = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 5)
+      .forEach((reply) => addSuggestion(reply, 'quick-reply'));
+
+    const incomingText = lastIncomingMessage?.decryptedText || lastIncomingMessage?.text || '';
+    const normalizedIncoming = incomingText.toLowerCase();
+
+    if (incomingText) {
+      if (normalizedIncoming.includes('?')) {
+        addSuggestion({ id: 'question-1', text: 'Great question — let me check on that and reply shortly.' }, 'question');
+        addSuggestion({ id: 'question-2', text: 'Could you clarify a bit more so I can help?' }, 'question');
+      }
+      if (normalizedIncoming.match(/\bthank(s| you)\b/)) {
+        addSuggestion({ id: 'thanks-1', text: 'You’re welcome! Happy to help.' }, 'gratitude');
+      }
+      if (normalizedIncoming.match(/\bhello\b|\bhi\b|\bhey\b/)) {
+        addSuggestion({ id: 'greeting-1', text: 'Hi there! How can I assist you today?' }, 'greeting');
+      }
+      if (normalizedIncoming.match(/\bprice\b|\brate\b|\bcost\b/)) {
+        addSuggestion({ id: 'pricing-1', text: 'Our pricing depends on the package. Want me to send the latest options?' }, 'pricing');
+      }
+      if (normalizedIncoming.match(/\bissue\b|\bproblem\b|\bhelp\b/)) {
+        addSuggestion({ id: 'issue-1', text: 'I’m sorry for the trouble—let me gather a few details so we can fix this.' }, 'support');
+      }
+    }
+
+    if (suggestions.length === 0) {
+      const fallback = [
+        { id: 'fallback-1', text: 'Thanks for your patience! I’ll update you soon.' },
+        { id: 'fallback-2', text: 'Let me double-check that and get right back to you.' },
+        { id: 'fallback-3', text: 'Appreciate the update. I’ll follow up shortly.' }
+      ];
+      fallback.forEach((item) => addSuggestion(item, 'fallback'));
+    }
+
+    setSmartReplySuggestions(suggestions.slice(0, 4));
+  }, [hideSmartReplies, lastIncomingMessage, quickReplies, quickRepliesLoading]);
+
+  useEffect(() => {
+    evaluateSmartReplies();
+  }, [evaluateSmartReplies]);
+
+  const sendSmartReplyNow = useCallback(async (suggestion) => {
+    if (!suggestion?.text) {return;}
+    if (!currentChatId) {
+      showNotification('Please select a chat first.', 'info');
+      return;
+    }
+    if (!user?.uid) {
+      showNotification('You must be signed in to reply.', 'error');
+      return;
+    }
+    try {
+      setIsSendingSmartReplyId(suggestion.id || suggestion.text);
+      await chatService.sendMessage(currentChatId, {
+        text: suggestion.text,
+        senderId: user.uid,
+        senderName: myDisplayName || user.displayName || user.email || 'You'
+      });
+      businessService.recordQuickReplyUsage(user.uid, suggestion.id).catch(() => {});
+      showNotification('Message sent.', 'success');
+      setMessageText('');
+      stopTyping();
+      if (isBusinessAccount) {
+        loadQuickReplies();
+      }
+    } catch (error) {
+      console.error('Failed to send smart reply:', error);
+      showNotification(error?.message || 'Unable to send reply.', 'error');
+    } finally {
+      setIsSendingSmartReplyId(null);
+    }
+  }, [currentChatId, isBusinessAccount, loadQuickReplies, myDisplayName, showNotification, stopTyping, user?.displayName, user?.email, user?.uid]);
+
+  const handleSmartReplyClick = useCallback((suggestion, { sendImmediately = false } = {}) => {
+    if (!suggestion?.text) {return;}
+    if (sendImmediately) {
+      sendSmartReplyNow(suggestion);
+      return;
+    }
+    setMessageText(suggestion.text);
+    if (messageInputRef.current) {
+      messageInputRef.current.focus();
+      messageInputRef.current.setSelectionRange(suggestion.text.length, suggestion.text.length);
+    }
+  }, [sendSmartReplyNow]);
 
   const pinnedCountLabel = useMemo(() => {
     const count = pinnedMessages.length;
@@ -323,6 +493,110 @@ export default function ChatArea() {
     setShowScheduleModal(true);
   };
 
+  const scheduleComposerPayload = useCallback(async (scheduledTimestamp) => {
+    if (!user || !currentChatId) {
+      showNotification('Please select a chat first.', 'error');
+      return 0;
+    }
+
+    const baseDisplayName = myDisplayName || 'User';
+    const trimmedText = messageText.trim();
+    const hasText = !!trimmedText;
+    const imagePreviews = Array.isArray(previewImages) ? [...previewImages] : [];
+    const nonImageFiles = Array.isArray(selectedFiles)
+      ? selectedFiles.filter(file => !(file?.type || '').startsWith('image/'))
+      : [];
+
+    if (!hasText && imagePreviews.length === 0 && nonImageFiles.length === 0) {
+      showNotification('Add text or attachments before scheduling.', 'info');
+      return 0;
+    }
+
+    let scheduledCount = 0;
+
+    for (const preview of imagePreviews) {
+      const file = preview?.file;
+      if (!file) {continue;}
+      const imageUrl = await firestoreService.uploadFile(currentChatId, file, 'images');
+      await chatService.scheduleMessage(
+        currentChatId,
+        {
+          text: '',
+          attachments: [{
+            type: 'image',
+            url: imageUrl,
+            name: file.name || null,
+            size: file.size || null,
+            contentType: file.type || null
+          }],
+          image: imageUrl,
+          imageName: file.name || null,
+          imageSize: file.size || null,
+          imageType: file.type || null
+        },
+        scheduledTimestamp,
+        user.uid,
+        baseDisplayName
+      );
+      scheduledCount += 1;
+    }
+
+    for (const file of nonImageFiles) {
+      if (!file) {continue;}
+      const fileUrl = await firestoreService.uploadFile(currentChatId, file, 'files');
+      await chatService.scheduleMessage(
+        currentChatId,
+        {
+          text: '',
+          attachments: [{
+            type: 'file',
+            url: fileUrl,
+            name: file.name || null,
+            size: file.size || null,
+            contentType: file.type || null
+          }],
+          file: {
+            url: fileUrl,
+            name: file.name || null,
+            size: file.size || null,
+            type: file.type || null
+          },
+          fileName: file.name || null,
+          fileSize: file.size || null,
+          fileType: file.type || null
+        },
+        scheduledTimestamp,
+        user.uid,
+        baseDisplayName
+      );
+      scheduledCount += 1;
+    }
+
+    if (hasText) {
+      const sanitizedText = validationService.sanitizeInput(trimmedText);
+      await chatService.scheduleMessage(
+        currentChatId,
+        {
+          text: sanitizedText,
+          attachments: []
+        },
+        scheduledTimestamp,
+        user.uid,
+        baseDisplayName
+      );
+      scheduledCount += 1;
+      setMessageText('');
+      stopTyping();
+    }
+
+    setSelectedFiles([]);
+    setPreviewImages([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    return scheduledCount;
+  }, [currentChatId, fileInputRef, myDisplayName, messageText, previewImages, selectedFiles, showNotification, stopTyping, user]);
+
   const handleScheduleSubmit = async (scheduledTimestamp) => {
     if (!user || !currentChatId) {
       showNotification('Please select a chat first.', 'error');
@@ -344,114 +618,7 @@ export default function ChatArea() {
         );
         showNotification('Message rescheduled.', 'success');
       } else {
-        const baseDisplayName = myDisplayName || 'User';
-        const trimmedText = messageText.trim();
-        const hasText = !!trimmedText;
-        const imagePreviews = Array.isArray(previewImages) ? [...previewImages] : [];
-        const nonImageFiles = Array.isArray(selectedFiles)
-          ? selectedFiles.filter(file => !(file?.type || '').startsWith('image/'))
-          : [];
-    console.debug('Scheduling payload summary', {
-          hasText,
-          imagePreviewCount: imagePreviews.length,
-          nonImageFileCount: nonImageFiles.length,
-          scheduleMode: scheduleModeRef.current
-        });
-
-        if (!hasText && imagePreviews.length === 0 && nonImageFiles.length === 0) {
-          showNotification('Nothing to schedule. Add text or attachments.', 'info');
-          return;
-        }
-
-        let scheduledCount = 0;
-
-        for (const preview of imagePreviews) {
-          const file = preview?.file;
-          if (!file) {continue;}
-          const imageUrl = await firestoreService.uploadFile(currentChatId, file, 'images');
-          await chatService.scheduleMessage(
-            currentChatId,
-            {
-              text: '',
-              attachments: [{
-                type: 'image',
-                url: imageUrl,
-                name: file.name || null,
-                size: file.size || null,
-                contentType: file.type || null
-              }],
-              image: imageUrl,
-              imageName: file.name || null,
-              imageSize: file.size || null,
-              imageType: file.type || null
-            },
-            scheduledTimestamp,
-            user.uid,
-            baseDisplayName
-          );
-          scheduledCount += 1;
-        }
-
-        for (const file of nonImageFiles) {
-          if (!file) {continue;}
-          const fileUrl = await firestoreService.uploadFile(currentChatId, file, 'files');
-          console.debug('Scheduling non-image file', {
-            fileName: file?.name,
-            fileSize: file?.size,
-            fileType: file?.type,
-            fileUrl
-          });
-          await chatService.scheduleMessage(
-            currentChatId,
-            {
-              text: '',
-              attachments: [{
-                type: 'file',
-                url: fileUrl,
-                name: file.name || null,
-                size: file.size || null,
-                contentType: file.type || null
-              }],
-              file: {
-                url: fileUrl,
-                name: file.name || null,
-                size: file.size || null,
-                type: file.type || null
-              },
-              fileName: file.name || null,
-              fileSize: file.size || null,
-              fileType: file.type || null
-            },
-            scheduledTimestamp,
-            user.uid,
-            baseDisplayName
-          );
-          scheduledCount += 1;
-        }
-
-        if (hasText) {
-          const sanitizedText = validationService.sanitizeInput(trimmedText);
-          await chatService.scheduleMessage(
-            currentChatId,
-            {
-              text: sanitizedText,
-              attachments: []
-            },
-            scheduledTimestamp,
-            user.uid,
-            baseDisplayName
-          );
-          scheduledCount += 1;
-          setMessageText('');
-          stopTyping();
-        }
-
-        setSelectedFiles([]);
-        setPreviewImages([]);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-
+        const scheduledCount = await scheduleComposerPayload(scheduledTimestamp);
         if (scheduledCount > 0) {
           showNotification(`Scheduled ${scheduledCount} message${scheduledCount > 1 ? 's' : ''}.`, 'success');
         }
@@ -478,6 +645,26 @@ export default function ChatArea() {
       setIsSchedulingMessage(false);
     }
   };
+
+  const quickScheduleOptions = useMemo(() => ([
+    { id: '5m', label: 'In 5 minutes', getScheduleTime: () => Date.now() + 5 * 60 * 1000 },
+    { id: '30m', label: 'In 30 minutes', getScheduleTime: () => Date.now() + 30 * 60 * 1000 },
+    { id: '1h', label: 'In 1 hour', getScheduleTime: () => Date.now() + 60 * 60 * 1000 },
+    { id: 'tomorrow', label: 'Tomorrow morning', getScheduleTime: () => {
+      const now = new Date();
+      const tomorrowMorning = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0, 0, 0);
+      return tomorrowMorning.getTime();
+    } }
+  ]), []);
+
+  const handleQuickSchedule = useCallback(async (option) => {
+    if (!option?.getScheduleTime) {return;}
+    const scheduleTime = option.getScheduleTime();
+    const scheduledCount = await scheduleComposerPayload(scheduleTime);
+    if (scheduledCount > 0) {
+      showNotification(`Scheduled for ${option.label.toLowerCase()}.`, 'success');
+    }
+  }, [scheduleComposerPayload, showNotification]);
 
   const handleCloseScheduleModal = () => {
     setShowScheduleModal(false);
@@ -536,8 +723,13 @@ export default function ChatArea() {
       const accountType = localStorage.getItem('echochat_account_type') || user.accountType;
       const isBusiness = accountType === 'business' || user.isBusinessAccount === true;
       setIsBusinessAccount(isBusiness);
+      if (isBusiness) {
+        loadQuickReplies();
+      } else {
+        setQuickReplies([]);
+      }
     }
-  }, [user]);
+  }, [user, loadQuickReplies]);
 
   // Update recording timer
   useEffect(() => {
@@ -2107,6 +2299,59 @@ export default function ChatArea() {
           </div>
         )}
 
+        {/* Smart Reply Suggestions */}
+        {smartReplySuggestions.length > 0 && !messageText.trim() && hideSmartReplies && !quickRepliesLoading && (
+          <div className="smart-reply-restore">
+            <button
+              type="button"
+              onClick={() => setHideSmartReplies(false)}
+              className="smart-reply-show-btn"
+            >
+              Show smart replies
+            </button>
+          </div>
+        )}
+
+        {smartReplySuggestions.length > 0 && !messageText.trim() && !hideSmartReplies && !quickRepliesLoading && (
+          <div className="smart-reply-strip" role="list">
+            <div className="smart-reply-header">
+              <span className="smart-reply-title">
+                Suggested replies
+              </span>
+              <button
+                type="button"
+                className="smart-reply-hide"
+                onClick={() => setHideSmartReplies(true)}
+                aria-label="Hide smart replies"
+              >
+                ×
+              </button>
+            </div>
+            <div className="smart-reply-buttons">
+              {smartReplySuggestions.map((suggestion) => (
+                <div key={suggestion.id} className="smart-reply-item" role="listitem">
+                  <button
+                    type="button"
+                    className="smart-reply-btn"
+                    onClick={() => handleSmartReplyClick(suggestion)}
+                  >
+                    {suggestion.text}
+                  </button>
+                  <button
+                    type="button"
+                    className="smart-reply-send"
+                    disabled={isSendingSmartReplyId === (suggestion.id || suggestion.text)}
+                    onClick={() => handleSmartReplyClick(suggestion, { sendImmediately: true })}
+                    title="Send immediately"
+                  >
+                    {isSendingSmartReplyId === (suggestion.id || suggestion.text) ? '…' : 'Send'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Message Input */}
         <div className="message-input-container">
           <div className="input-actions">
@@ -2222,6 +2467,24 @@ export default function ChatArea() {
               />
             )}
           </div>
+
+        {(!isRecordingVoice && !isRecordingVideo) &&
+          (messageText.trim() || previewImages.length > 0 || selectedFiles.length > 0) && (
+          <div className="quick-schedule-strip">
+            <span className="quick-schedule-label">Send later:</span>
+            {quickScheduleOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className="quick-schedule-btn"
+                disabled={isSchedulingMessage}
+                onClick={() => handleQuickSchedule(option)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
 
           {isRecordingVoice && (
             <div className="voice-recording-indicator" role="status">
@@ -2348,6 +2611,7 @@ export default function ChatArea() {
               placeholder="Type a message..."
               autoComplete="off"
               name="message"
+              ref={messageInputRef}
               value={messageText}
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
