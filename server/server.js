@@ -22,6 +22,8 @@ if (fs.existsSync(serverEnvPath)) {
   require('dotenv').config(); // Try default location
 }
 
+global.Buffer = global.Buffer || require('buffer').Buffer;
+
 const express = require('express');
 const cors = require('cors');
 const Stripe = require('stripe');
@@ -415,6 +417,12 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
  */
 app.post('/api/stripe/confirm-payment', async (req, res) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({
+        error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY'
+      });
+    }
+
     const { paymentIntentId, paymentMethodId } = req.body;
 
     if (!paymentIntentId || !paymentMethodId) {
@@ -450,6 +458,12 @@ app.post('/api/stripe/confirm-payment', async (req, res) => {
  */
 app.post('/api/stripe/transfer', async (req, res) => {
   try {
+    if (!stripe) {
+      return res.status(503).json({ 
+        error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY' 
+      });
+    }
+
     const { amount, destination, metadata = {} } = req.body;
 
     if (!amount || !destination) {

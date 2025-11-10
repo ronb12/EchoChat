@@ -316,6 +316,7 @@ export default function AppHeader() {
         {stripeMode && stripeMode.mode !== 'not_configured' && (
           <div
             className="stripe-mode-indicator"
+            title={stripeMode.message}
             style={{
               marginLeft: '12px',
               padding: '4px 10px',
@@ -324,23 +325,28 @@ export default function AppHeader() {
               fontWeight: '600',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
-              backgroundColor: stripeMode.mode === 'live' || stripeMode.mode === 'test'
-                ? 'rgba(76, 175, 80, 0.9)' // Green for working (both LIVE and TEST)
-                : 'rgba(244, 67, 54, 0.9)', // Red for problems (mismatch, unknown, not_configured)
+              backgroundColor: stripeMode.mode === 'live'
+                ? 'rgba(244, 67, 54, 0.9)'
+                : stripeMode.mode === 'test'
+                  ? 'rgba(76, 175, 80, 0.9)'
+                  : 'rgba(244, 67, 54, 0.9)',
               color: 'white',
-              boxShadow: stripeMode.mode === 'live' || stripeMode.mode === 'test'
-                ? '0 0 8px rgba(76, 175, 80, 0.6)'
-                : '0 0 8px rgba(244, 67, 54, 0.6)',
+              boxShadow: stripeMode.mode === 'live'
+                ? '0 0 8px rgba(244, 67, 54, 0.6)'
+                : stripeMode.mode === 'test'
+                  ? '0 0 8px rgba(76, 175, 80, 0.6)'
+                  : '0 0 8px rgba(244, 67, 54, 0.6)',
               animation: stripeMode.mode === 'mismatch' || stripeMode.mode === 'unknown' ? 'pulse 2s infinite' : 'none',
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
-              cursor: 'help',
-              title: stripeMode.message
+              cursor: 'help'
             }}
           >
             <span style={{ fontSize: '10px' }}>
-              {stripeMode.mode === 'live' || stripeMode.mode === 'test' ? '✅' : '⚠️'}
+              {stripeMode.mode === 'live' ? '⚠️' :
+               stripeMode.mode === 'test' ? '✅' :
+               '⚠️'}
             </span>
             <span>
               {stripeMode.mode === 'live' ? 'LIVE' :

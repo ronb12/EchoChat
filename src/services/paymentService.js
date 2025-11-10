@@ -70,12 +70,19 @@ class PaymentService {
   async getAccountStatus(userId) {
     try {
       const response = await fetch(`${this.apiBaseUrl}/stripe/account-status/${userId}`);
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error('Failed to get account status');
+        const errorMessage = (data && (data.error || data.message))
+          ? data.error || data.message
+          : `Failed to get account status (status ${response.status})`;
+        const errorToThrow = new Error(errorMessage);
+        errorToThrow.status = response.status;
+        errorToThrow.details = data;
+        throw errorToThrow;
       }
 
-      return await response.json();
+      return data;
     } catch (error) {
       console.error('Error getting account status:', error);
       // Fallback for dev mode

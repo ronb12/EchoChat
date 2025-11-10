@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
-import { useChat } from '../hooks/useChat';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import SendMoneyForm from './SendMoneyForm';
+import { paymentService } from '../services/paymentService';
 
 const COMMON_REASONS = [
   'Dinner/Meal',
@@ -20,6 +20,16 @@ const COMMON_REASONS = [
   'Other'
 ];
 
+const ACCOUNT_READY_STATES = new Set(['ready', 'charges_only']);
+
+const createInitialAccountState = () => ({
+  id: null,
+  status: 'idle',
+  chargesEnabled: false,
+  payoutsEnabled: false,
+  error: null
+});
+
 export default function SendMoneyModal({ recipientId, recipientName, onClose, initialMode = 'send' }) {
   const { showNotification } = useUI();
   const { user } = useAuth();
@@ -31,10 +41,14 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentIntentId, setPaymentIntentId] = useState(null);
   const [stripePromise, setStripePromise] = useState(null);
+  const [recipientAccount, setRecipientAccount] = useState(createInitialAccountState);
+  const [selfAccount, setSelfAccount] = useState(createInitialAccountState);
 
   // Initialize Stripe
   useEffect(() => {
-    const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+    const rawKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+    const stripePublishableKey = rawKey?.trim();
+
     if (stripePublishableKey) {
       // Log Stripe mode for debugging
       const isLive = stripePublishableKey.startsWith('pk_live_');
@@ -45,11 +59,106 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
         console.log('✅ Stripe TEST MODE - Using test environment');
       }
 
-      loadStripe(stripePublishableKey).then(stripe => {
-        setStripePromise(stripe);
-      });
+      loadStripe(stripePublishableKey)
+        .then((stripe) => {
+          if (!stripe) {
+            console.error('Failed to initialize Stripe.js. Publishable key may be invalid.');
+            showNotification('Unable to initialize Stripe payments. Please verify the Stripe publishable key.', 'error');
+            return;
+          }
+          setStripePromise(stripe);
+        })
+        .catch((error) => {
+          console.error('Error loading Stripe.js:', error);
+          showNotification('Failed to load Stripe payments. Please refresh and try again.', 'error');
+        });
     }
-  }, []);
+  }, [showNotification]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAccount = async (targetUserId, setAccountState, type) => {
+      if (!targetUserId) {
+        setAccountState({
+          id: null,
+          status: 'missing',
+          chargesEnabled: false,
+          payoutsEnabled: false,
+          error: type === 'recipient'
+            ? 'Recipient is unavailable.'
+            : 'You must be signed in to manage payments.'
+        });
+        return;
+      }
+
+      setAccountState((prev) => ({
+        ...prev,
+        status: 'loading',
+        error: null
+      }));
+
+      try {
+        const data = await paymentService.getAccountStatus(targetUserId);
+        if (cancelled) { return; }
+
+        const chargesEnabled = !!data?.chargesEnabled;
+        const payoutsEnabled = !!data?.payoutsEnabled;
+        let status = 'missing';
+
+        if (data?.accountId) {
+          if (chargesEnabled && payoutsEnabled) {
+            status = 'ready';
+          } else if (chargesEnabled) {
+            status = 'charges_only';
+          } else {
+            status = 'pending';
+          }
+        }
+
+        setAccountState({
+          id: data?.accountId || null,
+          status,
+          chargesEnabled,
+          payoutsEnabled,
+          error: !data?.accountId
+            ? (type === 'recipient'
+              ? 'This contact has not completed Stripe onboarding yet.'
+              : 'Complete your Stripe onboarding to receive payments.')
+            : null
+        });
+      } catch (error) {
+        if (cancelled) { return; }
+        const message = error?.message || 'Unable to load payment account.';
+        const isNotFound = message.toLowerCase().includes('not found');
+        setAccountState({
+          id: null,
+          status: isNotFound ? 'missing' : 'error',
+          chargesEnabled: false,
+          payoutsEnabled: false,
+          error: isNotFound
+            ? (type === 'recipient'
+              ? 'This contact has not connected a payout account yet.'
+              : 'Complete your Stripe onboarding to request payments.')
+            : message
+        });
+      }
+    };
+
+    loadAccount(recipientId, setRecipientAccount, 'recipient');
+    if (user?.uid) {
+      loadAccount(user.uid, setSelfAccount, 'self');
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [recipientId, user?.uid]);
+
+  useEffect(() => {
+    setClientSecret(null);
+    setPaymentIntentId(null);
+  }, [mode]);
 
   // Get the final note value (from dropdown or custom input)
   const getFinalNote = () => {
@@ -86,6 +195,11 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
       return;
     }
 
+    if (!user?.uid) {
+      showNotification('You must be signed in to send or request money.', 'error');
+      return;
+    }
+
     // Validate note is provided
     const finalNote = getFinalNote();
     if (!finalNote || finalNote.trim().length === 0) {
@@ -93,7 +207,28 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
       return;
     }
 
+    const accountContext = mode === 'send' ? recipientAccount : selfAccount;
+    const destinationAccountId = mode === 'send' ? recipientAccount.id : selfAccount.id;
+    const loadingMessage = mode === 'send'
+      ? 'Checking recipient payment account. Please wait a moment.'
+      : 'Checking your connected Stripe account. Please wait a moment.';
+    const onboardingMessage = mode === 'send'
+      ? 'Recipient has not completed Stripe onboarding yet. Ask them to connect their payment account in Settings.'
+      : 'Complete your Stripe onboarding in Settings before requesting money.';
+
+    if (accountContext.status === 'loading') {
+      showNotification(loadingMessage, 'info');
+      return;
+    }
+
+    if (!destinationAccountId || !ACCOUNT_READY_STATES.has(accountContext.status)) {
+      showNotification(onboardingMessage, 'error');
+      return;
+    }
+
     setSending(true);
+    let shouldCloseModal = false;
+
     try {
       // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
       const baseUrl = import.meta.env.VITE_API_BASE_URL
@@ -101,99 +236,101 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
       const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
 
       if (mode === 'send') {
-        // Send money flow
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/stripe/create-payment-intent`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              amount: numAmount,
-              recipientAccountId: recipientId, // In production, get this from recipient profile
-              description: finalNote,
-              metadata: {
-                senderId: user.uid,
-                recipientId,
-                note: finalNote,
-                type: 'send_money'
-              }
-            })
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            console.log('Payment intent created:', data);
-
-            if (data.clientSecret && stripePromise) {
-              // Store client secret for Stripe Elements payment form
-              setClientSecret(data.clientSecret);
-              setPaymentIntentId(data.paymentIntentId);
-              setSending(false); // Don't close modal yet - need payment confirmation
-              // Don't show notification yet - wait for payment confirmation
-            } else if (data.clientSecret) {
-              // Stripe not configured on frontend - show info
-              showNotification(`Payment intent created. Stripe publishable key not configured.`, 'info');
-              setSending(false);
-            } else {
-              // No client secret - demo mode
-              showNotification(`Successfully sent $${numAmount.toFixed(2)} to ${recipientName}`, 'success');
-              setTimeout(() => onClose(), 1500);
+        const response = await fetch(`${API_BASE_URL}/api/stripe/create-payment-intent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: numAmount,
+            recipientAccountId: destinationAccountId,
+            description: finalNote,
+            metadata: {
+              senderId: user.uid,
+              recipientId,
+              recipientAccountId: destinationAccountId,
+              note: finalNote,
+              type: 'send_money'
             }
-          } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create payment intent');
-          }
-        } catch (error) {
-          console.error('Payment API error (using demo mode):', error);
-          // Demo mode fallback
+          })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const errorMessage = data?.error || data?.message || 'Failed to create payment intent';
+          throw new Error(errorMessage);
+        }
+
+        console.log('Payment intent created:', data);
+
+        if (data?.message) {
+          showNotification(
+            data.message,
+            data?.needsTransfer ? 'warning' : 'info'
+          );
+        }
+
+        if (data?.clientSecret && stripePromise) {
+          // Store client secret for Stripe Elements payment form
+          setClientSecret(data.clientSecret);
+          setPaymentIntentId(data.paymentIntentId);
+        } else if (data?.clientSecret) {
+          // Stripe not configured on frontend - show info
+          showNotification('Payment intent created. Stripe publishable key not configured.', 'info');
+          shouldCloseModal = true;
+        } else {
+          // No client secret - demo mode or backend handled payment
           showNotification(`Successfully sent $${numAmount.toFixed(2)} to ${recipientName}`, 'success');
+          shouldCloseModal = true;
         }
       } else {
-        // Request money flow
-        try {
-          const response = await fetch(`${API_BASE_URL}/stripe/create-payment-request`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              amount: numAmount,
-              description: finalNote,
-              recipientAccountId: user.uid, // Requestor receives the money
-              metadata: {
-                requestorId: user.uid,
-                requestorName: user.displayName || user.email,
-                recipientId,
-                recipientName,
-                note: finalNote,
-                type: 'money_request'
-              }
-            })
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            showNotification(`Payment request created! Share this link: ${data.paymentLink}`, 'success');
-            // Optionally copy link to clipboard
-            if (navigator.clipboard) {
-              navigator.clipboard.writeText(data.paymentLink);
+        const response = await fetch(`${API_BASE_URL}/stripe/create-payment-request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: numAmount,
+            description: finalNote,
+            recipientAccountId: destinationAccountId,
+            metadata: {
+              requestorId: user.uid,
+              requestorName: user.displayName || user.email,
+              recipientId,
+              recipientName,
+              note: finalNote,
+              type: 'money_request'
             }
-          } else {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create payment request');
-          }
-        } catch (error) {
-          console.error('Payment request API error (using demo mode):', error);
-          // Demo mode fallback
-          showNotification(`Payment request for $${numAmount.toFixed(2)} created for ${recipientName}`, 'success');
+          })
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const errorMessage = data?.error || data?.message || 'Failed to create payment request';
+          throw new Error(errorMessage);
         }
+
+        showNotification(
+          `Payment request created! Share this link: ${data?.paymentLink || 'link unavailable'}`,
+          data?.paymentLink ? 'success' : 'info'
+        );
+
+        if (navigator.clipboard && data?.paymentLink) {
+          navigator.clipboard.writeText(data.paymentLink);
+        }
+
+        shouldCloseModal = true;
       }
 
-      // Close modal after short delay
-      setTimeout(() => {
-        onClose();
-      }, 1500);
-
+      if (shouldCloseModal) {
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      }
     } catch (error) {
       console.error(`Error ${mode === 'send' ? 'sending' : 'requesting'} money:`, error);
-      showNotification(`Failed to ${mode === 'send' ? 'send' : 'request'} money. Please try again.`, 'error');
+      showNotification(
+        `Failed to ${mode === 'send' ? 'send' : 'request'} money. ${error?.message || 'Please try again.'}`,
+        'error'
+      );
     } finally {
       setSending(false);
     }
@@ -201,6 +338,111 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
 
   const quickAmounts = [10, 25, 50, 100];
   const finalNote = getFinalNote();
+  const parsedAmount = parseFloat(amount);
+  const isAmountValid = !Number.isNaN(parsedAmount) && parsedAmount > 0;
+  const isAccountLoading = mode === 'send'
+    ? recipientAccount.status === 'loading'
+    : selfAccount.status === 'loading';
+  const isAccountReady = mode === 'send'
+    ? ACCOUNT_READY_STATES.has(recipientAccount.status)
+    : ACCOUNT_READY_STATES.has(selfAccount.status);
+  const isSubmitDisabled = sending
+    || !isAmountValid
+    || !finalNote
+    || isAccountLoading
+    || !isAccountReady;
+
+  const renderAccountNotice = () => {
+    const target = mode === 'send' ? recipientAccount : selfAccount;
+    const subject = mode === 'send' ? 'Recipient' : 'Your';
+
+    if (target.status === 'idle') {
+      return null;
+    }
+
+    let background = 'rgba(255, 193, 7, 0.12)';
+    let border = '1px solid rgba(255, 193, 7, 0.3)';
+    let color = 'var(--text-color)';
+    let message = target.error || '';
+    let icon = 'ℹ️';
+    let details = null;
+
+    switch (target.status) {
+      case 'loading':
+        background = 'rgba(33, 150, 243, 0.12)';
+        border = '1px solid rgba(33, 150, 243, 0.25)';
+        icon = '⏳';
+        message = `${subject === 'Recipient' ? 'Recipient' : 'Your'} payment account details are loading...`;
+        break;
+      case 'ready':
+        background = 'rgba(76, 175, 80, 0.12)';
+        border = '1px solid rgba(76, 175, 80, 0.25)';
+        icon = '✅';
+        message = `${subject === 'Recipient' ? 'Recipient has' : 'You have'} a fully active Stripe account.`;
+        break;
+      case 'charges_only':
+        background = 'rgba(255, 193, 7, 0.18)';
+        border = '1px solid rgba(255, 193, 7, 0.35)';
+        icon = '⚠️';
+        message = `${subject === 'Recipient' ? 'Recipient' : 'You'} can accept payments, but payouts are still pending. Funds will be held until onboarding is completed.`;
+        break;
+      case 'pending':
+        background = 'rgba(244, 67, 54, 0.12)';
+        border = '1px solid rgba(244, 67, 54, 0.3)';
+        color = '#f44336';
+        icon = '⛔️';
+        message = `${subject === 'Recipient' ? 'Recipient' : 'You'} must finish Stripe onboarding before payments can be processed.`;
+        details = target.error;
+        break;
+      case 'missing':
+        background = 'rgba(244, 67, 54, 0.12)';
+        border = '1px solid rgba(244, 67, 54, 0.3)';
+        color = '#f44336';
+        icon = '⛔️';
+        message = target.error || `${subject === 'Recipient' ? 'Recipient has' : 'You have'} not connected a Stripe account yet.`;
+        break;
+      case 'error':
+        background = 'rgba(244, 67, 54, 0.12)';
+        border = '1px solid rgba(244, 67, 54, 0.3)';
+        color = '#f44336';
+        icon = '⚠️';
+        message = 'Unable to verify Stripe account status right now.';
+        details = target.error;
+        break;
+      default:
+        break;
+    }
+
+    if (!message) {
+      return null;
+    }
+
+    return (
+      <div
+        style={{
+          marginTop: '1rem',
+          padding: '12px',
+          borderRadius: '8px',
+          background,
+          border,
+          color,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+          <span style={{ fontSize: '18px' }}>{icon}</span>
+          <span>{message}</span>
+        </div>
+        {details && (
+          <div style={{ fontSize: '13px', opacity: 0.85 }}>
+            {details}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="modal active" id="send-money-modal">
@@ -378,6 +620,8 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
             )}
           </div>
 
+          {renderAccountNotice()}
+
           <div style={{
             background: 'var(--border-color)',
             padding: '12px',
@@ -410,9 +654,13 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
 
           {/* Stripe Payment Form - shown when payment intent is created */}
           {clientSecret && stripePromise && mode === 'send' && (
-            <Elements stripe={stripePromise}>
+            <Elements
+              stripe={stripePromise}
+              options={{ clientSecret }}
+              key={clientSecret}
+            >
               <SendMoneyForm
-                amount={parseFloat(amount)}
+                amount={isAmountValid ? parsedAmount : 0}
                 recipientName={recipientName}
                 clientSecret={clientSecret}
                 onSuccess={(paymentIntent) => {
@@ -500,7 +748,7 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
               <button
                 className="btn btn-primary"
                 onClick={handleSend}
-                disabled={sending || !amount || parseFloat(amount) <= 0 || !finalNote}
+                disabled={isSubmitDisabled}
                 style={{ minWidth: '120px' }}
               >
                 {sending

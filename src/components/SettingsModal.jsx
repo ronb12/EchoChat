@@ -71,7 +71,7 @@ function SettingsModal() {
   const isProduction = import.meta.env.PROD;
   const fallbackOrigin = import.meta.env.PROD
     ? 'https://echodynamo-app.vercel.app'
-    : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
+    : 'http://localhost:3001';
   const baseUrl = import.meta.env.VITE_API_BASE_URL
     || (isProduction ? fallbackOrigin : 'http://localhost:3001');
   const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
