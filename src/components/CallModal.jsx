@@ -27,6 +27,7 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
   const hasEndedRef = useRef(false);
   const permissionWarningShownRef = useRef(false);
   const showNotificationRef = useRef(showNotification);
+  const [hasAccepted, setHasAccepted] = useState(!isIncoming);
 
   const buildMediaErrorMessage = (error, attemptedType) => {
     const isIOSDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -79,6 +80,7 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
     setActiveCallType(callType);
     setIsVideoEnabled(callType === 'video');
     permissionWarningShownRef.current = false;
+    setHasAccepted(!isIncoming);
   }, [callId, isIncoming, callType]);
 
   useEffect(() => {
@@ -152,6 +154,10 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
         return;
       }
 
+      if (isIncoming && !hasAccepted) {
+        return;
+      }
+
       try {
         if (isIncoming) {
           if (!offer || !callId) {
@@ -201,7 +207,7 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
         callService.endCall();
       }
     };
-  }, [callType, isIncoming, user, callId, chatId, receiverId, receiverName, callerId, callerName, offer]);
+  }, [callType, isIncoming, hasAccepted, user, callId, chatId, receiverId, receiverName, callerId, callerName, offer]);
 
   const handleEndCall = ({ triggerSource = 'manual', skipServiceCall = false } = {}) => {
     if (hasEndedRef.current) {
@@ -218,6 +224,14 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
       onEndCall();
     }
     closeCallModal();
+  };
+
+  const acceptCall = () => {
+    setHasAccepted(true);
+  };
+
+  const declineCall = () => {
+    handleEndCall();
   };
 
   const formatTime = (seconds) => {
@@ -316,64 +330,103 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
           gap: '1rem',
           alignItems: 'center'
         }}>
-          {activeCallType === 'video' && (
-            <button
-              className="call-control-btn"
-              onClick={() => {
-                callService.toggleVideo();
-              }}
-              style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '50%',
-                border: 'none',
-                background: isVideoEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,0,0,0.8)',
-                color: '#fff',
-                fontSize: '1.5rem',
-                cursor: 'pointer'
-              }}
-            >
-              {isVideoEnabled ? '📹' : '📵'}
-            </button>
+          {isIncoming && !hasAccepted ? (
+            <>
+              <button
+                className="call-control-btn"
+                onClick={declineCall}
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(255,0,0,0.85)',
+                  color: '#fff',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ❌
+              </button>
+              <button
+                className="call-control-btn"
+                onClick={acceptCall}
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(48,209,88,0.9)',
+                  color: '#fff',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ✅
+              </button>
+            </>
+          ) : (
+            <>
+              {activeCallType === 'video' && (
+                <button
+                  className="call-control-btn"
+                  onClick={() => {
+                    callService.toggleVideo();
+                  }}
+                  style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: isVideoEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,0,0,0.8)',
+                    color: '#fff',
+                    fontSize: '1.5rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isVideoEnabled ? '📹' : '📵'}
+                </button>
+              )}
+              <button
+                className="call-control-btn"
+                onClick={() => {
+                  callService.toggleAudio();
+                }}
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: isAudioEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,0,0,0.8)',
+                  color: '#fff',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer'
+                }}
+              >
+                {isAudioEnabled ? '🎤' : '🔇'}
+              </button>
+              <button
+                className="call-control-btn end-call"
+                onClick={handleEndCall}
+                style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(255,0,0,0.9)',
+                  color: '#fff',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer'
+                }}
+              >
+                📞
+              </button>
+            </>
           )}
-          <button
-            className="call-control-btn"
-            onClick={() => {
-              callService.toggleAudio();
-            }}
-            style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '50%',
-              border: 'none',
-              background: isAudioEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,0,0,0.8)',
-              color: '#fff',
-              fontSize: '1.5rem',
-              cursor: 'pointer'
-            }}
-          >
-            {isAudioEnabled ? '🎤' : '🔇'}
-          </button>
-          <button
-            className="call-control-btn end-call"
-            onClick={handleEndCall}
-            style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '50%',
-              border: 'none',
-              background: 'rgba(255,0,0,0.9)',
-              color: '#fff',
-              fontSize: '1.5rem',
-              cursor: 'pointer'
-            }}
-          >
-            📞
-          </button>
         </div>
 
         {/* Call Duration */}
-        {isConnected && (
+        {isConnected && hasAccepted && (
           <div style={{
             position: 'absolute',
             top: 20,
