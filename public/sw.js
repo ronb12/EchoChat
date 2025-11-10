@@ -142,6 +142,31 @@ function getCacheStrategy(request) {
   return CACHE_STRATEGIES.NETWORK_FIRST;
 }
 
+async function safeCachePut(cache, request, response) {
+  if (!response || !response.ok) {
+    return;
+  }
+
+  try {
+    await cache.put(request, response.clone());
+  } catch (error) {
+    const isOffline = typeof self !== 'undefined' &&
+      self.navigator &&
+      self.navigator.onLine === false;
+    const errorMessage = error?.message || '';
+    const isRecoverableError = errorMessage.includes('Failed to execute \'put\' on \'Cache\'') ||
+      errorMessage.includes('Cache storage quota') ||
+      errorMessage.includes('NetworkError');
+
+    if (isOffline || isRecoverableError) {
+      console.warn('[SW] Skipping cache.put for', request.url, '->', errorMessage);
+      return;
+    }
+
+    console.error('[SW] cache.put unexpected error:', error);
+  }
+}
+
 // Cache-first strategy
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
@@ -150,9 +175,7 @@ async function cacheFirst(request, cacheName) {
   
   try {
     const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone());
-    }
+    await safeCachePut(cache, request, networkResponse);
     return networkResponse;
   } catch (error) {
     // Return cached version even if stale
@@ -166,10 +189,7 @@ async function networkFirst(request, cacheName) {
   
   try {
     const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
-      // Update cache with fresh response
-      cache.put(request, networkResponse.clone());
-    }
+    await safeCachePut(cache, request, networkResponse);
     return networkResponse;
   } catch (error) {
     // Fallback to cache
@@ -192,9 +212,7 @@ async function staleWhileRevalidate(request, cacheName) {
   
   // Fetch fresh version in background
   const fetchPromise = fetch(request).then((networkResponse) => {
-    if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone());
-    }
+    safeCachePut(cache, request, networkResponse);
     return networkResponse;
   }).catch(() => null);
   
@@ -247,7 +265,14 @@ self.addEventListener('fetch', (event) => {
             return await networkFirst(event.request, cacheName);
         }
       } catch (error) {
-        console.error('[SW] Fetch error:', error);
+        const isOffline = typeof self !== 'undefined' &&
+          self.navigator &&
+          self.navigator.onLine === false;
+        if (isOffline) {
+          console.warn('[SW] Fetch skipped while offline:', event.request.url);
+        } else {
+          console.error('[SW] Fetch error:', error);
+        }
         // Return offline page for navigation requests
         if (event.request.mode === 'navigate') {
           const offlinePage = await caches.match('/');
