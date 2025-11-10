@@ -16,7 +16,8 @@ import {
   serverTimestamp,
   Timestamp,
   writeBatch,
-  setDoc
+  setDoc,
+  arrayUnion
 } from 'firebase/firestore';
 import {
   ref,
@@ -247,13 +248,28 @@ class FirestoreService {
     };
   }
 
-  async editMessage(messageId, newText) {
+  async editMessage(messageId, newText, editorId = null) {
     try {
       const messageRef = doc(this.db, 'messages', messageId);
+      const snapshot = await getDoc(messageRef);
+      if (!snapshot.exists()) {
+        throw new Error('Message not found');
+      }
+
+      const data = snapshot.data();
+      const previousText = data?.text || '';
+      const historyEntry = {
+        text: previousText,
+        editedAt: Timestamp.now(),
+        editedBy: editorId || null
+      };
+
       await updateDoc(messageRef, {
         text: newText,
         edited: true,
-        editedAt: serverTimestamp()
+        editedAt: serverTimestamp(),
+        lastEditedBy: editorId || null,
+        editHistory: arrayUnion(historyEntry)
       });
     } catch (error) {
       console.error('Error editing message:', error);

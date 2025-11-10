@@ -748,7 +748,7 @@ class ChatService {
   }
 
   // Add reaction to message
-  addReaction(chatId, messageId, emoji, userId) {
+  async addReaction(chatId, messageId, emoji, userId) {
     const messages = this.chatIdToMessages.get(chatId) || [];
     const message = messages.find(m => m.id === messageId);
     if (message) {
@@ -760,10 +760,19 @@ class ChatService {
       this.saveMessagesToStorage();
       this.notifyMessageSubscribers(chatId);
     }
+
+    if (this.useFirestore) {
+      try {
+        await firestoreService.addReaction(messageId, emoji, userId);
+      } catch (error) {
+        console.error('Firestore addReaction failed, falling back to localStorage:', error);
+        this.useFirestore = false;
+      }
+    }
   }
 
   // Remove reaction from message
-  removeReaction(chatId, messageId, emoji, userId) {
+  async removeReaction(chatId, messageId, emoji, userId) {
     const messages = this.chatIdToMessages.get(chatId) || [];
     const message = messages.find(m => m.id === messageId);
     if (message && message.reactions && message.reactions[emoji]) {
@@ -774,6 +783,15 @@ class ChatService {
       this.saveMessagesToStorage();
       this.notifyMessageSubscribers(chatId);
     }
+
+    if (this.useFirestore) {
+      try {
+        await firestoreService.removeReaction(messageId, emoji, userId);
+      } catch (error) {
+        console.error('Firestore removeReaction failed, falling back to localStorage:', error);
+        this.useFirestore = false;
+      }
+    }
   }
 
   // Edit message
@@ -781,7 +799,7 @@ class ChatService {
     // Use Firestore if available
     if (this.useFirestore) {
       try {
-        const updatedMessage = await firestoreService.editMessage(messageId, newText);
+        const updatedMessage = await firestoreService.editMessage(messageId, newText, userId);
         // Real-time subscription will handle notifying subscribers
         return updatedMessage;
       } catch (error) {
@@ -795,6 +813,16 @@ class ChatService {
     const messages = this.chatIdToMessages.get(chatId) || [];
     const message = messages.find(m => m.id === messageId);
     if (message && message.senderId === userId) {
+      const previousText = message.text || '';
+      if (!message.editHistory) {
+        message.editHistory = [];
+      }
+      message.editHistory.push({
+        text: previousText,
+        editedAt: Date.now(),
+        editedBy: userId || null
+      });
+      message.lastEditedBy = userId || null;
       message.text = newText;
       message.edited = true;
       message.editedAt = Date.now();

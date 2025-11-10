@@ -13,6 +13,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   const { openBlockUserModal, openForwardModal, showNotification } = useUI();
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
+  const [showEditHistory, setShowEditHistory] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message?.text || '');
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
@@ -25,6 +26,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
   const contextMenuRef = useRef(null);
   const editInputRef = useRef(null);
   const messageRef = useRef(null);
+  const editHistoryRef = useRef(null);
   const hasMarkedReadRef = useRef(false);
   const isIntersectingRef = useRef(false);
   const longPressTimeoutRef = useRef(null);
@@ -60,6 +62,28 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
       editInputRef.current.select();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    if (!showEditHistory) {return undefined;}
+
+    const handleOutsideClick = (event) => {
+      if (editHistoryRef.current && !editHistoryRef.current.contains(event.target)) {
+        setShowEditHistory(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [showEditHistory]);
+
+  useEffect(() => {
+    setShowEditHistory(false);
+  }, [message?.id]);
 
   useEffect(() => {
     return () => {
@@ -238,10 +262,38 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
 
   if (!message) {return null;}
 
+  const toDate = (value) => {
+    if (!value) {return null;}
+    if (value instanceof Date) {return value;}
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return new Date(value);
+    }
+    if (typeof value === 'string') {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    if (typeof value === 'object') {
+      if (typeof value.toDate === 'function') {
+        try {
+          return value.toDate();
+        } catch (_) {
+          // Fall through
+        }
+      }
+      if (typeof value.seconds === 'number') {
+        const millis = (value.seconds * 1000) + Math.round((value.nanoseconds || 0) / 1e6);
+        return new Date(millis);
+      }
+    }
+    return null;
+  };
+
   // Format timestamp
   const formatTimestamp = (timestamp) => {
-    if (!timestamp) {return '';}
-    const date = new Date(timestamp);
+    const date = toDate(timestamp);
+    if (!date) {return '';}
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -277,6 +329,34 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
     const seconds = rawDuration % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   })();
+  const editHistoryEntries = useMemo(() => {
+    if (!Array.isArray(message.editHistory)) {return [];}
+    return message.editHistory
+      .map((entry) => ({
+        ...entry,
+        editedAtDate: toDate(entry.editedAt)
+      }))
+      .sort((a, b) => {
+        const timeA = a.editedAtDate?.getTime?.() || 0;
+        const timeB = b.editedAtDate?.getTime?.() || 0;
+        return timeB - timeA;
+      });
+  }, [message.editHistory]);
+
+  const formatHistoryTimestamp = useCallback((value) => {
+    const date = toDate(value);
+    if (!date) {return 'Unknown time';}
+    return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }, []);
+
+  const formatEditorLabel = useCallback((editorId) => {
+    if (!editorId) {return 'Unknown';}
+    if (editorId === user?.uid) {return 'You';}
+    if (editorId === message.senderId) {
+      return senderDisplayName || 'Original sender';
+    }
+    return editorId.length > 12 ? `${editorId.slice(0, 12)}…` : editorId;
+  }, [message.senderId, senderDisplayName, user?.uid]);
   const displayText = decryptedText || message.text || (message.encryptedText ? '[Encrypted message]' : '');
   const audioDurationLabel = (() => {
     const rawDuration = Number.isFinite(message.audioDuration)
@@ -367,6 +447,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
     e.preventDefault();
     setShowContextMenu(true);
     setShowReactions(false);
+    setShowEditHistory(false);
   };
 
   const handleCopy = () => {
@@ -387,6 +468,18 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
     }
     setShowReactions(false);
     setShowContextMenu(false);
+    setShowEditHistory(false);
+  };
+
+  const handleViewEditHistory = () => {
+    if (Array.isArray(message.editHistory) && message.editHistory.length > 0) {
+      setShowEditHistory((prev) => !prev);
+    } else {
+      showNotification('No edit history for this message yet.', 'info');
+      setShowEditHistory(false);
+    }
+    setShowContextMenu(false);
+    setShowReactions(false);
   };
 
   const handleEdit = () => {
@@ -394,6 +487,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
       setIsEditing(true);
       setEditText(decryptedText || message.text || '');
       setShowContextMenu(false);
+      setShowEditHistory(false);
     }
   };
 
@@ -416,6 +510,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
     }
     setShowDeleteMenu(false);
     setShowContextMenu(false);
+    setShowEditHistory(false);
   };
 
   const handleForward = () => {
@@ -444,6 +539,7 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
     longPressTimeoutRef.current = window.setTimeout(() => {
       setShowContextMenu(true);
       setShowReactions(false);
+      setShowEditHistory(false);
     }, 550);
   };
 
@@ -537,6 +633,11 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
           <button onClick={handleCopy} className="context-menu-item">
             📋 Copy
           </button>
+          {Array.isArray(message.editHistory) && message.editHistory.length > 0 && (
+            <button onClick={handleViewEditHistory} className="context-menu-item">
+              🕓 View edit history
+            </button>
+          )}
           <button onClick={() => handleForward()} className="context-menu-item">
             ➡️ Forward
           </button>
@@ -652,9 +753,14 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
                   <>
                     {displayText}
                     {message.edited && (
-                      <span className="edited-indicator" title={`Edited at ${formatTimestamp(message.editedAt)}`}>
+                      <button
+                        type="button"
+                        className="edited-indicator"
+                        onClick={handleViewEditHistory}
+                        title={`Edited at ${formatTimestamp(message.editedAt)}`}
+                      >
                         (edited)
-                      </span>
+                      </button>
                     )}
                   </>
                 )}
@@ -725,6 +831,42 @@ export default function MessageBubble({ message, isOwn = false, chatId = 'demo',
               {emoji} {userIds.length > 1 ? userIds.length : ''}
             </button>
           ))}
+        </div>
+      )}
+
+      {showEditHistory && editHistoryEntries.length > 0 && (
+        <div
+          className={`message-edit-history ${isOwn ? 'align-right' : 'align-left'}`}
+          ref={editHistoryRef}
+        >
+          <div className="edit-history-header">
+            <span>Edit history</span>
+            <button
+              type="button"
+              className="edit-history-close"
+              onClick={() => setShowEditHistory(false)}
+              aria-label="Close edit history"
+            >
+              ×
+            </button>
+          </div>
+          <ul className="edit-history-list">
+            {editHistoryEntries.map((entry, index) => (
+              <li key={`${entry.editedAtDate?.getTime?.() || index}-${index}`} className="edit-history-item">
+                <div className="edit-history-meta">
+                  <span className="edit-history-time">{formatHistoryTimestamp(entry.editedAt)}</span>
+                  {entry.editedBy && (
+                    <span className="edit-history-author">
+                      {formatEditorLabel(entry.editedBy)}
+                    </span>
+                  )}
+                </div>
+                <div className="edit-history-text">
+                  {entry.text ? entry.text : <em>(message cleared)</em>}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
