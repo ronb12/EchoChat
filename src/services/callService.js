@@ -303,6 +303,7 @@ class CallService {
           this.notifyCallListeners('callTypeChanged', this.callType);
         }
         if (callData.answer && this.peerConnection) {
+          this.stopRingtone();
           if (this.peerConnection.signalingState === 'have-local-offer' || this.peerConnection.signalingState === 'stable') {
             try {
               await this.peerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
