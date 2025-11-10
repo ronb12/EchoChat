@@ -20,6 +20,14 @@ class CallService {
     this.callDocListener = null;
     this.localRole = null; // 'caller' or 'callee'
     this.receivedCandidateKeys = new Set();
+    this.ringtoneAudio = null;
+    this.answerToneAudio = null;
+    this.remoteAudioElement = null;
+    this.audioContext = null;
+    this.remoteGainNode = null;
+    this.remoteAudioSource = null;
+    this.ringtoneOscillator = null;
+    this.answerOscillator = null;
   }
 
   isRecoverableMediaError(error) {
@@ -127,10 +135,52 @@ class CallService {
       });
     }
 
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      if (!this.remoteAudioElement) {
+        this.remoteAudioElement = document.createElement('audio');
+        this.remoteAudioElement.autoplay = true;
+        this.remoteAudioElement.playsInline = true;
+        this.remoteAudioElement.style.display = 'none';
+        document.body.appendChild(this.remoteAudioElement);
+      }
+
+      if (!this.audioContext && (window.AudioContext || window.webkitAudioContext)) {
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          this.audioContext = new AudioContextClass();
+          this.remoteGainNode = this.audioContext.createGain();
+          this.remoteGainNode.connect(this.audioContext.destination);
+        } catch (error) {
+          console.warn('Failed to initialize AudioContext:', error?.message || error);
+        }
+      }
+    }
+
     // Handle remote stream
     this.peerConnection.ontrack = (event) => {
       this.remoteStream = event.streams[0];
       this.notifyCallListeners('remoteStream', this.remoteStream);
+      if (this.remoteAudioElement) {
+        this.remoteAudioElement.srcObject = this.remoteStream;
+        this.remoteAudioElement.play().catch((error) => {
+          console.warn('Unable to autoplay remote audio:', error?.message || error);
+        });
+      }
+      if (this.audioContext && this.remoteGainNode && this.remoteStream) {
+        try {
+          if (this.remoteAudioSource) {
+            this.remoteAudioSource.disconnect();
+          }
+          this.remoteAudioSource = this.audioContext.createMediaStreamSource(this.remoteStream);
+          this.remoteAudioSource.connect(this.remoteGainNode);
+          if (this.audioContext.state === 'suspended') {
+            this.audioContext.resume().catch(() => {});
+          }
+        } catch (error) {
+          console.warn('Failed to route remote audio through AudioContext:', error?.message || error);
+        }
+      }
+      this.stopRingtone();
     };
 
     // Handle ICE candidates
@@ -222,6 +272,8 @@ class CallService {
       // Create offer
       const offer = await this.peerConnection.createOffer();
       await this.peerConnection.setLocalDescription(offer);
+
+      this.startRingtone();
 
       const offerPayload = {
         type: offer.type,
@@ -376,6 +428,7 @@ class CallService {
       });
 
       this.notifyCallListeners('callAnswered', { type: this.callType, answer });
+      this.startAnswerTone();
 
       return answer;
     } catch (error) {
@@ -406,6 +459,9 @@ class CallService {
 
   // End call
   endCall() {
+    this.stopRingtone();
+    this.stopAnswerTone();
+
     if (this.answerListener) {
       this.answerListener();
       this.answerListener = null;
@@ -433,6 +489,16 @@ class CallService {
     if (this.peerConnection) {
       this.peerConnection.close();
       this.peerConnection = null;
+    }
+
+    if (this.remoteAudioElement) {
+      this.remoteAudioElement.srcObject = null;
+    }
+    if (this.remoteAudioSource) {
+      try {
+        this.remoteAudioSource.disconnect();
+      } catch (_) {}
+      this.remoteAudioSource = null;
     }
 
     this.remoteStream = null;
@@ -474,6 +540,102 @@ class CallService {
         audioTrack.enabled = !audioTrack.enabled;
         this.notifyCallListeners('audioToggled', audioTrack.enabled);
       }
+    }
+  }
+
+  startRingtone() {
+    if (typeof window === 'undefined') {return;}
+    this.stopRingtone();
+    const tryPlayFile = () => {
+      this.ringtoneAudio = new Audio('/sounds/outgoing-ring.mp3');
+      this.ringtoneAudio.loop = true;
+      this.ringtoneAudio.volume = 0.45;
+      return this.ringtoneAudio.play().catch(() => {
+        this.ringtoneAudio = null;
+        throw new Error('Audio autoplay blocked');
+      });
+    };
+
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {});
+    }
+
+    tryPlayFile().catch(() => {
+      if (this.audioContext) {
+        try {
+          this.ringtoneOscillator = this.audioContext.createOscillator();
+          const gain = this.audioContext.createGain();
+          gain.gain.setValueAtTime(0.12, this.audioContext.currentTime);
+          this.ringtoneOscillator.type = 'sine';
+          this.ringtoneOscillator.frequency.setValueAtTime(440, this.audioContext.currentTime);
+          this.ringtoneOscillator.connect(gain);
+          gain.connect(this.audioContext.destination);
+          this.ringtoneOscillator.start();
+        } catch (error) {
+          console.warn('Unable to create fallback ringtone oscillator:', error?.message || error);
+        }
+      }
+    });
+  }
+
+  stopRingtone() {
+    if (this.ringtoneAudio) {
+      this.ringtoneAudio.pause();
+      this.ringtoneAudio.currentTime = 0;
+      this.ringtoneAudio = null;
+    }
+    if (this.ringtoneOscillator) {
+      try {
+        this.ringtoneOscillator.stop();
+        this.ringtoneOscillator.disconnect();
+      } catch (_) {}
+      this.ringtoneOscillator = null;
+    }
+  }
+
+  startAnswerTone() {
+    if (typeof window === 'undefined') {return;}
+    this.stopAnswerTone();
+    const tryPlayFile = () => {
+      this.answerToneAudio = new Audio('/sounds/call-connected.mp3');
+      this.answerToneAudio.volume = 0.6;
+      return this.answerToneAudio.play().catch(() => {
+        this.answerToneAudio = null;
+        throw new Error('Audio autoplay blocked');
+      });
+    };
+
+    tryPlayFile().catch(() => {
+      if (this.audioContext) {
+        try {
+          this.answerOscillator = this.audioContext.createOscillator();
+          const gain = this.audioContext.createGain();
+          gain.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+          this.answerOscillator.type = 'triangle';
+          this.answerOscillator.frequency.setValueAtTime(880, this.audioContext.currentTime);
+          this.answerOscillator.connect(gain);
+          gain.connect(this.audioContext.destination);
+          this.answerOscillator.start();
+          this.answerOscillator.stop(this.audioContext.currentTime + 0.6);
+        } catch (error) {
+          console.warn('Unable to create answer tone oscillator:', error?.message || error);
+        }
+      }
+    });
+  }
+
+  stopAnswerTone() {
+    if (this.answerToneAudio) {
+      this.answerToneAudio.pause();
+      this.answerToneAudio.currentTime = 0;
+      this.answerToneAudio = null;
+    }
+    if (this.answerOscillator) {
+      try {
+        this.answerOscillator.stop();
+        this.answerOscillator.disconnect();
+      } catch (_) {}
+      this.answerOscillator = null;
     }
   }
 
