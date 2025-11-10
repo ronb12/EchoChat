@@ -78,11 +78,44 @@ class CallService {
 
   // Initialize peer connection
   async initializePeerConnection({ callId = null, role = null } = {}) {
+    const baseIceServers = [
+      {
+        urls: [
+          'stun:stun.l.google.com:19302',
+          'stun:stun1.l.google.com:19302',
+          'stun:stun2.l.google.com:19302',
+          'stun:stun3.l.google.com:19302'
+        ]
+      }
+    ];
+
+    const envTurnUrlsRaw = (import.meta?.env?.VITE_TURN_URLS || '').split(',')
+      .map(url => url.trim())
+      .filter(Boolean);
+    const envTurnUsername = import.meta?.env?.VITE_TURN_USERNAME;
+    const envTurnCredential = import.meta?.env?.VITE_TURN_CREDENTIAL;
+
+    if (envTurnUrlsRaw.length > 0) {
+      baseIceServers.push({
+        urls: envTurnUrlsRaw,
+        ...(envTurnUsername ? { username: envTurnUsername } : {}),
+        ...(envTurnCredential ? { credential: envTurnCredential } : {})
+      });
+    } else {
+      baseIceServers.push({
+        urls: [
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turn:openrelay.metered.ca:443?transport=tcp'
+        ],
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      });
+    }
+
     const configuration = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
+      iceServers: baseIceServers,
+      bundlePolicy: 'balanced'
     };
 
     this.peerConnection = new RTCPeerConnection(configuration);
@@ -118,6 +151,16 @@ class CallService {
       if (this.peerConnection.connectionState === 'disconnected' ||
           this.peerConnection.connectionState === 'failed') {
         this.endCall();
+      }
+    };
+
+    this.peerConnection.oniceconnectionstatechange = () => {
+      const state = this.peerConnection.iceConnectionState;
+      this.notifyCallListeners('iceConnectionState', state);
+      if (state === 'failed') {
+        this.notifyCallListeners('callError', {
+          message: 'We could not establish a stable media connection. This can happen when network firewalls block peer-to-peer traffic. Try again, switch networks, or ensure TURN access is available.'
+        });
       }
     };
   }

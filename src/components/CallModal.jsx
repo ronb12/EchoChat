@@ -102,12 +102,24 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
             setIsConnected(true);
           }
           break;
+        case 'iceConnectionState':
+          if (data === 'failed') {
+            showNotificationRef.current?.('We could not establish a stable media connection. Please try again or switch networks.', 'error', 7000);
+          } else if (data === 'disconnected') {
+            showNotificationRef.current?.('Call connection lost. Attempting to reconnect...', 'warning', 5000);
+          }
+          break;
         case 'callTypeChanged':
           if (typeof data === 'string') {
             setActiveCallType(data);
             if (data !== 'video') {
               setIsVideoEnabled(false);
             }
+          }
+          break;
+        case 'callError':
+          if (data?.message) {
+            showNotificationRef.current?.(data.message, 'error', 9000);
           }
           break;
         case 'mediaPermissionWarning':
