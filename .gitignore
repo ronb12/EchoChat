@@ -98,3 +98,4 @@ jspm_packages/
 # - src/components/VoiceRecorder.jsx
 # - src/services/authService.js
 # - src/services/firebaseConfig.js
+.vercel

@@ -23,6 +23,7 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
   const offer = callSession?.offer || null;
   const displayName = isIncoming ? callerName : receiverName;
   const hasInitializedRef = useRef(false);
+  const hasEndedRef = useRef(false);
 
   useEffect(() => {
     let interval;
@@ -36,6 +37,7 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
 
   useEffect(() => {
     hasInitializedRef.current = false;
+    hasEndedRef.current = false;
   }, [callId, isIncoming]);
 
   useEffect(() => {
@@ -60,7 +62,7 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
           }
           break;
         case 'callEnded':
-          handleEndCall();
+          handleEndCall({ triggerSource: 'listener', skipServiceCall: true });
           break;
         case 'videoToggled':
           setIsVideoEnabled(data);
@@ -122,12 +124,23 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
 
     return () => {
       unsubscribe();
-      callService.endCall();
+      if (!hasEndedRef.current) {
+        callService.endCall();
+      }
     };
   }, [callType, isIncoming, user, callId, chatId, receiverId, receiverName, callerId, callerName, offer]);
 
-  const handleEndCall = () => {
-    callService.endCall();
+  const handleEndCall = ({ triggerSource = 'manual', skipServiceCall = false } = {}) => {
+    if (hasEndedRef.current) {
+      if (triggerSource === 'listener') {
+        closeCallModal();
+      }
+      return;
+    }
+    hasEndedRef.current = true;
+    if (!skipServiceCall) {
+      callService.endCall();
+    }
     if (onEndCall) {
       onEndCall();
     }
