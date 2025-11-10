@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { callHistoryService } from '../services/callHistoryService';
-import { useDisplayName } from '../hooks/useDisplayName';
+import { profileService } from '../services/profileService';
+import { getDisplayName } from '../utils/userDisplayName';
 
 const formatTimestamp = (timestamp) => {
   if (!timestamp) {return 'Unknown';}
@@ -39,11 +40,6 @@ const formatDuration = (seconds) => {
   return `${mins}m ${secs}s`;
 };
 
-const OtherPartyName = React.memo(function OtherPartyName({ userId, fallback }) {
-  const name = useDisplayName(userId, fallback);
-  return name || fallback;
-});
-
 const formatStatus = (status) => {
   if (!status) {return 'Unknown';}
   const normalized = String(status).toLowerCase();
@@ -70,6 +66,7 @@ export default function CallHistoryModal() {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [profileCache, setProfileCache] = useState({});
 
   useEffect(() => {
     if (!showCallHistoryModal || !user?.uid) {
@@ -90,18 +87,66 @@ export default function CallHistoryModal() {
     };
   }, [showCallHistoryModal, user]);
 
+  useEffect(() => {
+    if (!entries || !user?.uid) {return;}
+    const missingIds = new Set();
+    entries.forEach((entry) => {
+      const isCaller = entry.callerId === user.uid;
+      const otherId = isCaller ? entry.receiverId : entry.callerId;
+      if (otherId && !profileCache[otherId]) {
+        missingIds.add(otherId);
+      }
+    });
+
+    if (missingIds.size === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const updates = {};
+      for (const otherId of missingIds) {
+        if (!otherId) {continue;}
+        try {
+          const profile = await profileService.getUserProfile(otherId);
+          const name = getDisplayName(profile, otherId);
+          updates[otherId] = {
+            name: name || otherId || 'Unknown',
+            avatar: profile?.photoURL || profile?.avatar || '/icons/default-avatar.png'
+          };
+        } catch (_) {
+          updates[otherId] = {
+            name: otherId || 'Unknown',
+            avatar: '/icons/default-avatar.png'
+          };
+        }
+      }
+
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setProfileCache((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entries, profileCache, user]);
+
   const enrichedEntries = useMemo(() => {
     if (!entries || !user?.uid) {return [];}
     return entries.map((entry) => {
       const isCaller = entry.callerId === user.uid;
       const otherPartyId = isCaller ? entry.receiverId : entry.callerId;
+      const cached = profileCache[otherPartyId] || {};
       return {
         ...entry,
         otherPartyId,
-        isCaller
+        isCaller,
+        otherPartyName: cached.name || otherPartyId || 'Unknown',
+        otherPartyAvatar: cached.avatar || '/icons/default-avatar.png'
       };
     });
-  }, [entries, user]);
+  }, [entries, profileCache, user]);
 
   if (!showCallHistoryModal) {
     return null;
@@ -151,9 +196,27 @@ export default function CallHistoryModal() {
                   {enrichedEntries.map((entry) => (
                     <tr key={entry.id}>
                       <td>
-                        <OtherPartyName userId={entry.otherPartyId} fallback={entry.otherPartyId || 'Unknown'} />
-                        <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                          {entry.callerId === user.uid ? 'You → Them' : 'Them → You'}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <img
+                            src={entry.otherPartyAvatar}
+                            alt={entry.otherPartyName}
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              border: '1px solid rgba(255,255,255,0.15)'
+                            }}
+                            onError={(event) => { event.currentTarget.src = '/icons/default-avatar.png'; }}
+                          />
+                          <div>
+                            <div style={{ fontWeight: 600 }}>
+                              {entry.otherPartyName}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
+                              {entry.callerId === user.uid ? 'You → Them' : 'Them → You'}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td style={{ textTransform: 'capitalize' }}>
