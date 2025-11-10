@@ -992,7 +992,45 @@ export default function ChatArea() {
     setSelectedFiles(newFiles);
   };
 
-  const handleStartCall = (type) => {
+  const requestCallPermissions = async (type) => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      showNotification('Calling requires a browser that supports camera and microphone access.', 'error', 8000);
+      return false;
+    }
+
+    const constraints = {
+      audio: true,
+      video: type === 'video' ? { facingMode: 'user' } : false
+    };
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch (error) {
+      console.error('Call permission error:', error);
+      const isIOSDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      let message;
+      if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+        message = type === 'video'
+          ? 'EchoDynamo needs access to your camera and microphone for video calls.'
+          : 'EchoDynamo needs access to your microphone for audio calls.';
+        message += isIOSDevice
+          ? ' Open the Settings app → Safari → Camera & Microphone and allow access, then reload EchoDynamo.'
+          : ' Please allow access in your browser address bar and try again.';
+      } else if (error?.name === 'NotFoundError') {
+        message = 'No camera or microphone was detected on this device.';
+      } else if (error?.name === 'NotReadableError') {
+        message = 'Another application is already using your camera or microphone. Close it and try again.';
+      } else {
+        message = 'We could not access your camera or microphone. Please check your browser permissions and try again.';
+      }
+      showNotification(message, 'error', 9000);
+      return false;
+    }
+  };
+
+  const handleStartCall = async (type) => {
     if (!currentChatId || !currentChat) {
       showNotification('Please select a chat first', 'info');
       return;
@@ -1008,6 +1046,11 @@ export default function ChatArea() {
 
     const receiverId = otherParticipants[0];
     const receiverName = currentChatContactName;
+
+    const hasPermissions = await requestCallPermissions(type);
+    if (!hasPermissions) {
+      return;
+    }
 
     openCallModal({
       type,

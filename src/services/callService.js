@@ -48,8 +48,8 @@ class CallService {
   async acquireLocalMedia(callType) {
     const wantsVideo = callType === 'video';
     const constraints = {
-      video: wantsVideo,
-      audio: true
+      audio: true,
+      video: wantsVideo ? { facingMode: 'user' } : false
     };
 
     try {

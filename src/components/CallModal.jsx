@@ -28,6 +28,37 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
   const permissionWarningShownRef = useRef(false);
   const showNotificationRef = useRef(showNotification);
 
+  const buildMediaErrorMessage = (error, attemptedType) => {
+    const isIOSDevice = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!error) {
+      return 'We could not access your camera or microphone. Please check your browser permissions and try again.';
+    }
+
+    const isVideoAttempt = attemptedType === 'video';
+
+    if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+      if (isIOSDevice) {
+        return isVideoAttempt
+          ? 'Camera or microphone access is blocked. On iPhone, open Settings → Safari → Camera & Microphone and allow access, then reload EchoDynamo.'
+          : 'Microphone access is blocked. On iPhone, open Settings → Safari → Microphone and allow access, then reload EchoDynamo.';
+      }
+
+      return isVideoAttempt
+        ? 'Camera or microphone access was denied. Please allow access in your browser address bar and try again.'
+        : 'Microphone access was denied. Please allow access in your browser address bar and try again.';
+    }
+
+    if (error.name === 'NotFoundError') {
+      return 'We could not find a camera or microphone on this device. Please connect one and try again.';
+    }
+
+    if (error.name === 'NotReadableError') {
+      return 'Another application is already using your camera or microphone. Close it and try again.';
+    }
+
+    return 'Something went wrong while starting the call. Please check your camera and microphone permissions and try again.';
+  };
+
   useEffect(() => {
     showNotificationRef.current = showNotification;
   }, [showNotification]);
@@ -144,8 +175,9 @@ export default function CallModal({ callType = 'video', callSession = null, isIn
         hasInitializedRef.current = true;
       } catch (error) {
         console.error('Call error:', error);
-        alert('Error establishing call. Please check your camera/microphone permissions.');
-        handleEndCall();
+        const friendlyMessage = buildMediaErrorMessage(error, callType);
+        showNotificationRef.current?.(friendlyMessage, 'error', 9000);
+        handleEndCall({ skipServiceCall: true });
       }
     };
 
