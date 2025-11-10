@@ -28,6 +28,8 @@ class CallService {
     this.remoteAudioSource = null;
     this.ringtoneOscillator = null;
     this.answerOscillator = null;
+    this.ringIntervalId = null;
+    this.ringtoneGainNode = null;
   }
 
   isRecoverableMediaError(error) {
@@ -546,36 +548,57 @@ class CallService {
   startRingtone() {
     if (typeof window === 'undefined') {return;}
     this.stopRingtone();
-    const tryPlayFile = () => {
-      this.ringtoneAudio = new Audio('/sounds/outgoing-ring.mp3');
-      this.ringtoneAudio.loop = true;
-      this.ringtoneAudio.volume = 0.45;
-      return this.ringtoneAudio.play().catch(() => {
-        this.ringtoneAudio = null;
-        throw new Error('Audio autoplay blocked');
-      });
-    };
 
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      this.audioContext.resume().catch(() => {});
-    }
-
-    tryPlayFile().catch(() => {
-      if (this.audioContext) {
+    const ensureContext = () => {
+      if (!this.audioContext || (this.audioContext?.state === 'closed')) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {return false;}
         try {
-          this.ringtoneOscillator = this.audioContext.createOscillator();
-          const gain = this.audioContext.createGain();
-          gain.gain.setValueAtTime(0.12, this.audioContext.currentTime);
-          this.ringtoneOscillator.type = 'sine';
-          this.ringtoneOscillator.frequency.setValueAtTime(440, this.audioContext.currentTime);
-          this.ringtoneOscillator.connect(gain);
-          gain.connect(this.audioContext.destination);
-          this.ringtoneOscillator.start();
+          this.audioContext = new AudioContextClass();
         } catch (error) {
-          console.warn('Unable to create fallback ringtone oscillator:', error?.message || error);
+          console.warn('Unable to create AudioContext for ringtone:', error?.message || error);
+          return false;
         }
       }
-    });
+      if (this.audioContext.state === 'suspended') {
+        this.audioContext.resume().catch(() => {});
+      }
+      return true;
+    };
+
+    if (!ensureContext()) {return;}
+
+    try {
+      const ctx = this.audioContext;
+      this.ringtoneGainNode = ctx.createGain();
+      this.ringtoneGainNode.gain.setValueAtTime(0, ctx.currentTime);
+      this.ringtoneGainNode.connect(ctx.destination);
+
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      osc1.type = 'sine';
+      osc2.type = 'sine';
+      osc1.frequency.setValueAtTime(440, ctx.currentTime);
+      osc2.frequency.setValueAtTime(480, ctx.currentTime);
+      osc1.connect(this.ringtoneGainNode);
+      osc2.connect(this.ringtoneGainNode);
+      osc1.start();
+      osc2.start();
+      this.ringtoneOscillator = [osc1, osc2];
+
+      const ringPattern = () => {
+        if (!this.audioContext || !this.ringtoneGainNode) {return;}
+        const now = this.audioContext.currentTime;
+        this.ringtoneGainNode.gain.cancelScheduledValues(now);
+        this.ringtoneGainNode.gain.setValueAtTime(0.22, now);
+        this.ringtoneGainNode.gain.setValueAtTime(0, now + 1);
+      };
+
+      ringPattern();
+      this.ringIntervalId = window.setInterval(ringPattern, 3000);
+    } catch (error) {
+      console.warn('Failed to synthesize ringtone:', error?.message || error);
+    }
   }
 
   stopRingtone() {
@@ -584,44 +607,54 @@ class CallService {
       this.ringtoneAudio.currentTime = 0;
       this.ringtoneAudio = null;
     }
-    if (this.ringtoneOscillator) {
-      try {
-        this.ringtoneOscillator.stop();
-        this.ringtoneOscillator.disconnect();
-      } catch (_) {}
+    if (Array.isArray(this.ringtoneOscillator)) {
+      this.ringtoneOscillator.forEach((osc) => {
+        try {
+          osc.stop();
+          osc.disconnect();
+        } catch (_) {}
+      });
       this.ringtoneOscillator = null;
+    }
+    if (this.ringtoneGainNode) {
+      try { this.ringtoneGainNode.disconnect(); } catch (_) {}
+      this.ringtoneGainNode = null;
+    }
+    if (this.ringIntervalId) {
+      window.clearInterval(this.ringIntervalId);
+      this.ringIntervalId = null;
     }
   }
 
   startAnswerTone() {
     if (typeof window === 'undefined') {return;}
     this.stopAnswerTone();
-    const tryPlayFile = () => {
-      this.answerToneAudio = new Audio('/sounds/call-connected.mp3');
-      this.answerToneAudio.volume = 0.6;
-      return this.answerToneAudio.play().catch(() => {
-        this.answerToneAudio = null;
-        throw new Error('Audio autoplay blocked');
-      });
-    };
+    if (!this.audioContext) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) {return;}
+      this.audioContext = new AudioContextClass();
+    }
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {});
+    }
+    try {
+      const ctx = this.audioContext;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.connect(ctx.destination);
 
-    tryPlayFile().catch(() => {
-      if (this.audioContext) {
-        try {
-          this.answerOscillator = this.audioContext.createOscillator();
-          const gain = this.audioContext.createGain();
-          gain.gain.setValueAtTime(0.2, this.audioContext.currentTime);
-          this.answerOscillator.type = 'triangle';
-          this.answerOscillator.frequency.setValueAtTime(880, this.audioContext.currentTime);
-          this.answerOscillator.connect(gain);
-          gain.connect(this.audioContext.destination);
-          this.answerOscillator.start();
-          this.answerOscillator.stop(this.audioContext.currentTime + 0.6);
-        } catch (error) {
-          console.warn('Unable to create answer tone oscillator:', error?.message || error);
-        }
-      }
-    });
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.connect(gain);
+      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.55);
+      this.answerOscillator = osc;
+    } catch (error) {
+      console.warn('Failed to synthesize answer tone:', error?.message || error);
+    }
   }
 
   stopAnswerTone() {
