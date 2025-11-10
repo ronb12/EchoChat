@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { callHistoryService } from '../services/callHistoryService';
+import { useDisplayName } from '../hooks/useDisplayName';
 
 const formatTimestamp = (timestamp) => {
   if (!timestamp) {return 'Unknown';}
@@ -38,6 +39,11 @@ const formatDuration = (seconds) => {
   return `${mins}m ${secs}s`;
 };
 
+const OtherPartyName = React.memo(function OtherPartyName({ userId, fallback }) {
+  const name = useDisplayName(userId, fallback);
+  return name || fallback;
+});
+
 const formatStatus = (status) => {
   if (!status) {return 'Unknown';}
   const normalized = String(status).toLowerCase();
@@ -64,7 +70,6 @@ export default function CallHistoryModal() {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [nameCache, setNameCache] = useState({});
 
   useEffect(() => {
     if (!showCallHistoryModal || !user?.uid) {
@@ -85,47 +90,6 @@ export default function CallHistoryModal() {
     };
   }, [showCallHistoryModal, user]);
 
-  useEffect(() => {
-    if (!entries || !user?.uid) {return;}
-    const uniqueUserIds = new Set();
-    entries.forEach((entry) => {
-      const isCaller = entry.callerId === user.uid;
-      const otherPartyId = isCaller ? entry.receiverId : entry.callerId;
-      if (otherPartyId && !nameCache[otherPartyId]) {
-        uniqueUserIds.add(otherPartyId);
-      }
-    });
-
-    if (uniqueUserIds.size === 0) {
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      const { profileService } = await import('../services/profileService');
-      const { getDisplayName } = await import('../utils/userDisplayName');
-
-      const updates = {};
-      for (const otherId of uniqueUserIds) {
-        try {
-          const profile = await profileService.getUserProfile(otherId);
-          const name = getDisplayName(profile, otherId);
-          updates[otherId] = name || otherId;
-        } catch (error) {
-          updates[otherId] = otherId || 'Unknown';
-        }
-      }
-
-      if (!cancelled) {
-        setNameCache((prev) => ({ ...prev, ...updates }));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [entries, nameCache, user]);
-
   const enrichedEntries = useMemo(() => {
     if (!entries || !user?.uid) {return [];}
     return entries.map((entry) => {
@@ -134,11 +98,10 @@ export default function CallHistoryModal() {
       return {
         ...entry,
         otherPartyId,
-        isCaller,
-        otherPartyName: nameCache[otherPartyId] || otherPartyId || 'Unknown'
+        isCaller
       };
     });
-  }, [entries, nameCache, user]);
+  }, [entries, user]);
 
   if (!showCallHistoryModal) {
     return null;
@@ -188,7 +151,7 @@ export default function CallHistoryModal() {
                   {enrichedEntries.map((entry) => (
                     <tr key={entry.id}>
                       <td>
-                        {entry.otherPartyId || 'Unknown'}
+                        <OtherPartyName userId={entry.otherPartyId} fallback={entry.otherPartyId || 'Unknown'} />
                         <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>
                           {entry.callerId === user.uid ? 'You → Them' : 'Them → You'}
                         </div>
