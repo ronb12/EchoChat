@@ -16,8 +16,8 @@ export default function ParentApprovalModal() {
   }, [showParentApprovalModal, user]);
 
   const loadPendingApprovals = async () => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     setLoading(true);
     try {
       const approvals = await minorSafetyService.getPendingApprovals(user.uid);
@@ -31,8 +31,8 @@ export default function ParentApprovalModal() {
   };
 
   const handleApprove = async (approvalId) => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     try {
       await minorSafetyService.approveContact(user.uid, approvalId);
       showNotification('Contact approved for your child', 'success');
@@ -44,8 +44,8 @@ export default function ParentApprovalModal() {
   };
 
   const handleReject = async (approvalId) => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     try {
       await minorSafetyService.rejectContact(user.uid, approvalId);
       showNotification('Contact request rejected', 'success');
@@ -56,7 +56,7 @@ export default function ParentApprovalModal() {
     }
   };
 
-  if (!showParentApprovalModal) return null;
+  if (!showParentApprovalModal) {return null;}
 
   return (
     <div className="modal active" id="parent-approval-modal">
@@ -67,9 +67,9 @@ export default function ParentApprovalModal() {
           <button className="modal-close" onClick={closeParentApprovalModal}>&times;</button>
         </div>
         <div className="modal-body">
-          <div style={{ 
-            padding: '1rem', 
-            background: 'var(--warning-bg, #fff3cd)', 
+          <div style={{
+            padding: '1rem',
+            background: 'var(--warning-bg, #fff3cd)',
             borderRadius: '8px',
             marginBottom: '1rem'
           }}>
@@ -92,8 +92,8 @@ export default function ParentApprovalModal() {
                 <div
                   key={approval.id}
                   className="chat-item"
-                  style={{ 
-                    padding: '1rem', 
+                  style={{
+                    padding: '1rem',
                     borderBottom: '1px solid var(--border-color)',
                     borderLeft: '4px solid var(--warning-color, #ffc107)'
                   }}

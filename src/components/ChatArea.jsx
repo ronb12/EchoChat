@@ -18,6 +18,43 @@ import PollCreatorModal from './PollCreatorModal';
 import ScheduleMessageModal from './ScheduleMessageModal';
 import { EMOJI_LIST } from '../data/emojis';
 
+function MicIcon({ size = 22 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z" />
+      <path d="M19 11a7 7 0 0 1-14 0" />
+      <path d="M12 19v3" />
+      <path d="M8 22h8" />
+    </svg>
+  );
+}
+
+function StopIcon({ size = 22 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="6" y="6" width="12" height="12" rx="3" />
+    </svg>
+  );
+}
+
 export default function ChatArea() {
   const { messages, currentChatId, setCurrentChatId, chats } = useChat();
   const { user, signOut, setUser } = useAuth();
@@ -1334,7 +1371,6 @@ export default function ChatArea() {
                           console.log('Recording size:', size);
                         });
                         setIsRecordingVideo(true);
-                        setShowVideoRecorder(true);
                         showNotification('Video recording started', 'success');
                       } catch (error) {
                         showNotification(`Error starting video recording: ${error.message}`, 'error');
@@ -2047,6 +2083,8 @@ export default function ChatArea() {
             <button
               className={`input-action-btn voice-btn ${isRecordingVoice ? 'recording' : ''}`}
               title={isRecordingVoice ? 'Stop recording' : 'Record voice message'}
+              aria-label={isRecordingVoice ? 'Stop recording' : 'Record voice message'}
+              aria-pressed={isRecordingVoice}
               onClick={() => {
                 if (!currentChatId) {
                   showNotification('Please select a chat before recording.', 'info');
@@ -2059,8 +2097,10 @@ export default function ChatArea() {
                 }
               }}
               disabled={isSendingVoice}
+              type="button"
+              data-state={isRecordingVoice ? 'recording' : 'idle'}
             >
-              {isRecordingVoice ? '⏹️' : '🎙️'}
+              {isRecordingVoice ? <StopIcon /> : <MicIcon />}
             </button>
             <button
               className="input-action-btn money-btn"

@@ -629,7 +629,6 @@ class ChatService {
       deletedAt: null,
       deletedForEveryone: false,
       // Preserve media fields
-      sticker: message.sticker || null,
       stickerId: message.stickerId || null,
       stickerPackId: message.stickerPackId || null,
       image: shouldEncrypt ? null : (message.image || null),

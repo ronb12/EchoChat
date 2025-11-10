@@ -13,8 +13,8 @@ export default function ContactRequestModal() {
 
   // Load sent requests
   const loadSentRequests = useCallback(async () => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     try {
       const requests = await contactService.getSentRequests(user.uid);
       // Fetch user details for each sent request
@@ -56,10 +56,10 @@ export default function ContactRequestModal() {
 
     if (showContactRequestModal) {
       setLoading(true);
-      
+
       // Load sent requests
       loadSentRequests();
-      
+
       // Set up real-time listener for immediate updates
       unsubscribe = contactService.subscribeToPendingRequests(
         user.uid,
@@ -84,12 +84,11 @@ export default function ContactRequestModal() {
   }, [showContactRequestModal, user, loadSentRequests]);
 
   const handleAccept = async (requestId) => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     try {
       await contactService.acceptContactRequest(user.uid, requestId);
       showNotification('Contact request accepted', 'success');
-      loadPendingRequests();
     } catch (error) {
       console.error('❌ Error accepting request:', error);
       console.error('   Error message:', error?.message || 'No message');
@@ -101,8 +100,8 @@ export default function ContactRequestModal() {
   };
 
   const handleReject = async (requestId) => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     try {
       await contactService.rejectContactRequest(user.uid, requestId);
       showNotification('Contact request rejected', 'success');
@@ -114,8 +113,8 @@ export default function ContactRequestModal() {
   };
 
   const handleDeleteSentRequest = async (toUserId) => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     try {
       const result = await contactService.deleteContactRequest(user.uid, toUserId);
       if (result.success) {
@@ -131,15 +130,15 @@ export default function ContactRequestModal() {
   };
 
   const handleResendRequest = async (toUserId) => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     try {
       // First delete the old request
       await contactService.deleteContactRequest(user.uid, toUserId);
-      
+
       // Wait a bit for deletion to complete
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Send a new request
       const result = await contactService.sendContactRequest(user.uid, toUserId);
       if (result.success) {
@@ -154,7 +153,7 @@ export default function ContactRequestModal() {
     }
   };
 
-  if (!showContactRequestModal) return null;
+  if (!showContactRequestModal) {return null;}
 
   return (
     <div className="modal active" id="contact-request-modal">
@@ -164,7 +163,7 @@ export default function ContactRequestModal() {
           <h2>Contact Requests</h2>
           <button className="modal-close" onClick={closeContactRequestModal}>&times;</button>
         </div>
-        
+
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1rem' }}>
           <button
@@ -296,8 +295,8 @@ export default function ContactRequestModal() {
                       <button
                         className="btn btn-danger"
                         onClick={() => handleDeleteSentRequest(request.toUserId)}
-                        style={{ 
-                          fontSize: '0.875rem', 
+                        style={{
+                          fontSize: '0.875rem',
                           padding: '0.5rem 1rem',
                           background: '#f44336',
                           color: 'white',

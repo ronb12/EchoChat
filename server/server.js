@@ -42,7 +42,15 @@ const stripe = stripeKey ? new Stripe(stripeKey, {
 
 // Middleware
 // CORS configuration - allow multiple origins including Firebase hosting
-const defaultOrigins = 'http://localhost:3000,http://localhost:3002,http://localhost:5173,https://echochat-messaging.web.app,https://echochat-messaging.firebaseapp.com';
+const defaultOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3002',
+  'http://localhost:5173',
+  'https://echochat-messaging.web.app',
+  'https://echochat-messaging.firebaseapp.com',
+  'https://echodynamo.vercel.app',
+  'https://echodynamo.web.app',
+].join(',');
 const allowedOrigins = (process.env.CORS_ORIGIN || defaultOrigins).split(',');
 app.use(cors({
   origin: function (origin, callback) {
@@ -53,6 +61,8 @@ app.use(cors({
         allowedOrigins.includes('*') ||
         origin.includes('echochat-messaging.web.app') ||
         origin.includes('echochat-messaging.firebaseapp.com') ||
+        origin.includes('echodynamo.vercel.app') ||
+        origin.includes('echodynamo.web.app') ||
         origin.includes('localhost')) {
       callback(null, true);
     } else {

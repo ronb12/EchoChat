@@ -22,13 +22,13 @@ export default function AdminDashboard() {
   }, [showAdminDashboard, user]);
 
   const checkAdminStatus = async () => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     setLoading(true);
     try {
       const admin = await adminService.isAdmin(user.uid, user.email);
       setIsAdmin(admin);
-      
+
       if (admin) {
         loadOverview();
       } else {
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
     }
   }, [activeTab, isAdmin]);
 
-  if (!showAdminDashboard) return null;
+  if (!showAdminDashboard) {return null;}
 
   if (loading) {
     return (
@@ -131,7 +131,7 @@ export default function AdminDashboard() {
   }
 
   const formatDate = (timestamp) => {
-    if (!timestamp) return 'N/A';
+    if (!timestamp) {return 'N/A';}
     return new Date(timestamp).toLocaleString();
   };
 
@@ -163,7 +163,7 @@ export default function AdminDashboard() {
           <h2>🔐 Admin Dashboard</h2>
           <button className="modal-close" onClick={closeAdminDashboard}>&times;</button>
         </div>
-        
+
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
           <button
             className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
@@ -233,7 +233,7 @@ export default function AdminDashboard() {
           {!loadingData && activeTab === 'overview' && stats && (
             <div>
               <h3 style={{ marginBottom: '1.5rem' }}>📊 Statistics Overview</h3>
-              
+
               {/* Ratings Stats */}
               <div style={{ marginBottom: '2rem', padding: '1.5rem', background: 'var(--surface-color)', borderRadius: '8px' }}>
                 <h4>⭐ App Ratings</h4>
@@ -351,9 +351,9 @@ export default function AdminDashboard() {
                     <div key={request.id} style={{ padding: '1.5rem', background: 'var(--surface-color)', borderRadius: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
                         <h4 style={{ margin: 0 }}>{request.title}</h4>
-                        <span style={{ 
-                          padding: '0.25rem 0.75rem', 
-                          borderRadius: '12px', 
+                        <span style={{
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '12px',
                           background: getStatusColor(request.status),
                           color: 'white',
                           fontSize: '0.875rem'
@@ -387,18 +387,18 @@ export default function AdminDashboard() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
                         <h4 style={{ margin: 0 }}>{ticket.subject}</h4>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <span style={{ 
-                            padding: '0.25rem 0.75rem', 
-                            borderRadius: '12px', 
+                          <span style={{
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '12px',
                             background: getStatusColor(ticket.status),
                             color: 'white',
                             fontSize: '0.875rem'
                           }}>
                             {ticket.status}
                           </span>
-                          <span style={{ 
-                            padding: '0.25rem 0.75rem', 
-                            borderRadius: '12px', 
+                          <span style={{
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '12px',
                             background: getPriorityColor(ticket.priority),
                             color: 'white',
                             fontSize: '0.875rem'

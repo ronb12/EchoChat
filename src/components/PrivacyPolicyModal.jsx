@@ -120,7 +120,7 @@ export default function PrivacyPolicyModal() {
                 <li><strong>Privacy Settings:</strong> Control visibility of your profile, status, and last seen</li>
               </ul>
               <p style={{ marginTop: '1rem' }}>
-                To exercise these rights, please contact us at <strong>privacy@echochat.com</strong>
+                To exercise these rights, please contact us at <strong>privacy@echodynamo.com</strong>
               </p>
             </section>
 
@@ -171,8 +171,8 @@ export default function PrivacyPolicyModal() {
                 If you have questions or concerns about this Privacy Policy or our data practices, please contact us:
               </p>
               <div style={{ background: 'var(--surface-color)', padding: '1rem', borderRadius: '8px', marginTop: '1rem' }}>
-                <p style={{ marginBottom: '0.5rem' }}><strong>Email:</strong> privacy@echochat.com</p>
-                <p style={{ marginBottom: '0.5rem' }}><strong>Support:</strong> support@echochat.com</p>
+                <p style={{ marginBottom: '0.5rem' }}><strong>Email:</strong> privacy@echodynamo.com</p>
+                <p style={{ marginBottom: '0.5rem' }}><strong>Support:</strong> support@echodynamo.com</p>
                 <p><strong>Address:</strong> EchoDynamo Privacy Team</p>
               </div>
             </section>

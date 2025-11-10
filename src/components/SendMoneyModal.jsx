@@ -31,7 +31,7 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentIntentId, setPaymentIntentId] = useState(null);
   const [stripePromise, setStripePromise] = useState(null);
-  
+
   // Initialize Stripe
   useEffect(() => {
     const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
@@ -44,7 +44,7 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
       } else if (isTest) {
         console.log('✅ Stripe TEST MODE - Using test environment');
       }
-      
+
       loadStripe(stripePublishableKey).then(stripe => {
         setStripePromise(stripe);
       });
@@ -121,7 +121,7 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
           if (response.ok) {
             const data = await response.json();
             console.log('Payment intent created:', data);
-            
+
             if (data.clientSecret && stripePromise) {
               // Store client secret for Stripe Elements payment form
               setClientSecret(data.clientSecret);
@@ -438,7 +438,7 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
             const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
             const isLive = stripePublishableKey?.startsWith('pk_live_');
             const isTest = stripePublishableKey?.startsWith('pk_test_');
-            
+
             if (isLive) {
               return (
                 <div style={{
@@ -471,7 +471,7 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
             }
             return null;
           })()}
-          
+
           {/* Demo Mode Notice - only show if Stripe not configured */}
           {!stripePromise && (
             <div style={{

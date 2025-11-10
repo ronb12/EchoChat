@@ -38,13 +38,13 @@ export default function NewChatModal() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!user) return;
+      if (!user) {return;}
 
       try {
         // Check if user is a minor
         const minorCheck = await minorSafetyService.isMinor(user.uid);
         setIsMinor(minorCheck);
-        
+
         // Load blocked users, contacts, and pending requests
         const [blocked, userContacts] = await Promise.all([
           firestoreService.getBlockedUsers(user.uid),
@@ -53,10 +53,10 @@ export default function NewChatModal() {
 
         const blockedIds = Array.isArray(blocked) ? blocked : [];
         const contactIds = userContacts.map(c => c.id);
-        
+
         setBlockedUsers(blockedIds);
         setContacts(contactIds);
-        
+
         // Load sent requests to show which users have pending requests
         try {
           const sentRequests = await contactService.getSentRequests(user.uid);
@@ -100,40 +100,40 @@ export default function NewChatModal() {
     try {
       const queryLower = searchQuery.trim().toLowerCase();
       const usersRef = collection(db, 'users');
-      
+
       console.log('🔍 Searching for:', searchQuery);
       console.log('🔍 Query (lowercase):', queryLower);
-      
+
       let foundUser = null;
       let allUsers = [];
-      
+
       // Get all users and filter client-side for case-insensitive matching
       // This is more reliable than exact email matching
       try {
         console.log('📡 Fetching users from Firestore...');
         const usersSnapshot = await getDocs(usersRef);
         console.log('📊 Total users in database:', usersSnapshot.size);
-        
+
         // Collect all matching users first, then pick the best one
         const matchingUsers = [];
-        
+
         usersSnapshot.forEach((docSnap) => {
           const userData = docSnap.data();
           const userId = docSnap.id;
-          
+
           // Log user data for debugging
           if (userData.email) {
             console.log(`  - User ${userId}: email="${userData.email}", displayName="${userData.displayName || userData.name || 'N/A'}"`);
           }
-          
+
           // Skip current user and blocked users
           if (userId === user.uid || blockedUsers.includes(userId)) {
             return;
           }
-          
+
           const email = (userData.email || '').toLowerCase().trim();
           const displayName = (userData.displayName || userData.name || '').toLowerCase().trim();
-          
+
           // Store user info for debugging
           allUsers.push({
             id: userId,
@@ -141,11 +141,11 @@ export default function NewChatModal() {
             displayName: displayName,
             originalEmail: userData.email || ''
           });
-          
+
           // Match by exact email (case-insensitive) or partial match
           const emailMatches = email === queryLower || email.includes(queryLower);
           const nameMatches = displayName.includes(queryLower);
-          
+
           if (emailMatches || nameMatches) {
             console.log('✅ Match found!', {
               userId,
@@ -154,16 +154,16 @@ export default function NewChatModal() {
               emailMatches,
               nameMatches
             });
-            
+
             const isContact = contacts.includes(userId);
-            
+
             // Check if document ID looks like a Firebase Auth UID (28 chars, alphanumeric)
             // Firebase Auth UIDs are typically 28 characters
             const looksLikeAuthUID = userId.length === 28 && /^[A-Za-z0-9]+$/.test(userId);
-            
+
             // Check if document has a uid field that matches the document ID
             const hasMatchingUID = userData.uid === userId;
-            
+
             matchingUsers.push({
               id: userId,
               name: userData.displayName || userData.name || userData.email || 'Unknown User',
@@ -177,12 +177,12 @@ export default function NewChatModal() {
             });
           }
         });
-        
+
         // If multiple matches, prefer the one that looks most like a Firebase Auth UID
         if (matchingUsers.length > 0) {
           // Sort by priority (highest first)
           matchingUsers.sort((a, b) => b.priority - a.priority);
-          
+
           if (matchingUsers.length > 1) {
             console.log(`⚠️ Multiple users found with email "${queryLower}". Selecting best match:`, {
               total: matchingUsers.length,
@@ -196,13 +196,13 @@ export default function NewChatModal() {
               }))
             });
           }
-          
+
           foundUser = matchingUsers[0];
         }
-        
+
       console.log('📋 All users checked:', allUsers.length);
       console.log('✅ Found user:', foundUser ? 'YES' : 'NO');
-      
+
       if (!foundUser) {
         console.log('❌ No match found. Searched users:', allUsers.map(u => ({
           email: u.originalEmail,
@@ -217,7 +217,7 @@ export default function NewChatModal() {
         console.error('Error code:', searchError.code);
         console.error('Error message:', searchError.message);
         console.error('Error stack:', searchError.stack);
-        
+
         // Check if it's a permissions error
         if (searchError.code === 'permission-denied') {
           showNotification('Permission denied. Please check your account permissions.', 'error');
@@ -244,7 +244,7 @@ export default function NewChatModal() {
         console.log('   - Have the user log in at least once to create their Firestore document');
         console.log('   - Or manually create the user document in Firestore console');
         console.log('   - Check Firestore: users collection');
-        
+
         const errorMsg = `User not found. The user may exist in authentication but not in the database. 
         Have them complete signup or log in once to create their profile.`;
         showNotification(errorMsg, 'warning');
@@ -263,11 +263,11 @@ export default function NewChatModal() {
 
   const filteredUsers = users.filter(u => {
     // Exclude current user
-    if (u.id === user?.uid) return false;
-    
+    if (u.id === user?.uid) {return false;}
+
     // Exclude blocked users
-    if (blockedUsers.includes(u.id)) return false;
-    
+    if (blockedUsers.includes(u.id)) {return false;}
+
     // Filter by search query if provided
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -276,13 +276,13 @@ export default function NewChatModal() {
         u.email.toLowerCase().includes(query)
       );
     }
-    
+
     return true;
   });
 
   const handleSendContactRequest = async () => {
-    if (!searchedUser || !user) return;
-    
+    if (!searchedUser || !user) {return;}
+
     console.log('📤 handleSendContactRequest called:', {
       fromUserId: user.uid,
       fromUserEmail: user.email,
@@ -294,7 +294,7 @@ export default function NewChatModal() {
       fromUserIdLength: user.uid?.length,
       toUserIdLength: searchedUser.id?.length
     });
-    
+
     // CRITICAL: Verify the toUserId matches the receiver's Firebase Auth UID
     // The searchedUser.id should be the Firestore document ID, which should match Firebase Auth UID
     console.log('⚠️ VERIFICATION: toUserId should match receiver\'s Firebase Auth UID');
@@ -302,7 +302,7 @@ export default function NewChatModal() {
     console.log('   searchedUser.id (toUserId):', searchedUser.id);
     console.log('   searchedUser.id type:', typeof searchedUser.id, 'length:', searchedUser.id?.length);
     console.log('   This ID should match the receiver\'s Firebase Auth UID exactly');
-    
+
     // Verify the user document exists and check if the ID matches
     let userDocData = null;
     let finalToUserId = searchedUser.id;
@@ -315,7 +315,7 @@ export default function NewChatModal() {
         console.log('   Document ID:', searchedUser.id);
         console.log('   User email:', userDocData.email);
         console.log('   Note: Document ID should match Firebase Auth UID for queries to work');
-        
+
         // IMPORTANT: The Firestore document ID MUST match the Firebase Auth UID
         // If it doesn't, we need to find the user by email and get their actual UID
         // This is a common issue - the document ID might be different from Auth UID
@@ -340,7 +340,7 @@ export default function NewChatModal() {
       showNotification('Error verifying user. Please try again.', 'error');
       return;
     }
-    
+
     // Final verification before sending
     console.log('🔍 Final verification before sending request:');
     console.log('   Sender UID (fromUserId):', user.uid);
@@ -351,30 +351,30 @@ export default function NewChatModal() {
     console.log('   Receiver Email:', searchedUser.email);
     console.log('   ⚠️ CRITICAL: The receiver will query with their Firebase Auth UID');
     console.log('   ⚠️ If searchedUser.id !== receiver\'s Firebase Auth UID, request won\'t be found!');
-    
+
     // Check if already a contact
     if (searchedUser.isContact) {
       showNotification('This user is already a contact', 'info');
       return;
     }
-    
+
     // Check if request already sent
     if (pendingRequests.includes(searchedUser.id)) {
       showNotification('Contact request already sent. Waiting for approval.', 'info');
       return;
     }
-    
+
     setSendingRequest(true);
     try {
       console.log('📤 Calling contactService.sendContactRequest with:', {
         fromUserId: user.uid,
         toUserId: finalToUserId
       });
-      
+
       const result = await contactService.sendContactRequest(user.uid, finalToUserId);
-      
+
       console.log('📤 sendContactRequest result:', result);
-      
+
       if (result.success) {
         showNotification('Contact request sent successfully!', 'success');
         // Add to pending requests list

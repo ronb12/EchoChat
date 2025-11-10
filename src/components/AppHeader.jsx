@@ -81,7 +81,7 @@ export default function AppHeader() {
     // Check Stripe mode
     const stripeInfo = getStripeMode();
     setStripeMode(stripeInfo);
-    
+
     // Debug logging for Stripe mode detection
     if (stripeInfo.mode === 'live') {
       console.log('🔴 LIVE MODE detected - Stripe indicator will show LIVE');
@@ -116,7 +116,7 @@ export default function AppHeader() {
     const setupListener = async () => {
       try {
         const { contactService } = await import('../services/contactService');
-        
+
         // Set up real-time listener for immediate updates
         unsubscribe = contactService.subscribeToPendingRequests(
           user.uid,
@@ -341,8 +341,8 @@ export default function AppHeader() {
               {stripeMode.mode === 'live' || stripeMode.mode === 'test' ? '✅' : '⚠️'}
             </span>
             <span>
-              {stripeMode.mode === 'live' ? 'LIVE' : 
-               stripeMode.mode === 'test' ? 'TEST' : 
+              {stripeMode.mode === 'live' ? 'LIVE' :
+               stripeMode.mode === 'test' ? 'TEST' :
                stripeMode.mode === 'mismatch' ? 'MISMATCH' :
                stripeMode.mode === 'unknown' ? 'UNKNOWN' : 'ERROR'}
             </span>
@@ -491,7 +491,7 @@ export default function AppHeader() {
               width: isCompactHeader ? '100%' : 'auto',
               justifyContent: 'center'
             }}
-            title={pendingRequestsCount > 0 
+            title={pendingRequestsCount > 0
               ? `${pendingRequestsCount} pending friend request${pendingRequestsCount > 1 ? 's' : ''}`
               : 'View friend requests'}
           >

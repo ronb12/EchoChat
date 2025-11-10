@@ -124,7 +124,7 @@ class BusinessService {
     try {
       // Check if this is the test business account
       const isTestBusiness = businessId === 'test-business-1' ||
-                            businessId === 'business@echochat.com' ||
+                            businessId === 'business@echodynamo.com' ||
                             businessId.includes('test-business');
 
       if (isTestBusiness) {

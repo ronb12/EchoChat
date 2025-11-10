@@ -33,9 +33,10 @@ function ChatListRow({
     ? null
     : participants.find((participantId) => participantId && participantId !== currentUserId);
   const baseChatName = chat?.alias || chat?.displayName || chat?.name || 'Unknown';
+  const otherParticipantName = useDisplayName(otherParticipantId, baseChatName);
   const chatDisplayName = chat?.type === 'group'
     ? (chat?.name || baseChatName)
-    : useDisplayName(otherParticipantId, baseChatName);
+    : otherParticipantName;
 
   const lastMessageSenderId = chat?.lastMessageSenderId && chat.lastMessageSenderId !== currentUserId
     ? chat.lastMessageSenderId
@@ -239,10 +240,9 @@ function ChatListRow({
         <button
           type="button"
           className="chat-action-trigger"
-      type="button"
-      onClick={handleDesktopTrigger}
-      onMouseDown={(event) => event.stopPropagation()}
-      onMouseUp={(event) => event.stopPropagation()}
+          onClick={handleDesktopTrigger}
+          onMouseDown={(event) => event.stopPropagation()}
+          onMouseUp={(event) => event.stopPropagation()}
           aria-label="Chat actions"
         >
           ⋯

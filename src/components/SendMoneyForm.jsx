@@ -22,13 +22,13 @@ const CARD_ELEMENT_OPTIONS = {
   hidePostalCode: true,
 };
 
-export default function SendMoneyForm({ 
-  amount, 
-  recipientName, 
-  clientSecret, 
-  onSuccess, 
+export default function SendMoneyForm({
+  amount,
+  recipientName,
+  clientSecret,
+  onSuccess,
   onError,
-  disabled 
+  disabled
 }) {
   const stripe = useStripe();
   const elements = useElements();

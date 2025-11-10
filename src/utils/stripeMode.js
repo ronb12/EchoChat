@@ -7,7 +7,7 @@
 export function getStripeMode() {
   const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
   const secretKey = import.meta.env.VITE_STRIPE_SECRET_KEY || import.meta.env.STRIPE_SECRET_KEY;
-  
+
   if (!publishableKey && !secretKey) {
     return {
       mode: 'not_configured',
@@ -16,19 +16,19 @@ export function getStripeMode() {
       message: 'Stripe is not configured'
     };
   }
-  
+
   // Check publishable key
   const isPublishableTest = publishableKey?.startsWith('pk_test_');
   const isPublishableLive = publishableKey?.startsWith('pk_live_');
-  
+
   // Check secret key
   const isSecretTest = secretKey?.startsWith('sk_test_');
   const isSecretLive = secretKey?.startsWith('sk_live_');
-  
+
   // Determine mode
   let mode = 'not_configured';
   let message = '';
-  
+
   if (isPublishableLive || isSecretLive) {
     mode = 'live';
     message = '⚠️ LIVE MODE - Real payments will be processed!';
@@ -39,7 +39,7 @@ export function getStripeMode() {
     mode = 'unknown';
     message = 'Stripe keys detected but format is unrecognized';
   }
-  
+
   // Check for mismatch
   if (publishableKey && secretKey) {
     if ((isPublishableTest && isSecretLive) || (isPublishableLive && isSecretTest)) {
@@ -47,7 +47,7 @@ export function getStripeMode() {
       message = '⚠️ WARNING: Publishable and secret keys are in different modes!';
     }
   }
-  
+
   return {
     mode,
     publishableKey: publishableKey ? (isPublishableLive ? 'pk_live_***' : 'pk_test_***') : null,
@@ -67,7 +67,7 @@ export function logStripeMode() {
   console.log('   Mode:', info.mode);
   console.log('   Publishable Key:', info.publishableKey || 'Not set');
   console.log('   Secret Key:', info.secretKey || 'Not set');
-  
+
   if (info.mode === 'live') {
     console.warn('⚠️  LIVE MODE DETECTED - Real payments enabled!');
   } else if (info.mode === 'test') {
@@ -75,7 +75,7 @@ export function logStripeMode() {
   } else if (info.mode === 'not_configured') {
     console.warn('⚠️  Stripe not configured - Payment features disabled');
   }
-  
+
   return info;
 }
 

@@ -24,11 +24,11 @@ export default function LinkChildModal() {
     try {
       setLoading(true);
       const result = await parentLinkService.sendChildVerificationCode(childEmail);
-      
+
       if (result.success) {
         // Show code for testing (in production, send via email)
         alert(`Verification code sent to ${childEmail}\n\nCode (for testing): ${result.code}\n\nIn production, this would be sent via email to the child.`);
-        
+
         setStep(2);
       }
     } catch (error) {
@@ -56,7 +56,7 @@ export default function LinkChildModal() {
     try {
       setLoading(true);
       const result = await parentLinkService.linkChildByEmail(user.uid, childEmail, verificationCode);
-      
+
       if (result.success) {
         showNotification('Child account linked successfully!', 'success');
         closeLinkChildModal();
@@ -74,7 +74,7 @@ export default function LinkChildModal() {
     }
   };
 
-  if (!showLinkChildModal) return null;
+  if (!showLinkChildModal) {return null;}
 
   return (
     <div className="modal active" id="link-child-modal">
@@ -87,8 +87,8 @@ export default function LinkChildModal() {
         <div className="modal-body">
           {step === 1 && (
             <form onSubmit={handleEmailSubmit}>
-              <div style={{ 
-                padding: '1rem', 
+              <div style={{
+                padding: '1rem',
                 background: 'rgba(0, 132, 255, 0.1)',
                 border: '1px solid rgba(0, 132, 255, 0.3)',
                 borderRadius: '8px',
@@ -131,8 +131,8 @@ export default function LinkChildModal() {
 
           {step === 2 && (
             <form onSubmit={handleCodeSubmit}>
-              <div style={{ 
-                padding: '1rem', 
+              <div style={{
+                padding: '1rem',
                 background: 'rgba(0, 132, 255, 0.1)',
                 border: '1px solid rgba(0, 132, 255, 0.3)',
                 borderRadius: '8px',

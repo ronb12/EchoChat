@@ -11,11 +11,11 @@ export default function RatingModal() {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  if (!showRatingModal) return null;
+  if (!showRatingModal) {return null;}
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (rating === 0) {
       showNotification('Please select a rating', 'warning');
       return;
@@ -29,7 +29,7 @@ export default function RatingModal() {
     setSubmitting(true);
     try {
       const result = await feedbackService.submitRating(user.uid, rating, comment);
-      
+
       if (result.success) {
         showNotification('Thank you for your rating!', 'success');
         setRating(0);
@@ -60,12 +60,12 @@ export default function RatingModal() {
               <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>
                 How would you rate your experience with EchoDynamo?
               </p>
-              
+
               {/* Star Rating */}
-              <div 
-                style={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
                   gap: '0.5rem',
                   fontSize: '2.5rem',
                   cursor: 'pointer'
@@ -78,8 +78,8 @@ export default function RatingModal() {
                     onClick={() => setRating(star)}
                     onMouseEnter={() => setHoveredRating(star)}
                     style={{
-                      color: (hoveredRating >= star || rating >= star) 
-                        ? '#FFD700' 
+                      color: (hoveredRating >= star || rating >= star)
+                        ? '#FFD700'
                         : '#ccc',
                       transition: 'color 0.2s',
                       userSelect: 'none'
@@ -89,7 +89,7 @@ export default function RatingModal() {
                   </span>
                 ))}
               </div>
-              
+
               {rating > 0 && (
                 <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>
                   {rating === 5 && 'Excellent! 🎉'}
@@ -113,8 +113,8 @@ export default function RatingModal() {
                 placeholder="Share your thoughts about EchoDynamo..."
                 rows={4}
                 maxLength={500}
-                style={{ 
-                  width: '100%', 
+                style={{
+                  width: '100%',
                   padding: '0.75rem',
                   borderRadius: '8px',
                   border: '1px solid var(--border-color)',

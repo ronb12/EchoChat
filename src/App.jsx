@@ -35,6 +35,8 @@ import { useUI } from './hooks/useUI';
 import { useChat } from './hooks/useChat';
 import { usePresenceStatus, useNotifications } from './hooks/useRealtime';
 
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || import.meta.env.VITE_COMMIT_HASH || '0.0.0';
+
 function AppContent() {
   const { user, loading } = useAuth();
   const {
@@ -86,15 +88,36 @@ function AppContent() {
   // Listen for service worker version messages to ensure latest build is displayed
   useEffect(() => {
     if (!('serviceWorker' in navigator)) {return;}
-    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
+    const appVersion = APP_VERSION;
+    const hasReloadedForVersion = (version) => {
+      if (!version) {return false;}
+      try {
+        return sessionStorage.getItem(`sw-reloaded-${version}`) === 'true';
+      } catch (_) {
+        return false;
+      }
+    };
+    const markReloadedForVersion = (version) => {
+      if (!version) {return;}
+      try {
+        sessionStorage.setItem(`sw-reloaded-${version}`, 'true');
+      } catch (_) {
+        // ignore storage errors
+      }
+    };
     const handleServiceWorkerMessage = (event) => {
       const data = event?.data || {};
       if (data.type === 'SW_VERSION') {
         const swVersion = data.version || '';
-        if (swVersion && swVersion !== appVersion && !window.__SW_FORCE_RELOAD__) {
-          console.log('New service worker version detected. Reloading...', swVersion, appVersion);
-          window.__SW_FORCE_RELOAD__ = true;
-          window.location.reload();
+        if (swVersion && swVersion !== appVersion) {
+          if (!hasReloadedForVersion(swVersion) && !window.__SW_FORCE_RELOAD__) {
+            console.log('New service worker version detected. Reloading...', swVersion, appVersion);
+            window.__SW_FORCE_RELOAD__ = true;
+            markReloadedForVersion(swVersion);
+            window.location.reload();
+          } else {
+            console.log('Service worker version mismatch detected but reload already attempted for', swVersion);
+          }
         }
       }
     };
@@ -109,24 +132,24 @@ function AppContent() {
 
   // Check for pending contact requests on login
   useEffect(() => {
-    if (!user || loading) return;
+    if (!user || loading) {return;}
 
     let hasChecked = false;
     const checkPendingRequests = async () => {
-      if (hasChecked) return;
+      if (hasChecked) {return;}
       hasChecked = true;
-      
+
       try {
         const { contactService } = await import('./services/contactService');
         const pendingRequests = await contactService.getPendingRequests(user.uid, { userEmail: user.email });
-        
+
         if (pendingRequests && pendingRequests.length > 0) {
           // Show notification about pending requests
           const count = pendingRequests.length;
-          const message = count === 1 
+          const message = count === 1
             ? `You have 1 pending contact request. Click to view.`
             : `You have ${count} pending contact requests. Click to view.`;
-          
+
           showNotification(message, 'info', {
             duration: 10000,
             onClick: () => {
@@ -224,7 +247,7 @@ function AppContent() {
   // Initialize app
   useEffect(() => {
     let mounted = true;
-    
+
     // Set initialization timeout - don't wait forever
     const initTimeout = setTimeout(() => {
       if (mounted) {
@@ -271,8 +294,7 @@ function AppContent() {
                   await new Promise(resolve => setTimeout(resolve, 300));
 
                   try {
-                    const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
-                    const swUrl = `/sw.js?v=${encodeURIComponent(appVersion)}`;
+                    const swUrl = `/sw.js?v=${encodeURIComponent(APP_VERSION)}`;
                     const registration = await Promise.race([
                       navigator.serviceWorker.register(swUrl, {
                         updateViaCache: 'none'

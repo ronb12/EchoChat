@@ -42,7 +42,7 @@ export default function ParentDashboard() {
   }, [selectedMinor]);
 
   const loadMinorAccounts = async () => {
-    if (!user) return;
+    if (!user) {return;}
 
     setLoading(true);
     try {
@@ -66,7 +66,7 @@ export default function ParentDashboard() {
       });
 
       setMinorAccounts(minors);
-      
+
       // Auto-select first minor if available
       if (minors.length > 0 && !selectedMinor) {
         setSelectedMinor(minors[0].id);
@@ -80,7 +80,7 @@ export default function ParentDashboard() {
   };
 
   const loadMinorData = async () => {
-    if (!selectedMinor) return;
+    if (!selectedMinor) {return;}
 
     try {
       // Load contacts
@@ -104,7 +104,7 @@ export default function ParentDashboard() {
   };
 
   const loadMinorActivity = async () => {
-    if (!selectedMinor) return;
+    if (!selectedMinor) {return;}
 
     try {
       // Get recent chats for the minor
@@ -120,7 +120,7 @@ export default function ParentDashboard() {
       const activity = [];
       for (const chatDoc of chatsSnapshot.docs) {
         const chatData = chatDoc.data();
-        
+
         // Get other participant info
         const otherParticipantId = chatData.participants.find(p => p !== selectedMinor);
         let otherUser = null;
@@ -146,7 +146,7 @@ export default function ParentDashboard() {
           limit(5)
         );
         const messagesSnapshot = await getDocs(messagesQuery);
-        
+
         const recentMessages = [];
         messagesSnapshot.forEach((msgDoc) => {
           recentMessages.push({
@@ -173,7 +173,7 @@ export default function ParentDashboard() {
   };
 
   const loadSafetyAlerts = async () => {
-    if (!selectedMinor) return;
+    if (!selectedMinor) {return;}
 
     try {
       // Get reports involving this minor
@@ -220,7 +220,7 @@ export default function ParentDashboard() {
   };
 
   const setupRealtimeUpdates = () => {
-    if (!selectedMinor) return;
+    if (!selectedMinor) {return;}
 
     // Listen for new contact requests
     const approvalsRef = collection(db, 'parentApprovals');
@@ -288,8 +288,8 @@ export default function ParentDashboard() {
   };
 
   const handleRemoveContact = async (contactId) => {
-    if (!selectedMinor) return;
-    
+    if (!selectedMinor) {return;}
+
     if (!window.confirm('Are you sure you want to remove this contact? The child will no longer be able to chat with them.')) {
       return;
     }
@@ -305,7 +305,7 @@ export default function ParentDashboard() {
   };
 
   const formatTimestamp = (timestamp) => {
-    if (!timestamp) return 'Never';
+    if (!timestamp) {return 'Never';}
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     const now = new Date();
     const diff = now - date;
@@ -313,14 +313,14 @@ export default function ParentDashboard() {
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
+    if (minutes < 1) {return 'Just now';}
+    if (minutes < 60) {return `${minutes}m ago`;}
+    if (hours < 24) {return `${hours}h ago`;}
+    if (days < 7) {return `${days}d ago`;}
     return date.toLocaleDateString();
   };
 
-  if (!showParentDashboard) return null;
+  if (!showParentDashboard) {return null;}
 
   return (
     <div className="modal active" id="parent-dashboard-modal">
@@ -333,8 +333,8 @@ export default function ParentDashboard() {
 
         <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
           {/* Sidebar - Minor Accounts */}
-          <div style={{ 
-            width: '200px', 
+          <div style={{
+            width: '200px',
             borderRight: '1px solid var(--border-color)',
             padding: '1rem',
             overflowY: 'auto',
@@ -384,8 +384,8 @@ export default function ParentDashboard() {
             ) : (
               <>
                 {/* Tabs */}
-                <div style={{ 
-                  display: 'flex', 
+                <div style={{
+                  display: 'flex',
                   borderBottom: '1px solid var(--border-color)',
                   background: 'var(--background-color, transparent)'
                 }}>
@@ -406,7 +406,7 @@ export default function ParentDashboard() {
                     >
                       {tab === 'requests' ? 'Contact Requests' : tab}
                       {tab === 'requests' && pendingApprovals.length > 0 && (
-                        <span style={{ 
+                        <span style={{
                           marginLeft: '0.5rem',
                           background: 'var(--primary-color)',
                           color: 'white',
@@ -418,7 +418,7 @@ export default function ParentDashboard() {
                         </span>
                       )}
                       {tab === 'alerts' && safetyAlerts.length > 0 && (
-                        <span style={{ 
+                        <span style={{
                           marginLeft: '0.5rem',
                           background: 'var(--error-color, red)',
                           color: 'white',
@@ -480,9 +480,9 @@ export default function ParentDashboard() {
                         ) : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {minorActivity.slice(0, 5).map((activity) => (
-                              <div key={activity.chatId} style={{ 
-                                padding: '1rem', 
-                                background: 'var(--bg-secondary)', 
+                              <div key={activity.chatId} style={{
+                                padding: '1rem',
+                                background: 'var(--bg-secondary)',
                                 borderRadius: '8px',
                                 display: 'flex',
                                 justifyContent: 'space-between',
@@ -517,17 +517,17 @@ export default function ParentDashboard() {
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           {minorContacts.map((contact) => (
-                            <div key={contact.id} style={{ 
-                              padding: '1rem', 
-                              background: 'var(--bg-secondary)', 
+                            <div key={contact.id} style={{
+                              padding: '1rem',
+                              background: 'var(--bg-secondary)',
                               borderRadius: '8px',
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center'
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <img 
-                                  src={contact.photoURL || contact.avatar || '/icons/default-avatar.png'} 
+                                <img
+                                  src={contact.photoURL || contact.avatar || '/icons/default-avatar.png'}
                                   alt={contact.name}
                                   style={{ width: '40px', height: '40px', borderRadius: '50%' }}
                                 />
@@ -562,9 +562,9 @@ export default function ParentDashboard() {
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           {minorActivity.map((activity) => (
-                            <div key={activity.chatId} style={{ 
-                              padding: '1rem', 
-                              background: 'var(--bg-secondary)', 
+                            <div key={activity.chatId} style={{
+                              padding: '1rem',
+                              background: 'var(--bg-secondary)',
                               borderRadius: '8px'
                             }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -593,16 +593,16 @@ export default function ParentDashboard() {
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           {pendingApprovals.map((approval) => (
-                            <div key={approval.id} style={{ 
-                              padding: '1rem', 
-                              background: 'var(--bg-secondary)', 
+                            <div key={approval.id} style={{
+                              padding: '1rem',
+                              background: 'var(--bg-secondary)',
                               borderRadius: '8px',
                               borderLeft: '4px solid var(--warning-color, #ffc107)'
                             }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                  <img 
-                                    src={approval.contactUser?.photoURL || approval.contactUser?.avatar || '/icons/default-avatar.png'} 
+                                  <img
+                                    src={approval.contactUser?.photoURL || approval.contactUser?.avatar || '/icons/default-avatar.png'}
                                     alt={approval.contactUser?.name}
                                     style={{ width: '50px', height: '50px', borderRadius: '50%' }}
                                   />
@@ -655,9 +655,9 @@ export default function ParentDashboard() {
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                           {safetyAlerts.map((alert) => (
-                            <div key={alert.id} style={{ 
-                              padding: '1rem', 
-                              background: alert.type === 'report' ? 'var(--error-bg, #ffebee)' : 'var(--warning-bg, #fff3cd)', 
+                            <div key={alert.id} style={{
+                              padding: '1rem',
+                              background: alert.type === 'report' ? 'var(--error-bg, #ffebee)' : 'var(--warning-bg, #fff3cd)',
                               borderRadius: '8px',
                               borderLeft: `4px solid ${alert.type === 'report' ? 'var(--error-color, red)' : 'var(--warning-color, #ffc107)'}`
                             }}>

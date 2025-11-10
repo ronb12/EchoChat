@@ -469,19 +469,19 @@ class FirestoreService {
       const batchSize = 100;
 
       // Delete messages in batches
-      while (true) {
+      let hasMoreMessages = true;
+      while (hasMoreMessages) {
         const messageSnapshot = await getDocs(query(messagesRef, where('chatId', '==', chatId), limit(batchSize)));
         if (messageSnapshot.empty) {
-          break;
+          hasMoreMessages = false;
+          continue;
         }
         const batch = writeBatch(this.db);
         messageSnapshot.forEach((messageDoc) => {
           batch.delete(messageDoc.ref);
         });
         await batch.commit();
-        if (messageSnapshot.size < batchSize) {
-          break;
-        }
+        hasMoreMessages = messageSnapshot.size === batchSize;
       }
 
       // Delete typing indicators if any

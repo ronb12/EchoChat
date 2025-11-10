@@ -34,7 +34,7 @@ export default function MinorAccountSetup({ onComplete }) {
     }
 
     const age = calculateAge(dateOfBirth);
-    
+
     if (age < 13) {
       setError('You must be at least 13 years old to use EchoDynamo');
       return;
@@ -65,7 +65,7 @@ export default function MinorAccountSetup({ onComplete }) {
           dateOfBirth,
           isMinor: false
         });
-        if (onComplete) onComplete();
+        if (onComplete) {onComplete();}
       } catch (error) {
         console.error('Error updating date of birth:', error);
         setError('Error saving date of birth. Please try again.');
@@ -89,7 +89,7 @@ export default function MinorAccountSetup({ onComplete }) {
       // Send verification code to parent email
       // In production, this would send an actual email
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
+
       // Store code temporarily (in production, use secure storage)
       sessionStorage.setItem('parentVerificationCode', code);
       sessionStorage.setItem('parentEmail', parentEmail);
@@ -118,7 +118,7 @@ export default function MinorAccountSetup({ onComplete }) {
     setError('');
 
     const storedCode = sessionStorage.getItem('parentVerificationCode');
-    
+
     if (verificationCode !== storedCode) {
       setError('Invalid verification code. Please check and try again.');
       return;
@@ -127,14 +127,14 @@ export default function MinorAccountSetup({ onComplete }) {
     try {
       setLoading(true);
       const parentEmail = sessionStorage.getItem('parentEmail');
-      
+
       await minorSafetyService.verifyParent(user.uid, parentEmail, verificationCode);
-      
+
       // Clear stored data
       sessionStorage.removeItem('parentVerificationCode');
       sessionStorage.removeItem('parentEmail');
 
-      if (onComplete) onComplete();
+      if (onComplete) {onComplete();}
     } catch (error) {
       console.error('Error verifying parent:', error);
       setError('Error verifying parent. Please try again.');
@@ -178,9 +178,9 @@ export default function MinorAccountSetup({ onComplete }) {
 
           {step === 2 && (
             <form onSubmit={handleParentEmailSubmit}>
-              <div style={{ 
-                padding: '1rem', 
-                background: 'var(--info-bg, #e7f3ff)', 
+              <div style={{
+                padding: '1rem',
+                background: 'var(--info-bg, #e7f3ff)',
                 borderRadius: '8px',
                 marginBottom: '1rem'
               }}>
@@ -220,9 +220,9 @@ export default function MinorAccountSetup({ onComplete }) {
 
           {step === 3 && (
             <form onSubmit={handleVerificationSubmit}>
-              <div style={{ 
-                padding: '1rem', 
-                background: 'var(--info-bg, #e7f3ff)', 
+              <div style={{
+                padding: '1rem',
+                background: 'var(--info-bg, #e7f3ff)',
                 borderRadius: '8px',
                 marginBottom: '1rem'
               }}>

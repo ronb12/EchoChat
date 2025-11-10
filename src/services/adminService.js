@@ -111,19 +111,19 @@ class AdminService {
     try {
       let q;
       const constraints = [];
-      
+
       if (status) {
         constraints.push(where('status', '==', status));
       }
       if (priority) {
         constraints.push(where('priority', '==', priority));
       }
-      
+
       constraints.push(orderBy('createdAt', 'desc'));
       constraints.push(limit(limitCount));
 
       q = query(collection(db, 'supportTickets'), ...constraints);
-      
+
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => ({
         id: doc.id,

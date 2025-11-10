@@ -49,7 +49,7 @@ export default function TermsOfServiceModal() {
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--primary-color)' }}>4. Contact</h3>
               <p style={{ marginBottom: '1rem' }}>
-                For questions about these Terms of Service, please contact us at <strong>legal@echochat.com</strong>
+                For questions about these Terms of Service, please contact us at <strong>legal@echodynamo.com</strong>
               </p>
             </section>
           </div>

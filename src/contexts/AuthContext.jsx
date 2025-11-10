@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let mounted = true;
     let authInitialized = false;
-    
+
     // On mount, clear any demo user data if no Firebase user exists
     // This ensures demo users don't persist across hard refreshes
     try {
@@ -23,12 +23,12 @@ export function AuthProvider({ children }) {
     } catch (e) {
       // Ignore errors during cleanup
     }
-    
+
     try {
       // Helper function to set user from Firebase user
       const setUserFromFirebase = (firebaseUser) => {
-        if (!mounted) return;
-        
+        if (!mounted) {return;}
+
         try {
           if (firebaseUser) {
             // User is signed in
@@ -68,7 +68,7 @@ export function AuthProvider({ children }) {
           // Check for redirect result immediately - don't wait for anything
           const result = await authService.getRedirectResult();
           console.log('Redirect result check:', result);
-          
+
           if (result.success && result.user && mounted) {
             // Redirect result found - user will be set by onAuthStateChanged
             console.log('✅ Google sign-in redirect completed:', result.user.email);
@@ -85,7 +85,7 @@ export function AuthProvider({ children }) {
       // Wait for onAuthStateChanged to fire - it will fire immediately with current state
       // This is more reliable than checking auth.currentUser directly
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (!mounted) return;
+        if (!mounted) {return;}
         setUserFromFirebase(firebaseUser);
       });
 
@@ -123,10 +123,10 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const value = useMemo(() => ({ 
-    user, 
-    setUser, 
-    loading, 
+  const value = useMemo(() => ({
+    user,
+    setUser,
+    loading,
     setLoading,
     signOut: authService.signOut
   }), [user, loading]);

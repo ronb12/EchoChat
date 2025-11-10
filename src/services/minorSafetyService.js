@@ -15,13 +15,13 @@ class MinorSafetyService {
     try {
       const userRef = doc(db, 'users', userId);
       const userSnap = await getDoc(userRef);
-      
+
       if (!userSnap.exists()) {
         return false;
       }
 
       const userData = userSnap.data();
-      
+
       // Check if account is marked as minor
       if (userData.isMinor === true) {
         return true;
@@ -33,11 +33,11 @@ class MinorSafetyService {
         const today = new Date();
         const age = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
-        
+
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
           return age - 1 < 18;
         }
-        
+
         return age < 18;
       }
 
@@ -57,13 +57,13 @@ class MinorSafetyService {
     try {
       const userRef = doc(db, 'users', minorUserId);
       const userSnap = await getDoc(userRef);
-      
+
       if (!userSnap.exists()) {
         return null;
       }
 
       const userData = userSnap.data();
-      
+
       if (userData.parentEmail || userData.parentId) {
         return {
           parentId: userData.parentId,
@@ -88,14 +88,14 @@ class MinorSafetyService {
   async requestContactApproval(minorUserId, contactUserId) {
     try {
       const isMinor = await this.isMinor(minorUserId);
-      
+
       if (!isMinor) {
         // Not a minor, no parent approval needed
         return { success: true, requiresApproval: false };
       }
 
       const parentInfo = await this.getParentInfo(minorUserId);
-      
+
       if (!parentInfo || !parentInfo.parentVerified) {
         throw new Error('Parent verification required for minors');
       }
@@ -103,7 +103,7 @@ class MinorSafetyService {
       // Check if contact is already parent-approved
       const approvalRef = doc(db, 'parentApprovals', `${minorUserId}_${contactUserId}`);
       const approvalSnap = await getDoc(approvalRef);
-      
+
       if (approvalSnap.exists()) {
         const approvalData = approvalSnap.data();
         if (approvalData.status === 'approved') {
@@ -143,7 +143,7 @@ class MinorSafetyService {
   async isParentApproved(minorUserId, contactUserId) {
     try {
       const isMinor = await this.isMinor(minorUserId);
-      
+
       if (!isMinor) {
         // Not a minor, no parent approval needed
         return true;
@@ -151,7 +151,7 @@ class MinorSafetyService {
 
       const approvalRef = doc(db, 'parentApprovals', `${minorUserId}_${contactUserId}`);
       const approvalSnap = await getDoc(approvalRef);
-      
+
       if (!approvalSnap.exists()) {
         return false;
       }
@@ -174,13 +174,13 @@ class MinorSafetyService {
     try {
       const approvalRef = doc(db, 'parentApprovals', approvalId);
       const approvalSnap = await getDoc(approvalRef);
-      
+
       if (!approvalSnap.exists()) {
         throw new Error('Approval request not found');
       }
 
       const approvalData = approvalSnap.data();
-      
+
       if (approvalData.parentId !== parentId) {
         throw new Error('Not authorized to approve this request');
       }
@@ -211,13 +211,13 @@ class MinorSafetyService {
     try {
       const approvalRef = doc(db, 'parentApprovals', approvalId);
       const approvalSnap = await getDoc(approvalRef);
-      
+
       if (!approvalSnap.exists()) {
         throw new Error('Approval request not found');
       }
 
       const approvalData = approvalSnap.data();
-      
+
       if (approvalData.parentId !== parentId) {
         throw new Error('Not authorized to reject this request');
       }
@@ -253,11 +253,11 @@ class MinorSafetyService {
       const approvals = [];
       for (const docSnap of snapshot.docs) {
         const approvalData = docSnap.data();
-        
+
         // Get contact user details
         const contactDoc = await getDoc(doc(db, 'users', approvalData.contactUserId));
         const minorDoc = await getDoc(doc(db, 'users', approvalData.minorUserId));
-        
+
         if (contactDoc.exists() && minorDoc.exists()) {
           approvals.push({
             id: docSnap.id,

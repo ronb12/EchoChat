@@ -52,7 +52,7 @@ class CallSignalingService {
   }
 
   listenToCall(callId, callback) {
-    if (!callId) {return () => {};} 
+    if (!callId) {return () => {};}
     const callRef = doc(db, 'callSessions', callId);
     return onSnapshot(callRef, (snapshot) => {
       if (!snapshot.exists()) {

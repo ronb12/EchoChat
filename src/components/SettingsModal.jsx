@@ -69,21 +69,23 @@ function SettingsModal() {
   // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
   // In production, use VITE_API_BASE_URL, fallback to localhost only in development
   const isProduction = import.meta.env.PROD;
-  const PRODUCTION_API_FALLBACK = 'https://echochat-app.vercel.app';
+  const fallbackOrigin = typeof window !== 'undefined'
+    ? window.location.origin
+    : 'https://echodynamo.vercel.app';
   const baseUrl = import.meta.env.VITE_API_BASE_URL
-    || (isProduction ? PRODUCTION_API_FALLBACK : 'http://localhost:3001');
+    || (isProduction ? fallbackOrigin : 'http://localhost:3001');
   const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
 
   // Warn if API URL not set in production
   if (isProduction && !import.meta.env.VITE_API_BASE_URL) {
-    console.warn(`⚠️ VITE_API_BASE_URL not set in production. Falling back to ${PRODUCTION_API_FALLBACK}`);
+    console.warn(`⚠️ VITE_API_BASE_URL not set in production. Falling back to ${fallbackOrigin}`);
   }
 
   // Check if this is test business account for sample data fallback
   const isTestBusinessAccount = () => {
     if (!user) {return false;}
     return user.uid === 'test-business-1' ||
-           user.email === 'business@echochat.com' ||
+           user.email === 'business@echodynamo.com' ||
            user.uid?.includes('test-business');
   };
 
@@ -848,12 +850,12 @@ function SettingsModal() {
   };
 
   const checkBiometricAvailability = async () => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     try {
       const available = await biometricService.isAvailable();
       setBiometricAvailable(available);
-      
+
       if (available) {
         const registered = biometricService.isRegistered(user.uid);
         setBiometricRegistered(registered);
@@ -865,12 +867,12 @@ function SettingsModal() {
   };
 
   const handleRegisterBiometric = async () => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     setBiometricLoading(true);
     try {
       const result = await biometricService.register(user.uid, user.email || user.displayName || 'User');
-      
+
       if (result.success) {
         setBiometricRegistered(true);
         showNotification('Biometric authentication registered successfully!', 'success');
@@ -886,8 +888,8 @@ function SettingsModal() {
   };
 
   const handleUnregisterBiometric = () => {
-    if (!user) return;
-    
+    if (!user) {return;}
+
     if (window.confirm('Are you sure you want to remove biometric authentication?')) {
       biometricService.unregister(user.uid);
       setBiometricRegistered(false);

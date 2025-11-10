@@ -43,13 +43,13 @@ class AuthService {
         console.error('Auth instance not found');
         return { success: false, error: 'Authentication service not initialized' };
       }
-      
+
       console.log('Starting Google sign-in redirect...');
       console.log('Auth domain:', authInstance.config?.authDomain);
       console.log('Current URL:', window.location.href);
-      
+
       const provider = new GoogleAuthProvider();
-      
+
       // Call signInWithRedirect - this WILL navigate away from the page
       // We don't await it because the redirect happens asynchronously
       // and the page will navigate away before the promise resolves
@@ -62,7 +62,7 @@ class AuthService {
           // Only log if we're still on the page (shouldn't happen)
           console.error('Redirect error:', error);
         });
-      
+
       // Return immediately - redirect is in progress
       // The page will navigate away, so this return may not execute
       return { success: true, pending: true };
@@ -85,7 +85,7 @@ class AuthService {
       if (!authInstance) {
         return { success: false, error: 'Authentication service not initialized' };
       }
-      
+
       const result = await getRedirectResult(authInstance);
       if (result && result.user) {
         return { success: true, user: result.user };

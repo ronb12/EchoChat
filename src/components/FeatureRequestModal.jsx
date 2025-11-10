@@ -11,7 +11,7 @@ export default function FeatureRequestModal() {
   const [category, setCategory] = useState('messaging');
   const [submitting, setSubmitting] = useState(false);
 
-  if (!showFeatureRequestModal) return null;
+  if (!showFeatureRequestModal) {return null;}
 
   const categories = [
     { value: 'messaging', label: '💬 Messaging Features' },
@@ -33,7 +33,7 @@ export default function FeatureRequestModal() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!title.trim()) {
       showNotification('Please enter a title', 'warning');
       return;
@@ -57,7 +57,7 @@ export default function FeatureRequestModal() {
         description,
         category
       );
-      
+
       if (result.success) {
         showNotification('Feature request submitted! Thank you for your feedback.', 'success');
         setTitle('');
@@ -147,8 +147,8 @@ export default function FeatureRequestModal() {
                 required
                 maxLength={1000}
                 disabled={submitting}
-                style={{ 
-                  width: '100%', 
+                style={{
+                  width: '100%',
                   padding: '0.75rem',
                   borderRadius: '8px',
                   border: '1px solid var(--border-color)',

@@ -29,7 +29,7 @@ export default function LoginModal() {
       if (result.success) {
         showNotification('Signed in successfully!', 'success');
         closeLoginModal();
-        
+
         // Reset form
         setEmail('');
         setPassword('');

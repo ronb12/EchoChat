@@ -7,29 +7,29 @@ import { getMessaging, isSupported, onMessage } from 'firebase/messaging';
 
 // Helper to check if value is a placeholder
 const isValidConfigValue = (value) => {
-  if (!value) return false;
+  if (!value) {return false;}
   const placeholders = ['your_api_key_here', 'your_project', 'your_project_id', 'your_sender_id', 'your_app_id'];
   return !placeholders.some(placeholder => value.includes(placeholder));
 };
 
 const firebaseConfig = {
-  apiKey: (import.meta.env.VITE_FIREBASE_API_KEY && isValidConfigValue(import.meta.env.VITE_FIREBASE_API_KEY)) 
-    ? import.meta.env.VITE_FIREBASE_API_KEY 
+  apiKey: (import.meta.env.VITE_FIREBASE_API_KEY && isValidConfigValue(import.meta.env.VITE_FIREBASE_API_KEY))
+    ? import.meta.env.VITE_FIREBASE_API_KEY
     : 'AIzaSyCMD8eNs3RoPQBQSbIFRbVA2kpCWuhDwvY',
   authDomain: (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN && isValidConfigValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN))
-    ? import.meta.env.VITE_FIREBASE_AUTH_DOMAIN 
+    ? import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
     : 'echochat-messaging.firebaseapp.com',
   projectId: (import.meta.env.VITE_FIREBASE_PROJECT_ID && isValidConfigValue(import.meta.env.VITE_FIREBASE_PROJECT_ID))
-    ? import.meta.env.VITE_FIREBASE_PROJECT_ID 
+    ? import.meta.env.VITE_FIREBASE_PROJECT_ID
     : 'echochat-messaging',
   storageBucket: (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET && isValidConfigValue(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET))
-    ? import.meta.env.VITE_FIREBASE_STORAGE_BUCKET 
+    ? import.meta.env.VITE_FIREBASE_STORAGE_BUCKET
     : 'echochat-messaging.firebasestorage.app',
   messagingSenderId: (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID && isValidConfigValue(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID))
-    ? import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID 
+    ? import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID
     : '422897650093',
   appId: (import.meta.env.VITE_FIREBASE_APP_ID && isValidConfigValue(import.meta.env.VITE_FIREBASE_APP_ID))
-    ? import.meta.env.VITE_FIREBASE_APP_ID 
+    ? import.meta.env.VITE_FIREBASE_APP_ID
     : '1:422897650093:web:23d81b1ddad8ed4b8e3924'
 };
 

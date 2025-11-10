@@ -11,8 +11,8 @@ class BiometricService {
    * @returns {boolean}
    */
   checkSupport() {
-    if (typeof window === 'undefined') return false;
-    
+    if (typeof window === 'undefined') {return false;}
+
     return !!(
       window.PublicKeyCredential &&
       navigator.credentials &&
@@ -32,7 +32,11 @@ class BiometricService {
 
     try {
       // Check if platform authenticator is available
-      const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      const credentialAPI = window.PublicKeyCredential;
+      if (!credentialAPI?.isUserVerifyingPlatformAuthenticatorAvailable) {
+        return false;
+      }
+      const available = await credentialAPI.isUserVerifyingPlatformAuthenticatorAvailable();
       return available;
     } catch (error) {
       console.error('Error checking biometric availability:', error);
@@ -89,9 +93,9 @@ class BiometricService {
       return { success: true, credentialId };
     } catch (error) {
       console.error('Error registering biometric:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Failed to register biometric authentication' 
+      return {
+        success: false,
+        error: error.message || 'Failed to register biometric authentication'
       };
     }
   }

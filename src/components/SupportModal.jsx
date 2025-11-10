@@ -202,7 +202,7 @@ export default function SupportModal() {
                 <h4 style={{ fontSize: '1rem', marginBottom: '0.75rem', color: 'var(--primary-color)' }}>Other Ways to Reach Us</h4>
                 <div style={{ fontSize: '0.9rem', lineHeight: '1.8' }}>
                   <p style={{ marginBottom: '0.5rem' }}>
-                    <strong>📧 Email:</strong> support@echochat.com
+                    <strong>📧 Email:</strong> support@echodynamo.com
                   </p>
                   <p style={{ marginBottom: '0.5rem' }}>
                     <strong>💬 Live Chat:</strong> Available Monday-Friday, 9 AM - 5 PM

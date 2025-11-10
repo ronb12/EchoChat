@@ -12,7 +12,7 @@ export default function SupportTicketModal() {
   const [category, setCategory] = useState('other');
   const [submitting, setSubmitting] = useState(false);
 
-  if (!showSupportTicketModal) return null;
+  if (!showSupportTicketModal) {return null;}
 
   const priorities = [
     { value: 'low', label: 'Low - Minor issue, not urgent', color: '#4CAF50' },
@@ -44,7 +44,7 @@ export default function SupportTicketModal() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!subject.trim()) {
       showNotification('Please enter a subject', 'warning');
       return;
@@ -69,7 +69,7 @@ export default function SupportTicketModal() {
         priority,
         category
       );
-      
+
       if (result.success) {
         showNotification(`Support ticket submitted! Ticket ID: ${result.ticketId?.substring(0, 8)}...`, 'success');
         setSubject('');
@@ -192,8 +192,8 @@ export default function SupportTicketModal() {
                 required
                 maxLength={2000}
                 disabled={submitting}
-                style={{ 
-                  width: '100%', 
+                style={{
+                  width: '100%',
                   padding: '0.75rem',
                   borderRadius: '8px',
                   border: '1px solid var(--border-color)',
@@ -207,9 +207,9 @@ export default function SupportTicketModal() {
               </small>
             </div>
 
-            <div style={{ 
-              padding: '1rem', 
-              background: 'var(--surface-color, #f5f5f5)', 
+            <div style={{
+              padding: '1rem',
+              background: 'var(--surface-color, #f5f5f5)',
               borderRadius: '8px',
               fontSize: '0.875rem',
               color: 'var(--text-secondary)'
