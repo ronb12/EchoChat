@@ -59,7 +59,7 @@ class ProfileService {
       // Return default profile
       const defaultProfile = {
         id: userId,
-        status: 'Hey there! I am using EchoChat',
+        status: 'Hey there! I am using EchoDynamo',
         statusEmoji: '👋',
         statusExpiresAt: null,
         bio: '',
@@ -86,7 +86,7 @@ class ProfileService {
       // Return default profile even on error
       return {
         id: userId,
-        status: 'Hey there! I am using EchoChat',
+        status: 'Hey there! I am using EchoDynamo',
         statusEmoji: '👋',
         statusExpiresAt: null,
         bio: '',

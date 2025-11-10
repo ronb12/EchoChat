@@ -1,6 +1,6 @@
-# EchoChat - Advanced Secure Messaging Platform
+# EchoDynamo - Advanced Secure Messaging Platform
 
-EchoChat is a cutting-edge messaging application that combines enterprise-grade security, business features, and family safety controls in one powerful platform. Built with React, Firebase, and Stripe integration.
+EchoDynamo is a cutting-edge messaging application that combines enterprise-grade security, business features, and family safety controls in one powerful platform. Built with React, Firebase, and Stripe integration.
 
 ## 🚀 Key Features
 
@@ -70,7 +70,7 @@ EchoChat is a cutting-edge messaging application that combines enterprise-grade 
 
 ## 📱 Progressive Web App (PWA)
 
-EchoChat is a fully functional PWA that can be installed on any device:
+EchoDynamo is a fully functional PWA that can be installed on any device:
 
 - **Installable**: Add to home screen on mobile/desktop
 - **Offline Support**: Works without internet connection
@@ -81,7 +81,7 @@ EchoChat is a fully functional PWA that can be installed on any device:
 
 ## 🎨 Responsive Design
 
-EchoChat automatically adapts to all screen sizes:
+EchoDynamo automatically adapts to all screen sizes:
 
 - **Mobile**: Optimized for phones (320px+)
 - **Tablet**: Perfect for tablets (768px+)
@@ -118,8 +118,8 @@ EchoChat automatically adapts to all screen sizes:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/ronb12/EchoChat.git
-   cd EchoChat
+   git clone https://github.com/ronb12/EchoDynamo.git
+   cd EchoDynamo
    ```
 
 2. **Install dependencies**
@@ -186,7 +186,7 @@ EchoChat automatically adapts to all screen sizes:
 ## 📁 Project Structure
 
 ```
-EchoChat/
+EchoDynamo/
 ├── src/
 │   ├── components/          # React components
 │   │   ├── AdminDashboard.jsx
@@ -361,7 +361,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - **Documentation**: See project wiki
-- **Issues**: [GitHub Issues](https://github.com/ronb12/EchoChat/issues)
+- **Issues**: [GitHub Issues](https://github.com/ronb12/EchoDynamo/issues)
 - **Email**: ronellbradley@bradleyvs.com (Admin)
 
 ## 🎯 Roadmap
@@ -385,7 +385,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📈 API Architecture
 
-### EchoChat API (Firebase Functions)
+### EchoDynamo API (Firebase Functions)
 - **Base URL**: `https://echochat-messaging.web.app/api`
 - **Health Check**: `GET /health`
 - **Stripe Endpoints**: `/api/stripe/*`
@@ -394,7 +394,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🔄 Updates
 
-EchoChat automatically updates:
+EchoDynamo automatically updates:
 - **Background Updates**: Seamless updates
 - **Version Control**: Version management
 - **Rollback Support**: Easy rollback if needed
@@ -402,8 +402,8 @@ EchoChat automatically updates:
 
 ---
 
-**EchoChat** - The future of secure messaging. Built with ❤️ by Bradley Virtual Solutions, LLC.
+**EchoDynamo** - The future of secure messaging. Built with ❤️ by Bradley Virtual Solutions, LLC.
 
 **Live URL**: https://echochat-messaging.web.app
 
-**Repository**: https://github.com/ronb12/EchoChat
+**Repository**: https://github.com/ronb12/EchoDynamo

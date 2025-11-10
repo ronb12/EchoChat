@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-ALIAS_DOMAIN=${1:-echochat-app.vercel.app}
+ALIAS_DOMAIN=${1:-echodynamo.vercel.app}
 
 echo "🚀 Deploying latest production build to Vercel..."
 DEPLOY_OUTPUT=$(vercel deploy --prod --yes)

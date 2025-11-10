@@ -1162,7 +1162,7 @@ export default function ChatArea() {
         <div className="welcome-screen">
           <div className="welcome-content">
             <div className="welcome-icon">💬</div>
-            <h2>Welcome to EchoChat</h2>
+            <h2>Welcome to EchoDynamo</h2>
             <p>Select a chat or start a new conversation to begin messaging</p>
             <div className="welcome-actions">
               <button className="btn btn-primary" onClick={openNewChatModal}>

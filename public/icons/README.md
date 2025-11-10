@@ -1,6 +1,6 @@
-# EchoChat Icons
+# EchoDynamo Icons
 
-This directory contains the app icons for EchoChat. You need to create the following icon files:
+This directory contains the app icons for EchoDynamo. You need to create the following icon files:
 
 ## Required Icons
 
@@ -19,7 +19,7 @@ This directory contains the app icons for EchoChat. You need to create the follo
 ## Icon Design
 
 The icons should feature:
-- EchoChat logo (💬 or custom design)
+- EchoDynamo logo (💬 or custom design)
 - Consistent color scheme matching the app
 - High quality and crisp at all sizes
 - Transparent background for PNG files

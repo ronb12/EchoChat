@@ -235,11 +235,11 @@ function AppContent() {
 
     const initializeApp = async () => {
       try {
-        console.log('Initializing EchoChat...');
+        console.log('Initializing EchoDynamo...');
 
         // Set initialized immediately - don't block on service worker
         setIsInitialized(true);
-        console.log('EchoChat initialized successfully');
+        console.log('EchoDynamo initialized successfully');
 
         // Initialize service worker in background (non-blocking)
         const initServiceWorker = async () => {
@@ -340,7 +340,7 @@ function AppContent() {
         // Initialize service worker in background - don't wait
         initServiceWorker();
       } catch (error) {
-        console.error('Error initializing EchoChat:', error);
+        console.error('Error initializing EchoDynamo:', error);
         setIsInitialized(true); // Still show the app even if initialization fails
       } finally {
         clearTimeout(initTimeout);

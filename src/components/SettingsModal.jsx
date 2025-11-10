@@ -2150,7 +2150,7 @@ function SettingsModal() {
           <div className="settings-section">
             <h3>📝 Feedback & Support</h3>
             <div className="setting-item">
-              <label>Rate EchoChat</label>
+              <label>Rate EchoDynamo</label>
               <p style={{ fontSize: '0.875rem', color: 'var(--text-color-secondary)', marginBottom: '0.5rem' }}>
                 Share your experience and help us improve
               </p>

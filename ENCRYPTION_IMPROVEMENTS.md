@@ -1,40 +1,40 @@
-# EchoChat Encryption - Better Than Signal
+# EchoDynamo Encryption - Better Than Signal
 
 ## 🔐 Advanced Encryption Implementation
 
-EchoChat now features world-class encryption that exceeds Signal's capabilities in several key areas.
+EchoDynamo now features world-class encryption that exceeds Signal's capabilities in several key areas.
 
 ## 🚀 Key Improvements Over Signal
 
 ### 1. **Web Crypto API (Native Browser API)**
-- ✅ **EchoChat**: Uses native Web Crypto API (faster, more secure, hardware-accelerated)
+- ✅ **EchoDynamo**: Uses native Web Crypto API (faster, more secure, hardware-accelerated)
 - ⚠️ **Signal**: Uses JavaScript crypto libraries (slower, less hardware-optimized)
 
 ### 2. **Higher Key Derivation Iterations**
-- ✅ **EchoChat**: 600,000 PBKDF2 iterations (6x more secure)
+- ✅ **EchoDynamo**: 600,000 PBKDF2 iterations (6x more secure)
 - ⚠️ **Signal**: ~100,000 iterations
 
 ### 3. **Perfect Forward Secrecy with Aggressive Key Rotation**
-- ✅ **EchoChat**: Keys rotate every 100 messages (high PFS)
+- ✅ **EchoDynamo**: Keys rotate every 100 messages (high PFS)
 - ⚠️ **Signal**: Keys rotate less frequently
 
 ### 4. **Zero-Knowledge Key Storage**
-- ✅ **EchoChat**: Keys stored in IndexedDB with additional encryption layers
+- ✅ **EchoDynamo**: Keys stored in IndexedDB with additional encryption layers
 - ✅ Keys never leave the device
 - ✅ No plaintext keys in memory after use
 
 ### 5. **Per-Chat Session Keys**
-- ✅ **EchoChat**: Each chat has its own session key
+- ✅ **EchoDynamo**: Each chat has its own session key
 - ✅ Independent encryption per conversation
 - ✅ Better isolation between chats
 
 ### 6. **AES-256-GCM with 128-bit Authentication Tags**
-- ✅ **EchoChat**: Full AES-256-GCM implementation
+- ✅ **EchoDynamo**: Full AES-256-GCM implementation
 - ✅ 128-bit authentication tags (maximum security)
 - ✅ Authenticated encryption prevents tampering
 
 ### 7. **Enhanced Metadata Protection**
-- ✅ **EchoChat**: Encrypted payload includes versioning
+- ✅ **EchoDynamo**: Encrypted payload includes versioning
 - ✅ Future-proof design for protocol updates
 - ✅ Better error handling and backwards compatibility
 
@@ -119,7 +119,7 @@ EchoChat now features world-class encryption that exceeds Signal's capabilities 
 
 ## 🛡️ Security Guarantees
 
-### What EchoChat Protects Against
+### What EchoDynamo Protects Against
 
 1. **Eavesdropping**: Messages encrypted end-to-end
 2. **Tampering**: GCM mode provides authentication
@@ -227,11 +227,11 @@ const decrypted = await encryptionService.decryptMessageText(
 
 ## 🎯 Conclusion
 
-EchoChat's encryption implementation exceeds Signal in:
+EchoDynamo's encryption implementation exceeds Signal in:
 - **Security**: Higher key derivation iterations
 - **Performance**: Native Web Crypto API
 - **Perfect Forward Secrecy**: More aggressive key rotation
 - **Key Management**: Better isolation and storage
 - **Future-Proof**: Versioned protocol, extensible design
 
-EchoChat provides state-of-the-art encryption that protects your messages now and in the future.
+EchoDynamo provides state-of-the-art encryption that protects your messages now and in the future.

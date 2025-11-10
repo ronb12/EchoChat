@@ -82,7 +82,7 @@ class PushNotificationService {
       // Show browser notification
       if (payload.notification) {
         this.showNotification(
-          payload.notification.title || 'EchoChat',
+          payload.notification.title || 'EchoDynamo',
           payload.notification.body || 'You have a new message',
           payload.notification.icon,
           payload.data

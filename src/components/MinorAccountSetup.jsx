@@ -36,7 +36,7 @@ export default function MinorAccountSetup({ onComplete }) {
     const age = calculateAge(dateOfBirth);
     
     if (age < 13) {
-      setError('You must be at least 13 years old to use EchoChat');
+      setError('You must be at least 13 years old to use EchoDynamo');
       return;
     }
 

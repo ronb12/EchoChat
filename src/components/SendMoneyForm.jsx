@@ -54,7 +54,7 @@ export default function SendMoneyForm({
         payment_method: {
           card: cardElement,
           billing_details: {
-            name: recipientName || 'EchoChat User',
+            name: recipientName || 'EchoDynamo User',
           },
         },
       });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Stripe CLI Test Script for EchoChat
+ * Stripe CLI Test Script for EchoDynamo
  * Tests money sending and requesting features using Stripe Connect
  * 
  * Usage:
@@ -160,7 +160,7 @@ function printStripeCLICommands() {
 }
 
 async function runTests() {
-  log('\n🚀 EchoChat Stripe Integration Tests', 'green');
+  log('\n🚀 EchoDynamo Stripe Integration Tests', 'green');
   log('════════════════════════════════════════', 'green');
   log(`Account: ${STRIPE_ACCOUNT_EMAIL}`, 'blue');
   log(`Date: ${new Date().toLocaleString()}`, 'blue');

@@ -303,7 +303,7 @@ export default function AppHeader() {
         <div className="app-logo">
           <div className="logo-icon">💬</div>
           <div className="app-title">
-            <h1>EchoChat</h1>
+            <h1>EchoDynamo</h1>
           </div>
         </div>
         <div className="connection-status">

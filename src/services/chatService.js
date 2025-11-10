@@ -207,7 +207,7 @@ class ChatService {
               id: 'support_msg_1',
               senderId: otherParticipants.support.id,
               senderName: otherParticipants.support.name,
-              text: 'Hey there! 👋 Welcome to EchoChat — let me know if you need anything.',
+              text: 'Hey there! 👋 Welcome to EchoDynamo — let me know if you need anything.',
               offset: oneHour - fiveMinutes
             },
             {
@@ -1773,7 +1773,7 @@ class ChatService {
   }
 
   // Helper to emit a notification from anywhere in the app during dev
-  emitNotification(message, type = 'info', title = 'EchoChat') {
+  emitNotification(message, type = 'info', title = 'EchoDynamo') {
     for (const cb of this.notificationListeners) {
       cb({ message, type, title });
     }

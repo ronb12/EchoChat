@@ -24,14 +24,14 @@ export default function TermsOfServiceModal() {
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--primary-color)' }}>1. Acceptance of Terms</h3>
               <p style={{ marginBottom: '1rem' }}>
-                By accessing or using EchoChat, you agree to be bound by these Terms of Service and all applicable laws and regulations.
+                By accessing or using EchoDynamo, you agree to be bound by these Terms of Service and all applicable laws and regulations.
               </p>
             </section>
 
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--primary-color)' }}>2. Use License</h3>
               <p style={{ marginBottom: '1rem' }}>
-                Permission is granted to use EchoChat for personal and commercial purposes, subject to the restrictions set forth in these terms.
+                Permission is granted to use EchoDynamo for personal and commercial purposes, subject to the restrictions set forth in these terms.
               </p>
             </section>
 
@@ -39,7 +39,7 @@ export default function TermsOfServiceModal() {
               <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--primary-color)' }}>3. User Conduct</h3>
               <p style={{ marginBottom: '1rem' }}>You agree not to:</p>
               <ul style={{ marginLeft: '1.5rem', marginBottom: '1rem' }}>
-                <li>Use EchoChat for any unlawful purpose</li>
+                <li>Use EchoDynamo for any unlawful purpose</li>
                 <li>Transmit harmful, abusive, or offensive content</li>
                 <li>Impersonate others or provide false information</li>
                 <li>Interfere with the security or functionality of the service</li>

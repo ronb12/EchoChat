@@ -61,7 +61,7 @@ class BiometricService {
       const publicKeyCredentialCreationOptions = {
         challenge: this.generateChallenge(),
         rp: {
-          name: 'EchoChat',
+          name: 'EchoDynamo',
           id: window.location.hostname,
         },
         user: {

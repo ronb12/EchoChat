@@ -80,7 +80,7 @@ async function testFullStripeFlow() {
   
   try {
     // Navigate to app
-    log('\n📱 Navigating to EchoChat...', 'cyan');
+    log('\n📱 Navigating to EchoDynamo...', 'cyan');
     try {
       await page.goto('http://localhost:3002', { waitUntil: 'domcontentloaded', timeout: 15000 });
     } catch (e) {

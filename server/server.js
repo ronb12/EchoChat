@@ -1,5 +1,5 @@
 /**
- * EchoChat Backend Server - Stripe Integration
+ * EchoDynamo Backend Server - Stripe Integration
  * Handles Stripe Connect payments, money transfers, and webhooks
  * 
  * Run with: node server/server.js
@@ -114,7 +114,7 @@ app.post('/api/stripe/create-account', async (req, res) => {
       },
       metadata: {
         userId: userId,
-        app: 'EchoChat',
+        app: 'EchoDynamo',
         accountType: isBusinessAccount ? 'business' : 'personal'
       }
     });
@@ -146,7 +146,7 @@ app.post('/api/stripe/create-account', async (req, res) => {
             email: email,
             metadata: {
               userId: userId,
-              app: 'EchoChat'
+              app: 'EchoDynamo'
             }
           });
         }
@@ -156,7 +156,7 @@ app.post('/api/stripe/create-account', async (req, res) => {
         
         if (!priceId) {
           const product = await stripe.products.create({
-            name: 'EchoChat Business Plan',
+            name: 'EchoDynamo Business Plan',
             description: 'Monthly subscription for business accounts'
           });
 
@@ -190,7 +190,7 @@ app.post('/api/stripe/create-account', async (req, res) => {
             metadata: {
               userId: userId,
               accountType: 'business',
-              app: 'EchoChat',
+              app: 'EchoDynamo',
               stripeAccountId: account.id
             }
           },
@@ -1093,7 +1093,7 @@ app.post('/api/stripe/create-subscription', async (req, res) => {
         email: email,
         metadata: {
           userId: userId,
-          app: 'EchoChat'
+          app: 'EchoDynamo'
         }
       });
     }
@@ -1105,10 +1105,10 @@ app.post('/api/stripe/create-subscription', async (req, res) => {
     if (!priceId) {
       // Create product
       const product = await stripe.products.create({
-        name: 'EchoChat Business Plan',
+        name: 'EchoDynamo Business Plan',
         description: 'Monthly subscription for business accounts',
         metadata: {
-          app: 'EchoChat',
+          app: 'EchoDynamo',
           planType: 'business'
         }
       });
@@ -1137,7 +1137,7 @@ app.post('/api/stripe/create-subscription', async (req, res) => {
       metadata: {
         userId: userId,
         accountType: 'business',
-        app: 'EchoChat'
+        app: 'EchoDynamo'
       }
     });
 
@@ -1423,7 +1423,7 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
     if (!priceId) {
       // Create product and price if not exists
       const product = await stripe.products.create({
-        name: 'EchoChat Business Plan',
+        name: 'EchoDynamo Business Plan',
         description: 'Monthly subscription for business accounts'
       });
 
@@ -1625,7 +1625,7 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 EchoChat Backend Server running on port ${PORT}`);
+  console.log(`🚀 EchoDynamo Backend Server running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/health`);
   console.log(`💳 Stripe API: Ready`);
   console.log(`📡 Webhooks: http://localhost:${PORT}/api/stripe/webhook`);

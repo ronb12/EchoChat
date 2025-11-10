@@ -1,5 +1,5 @@
 /**
- * Comprehensive automated test for EchoChat
+ * Comprehensive automated test for EchoDynamo
  * Tests all features across different screen sizes
  */
 
@@ -481,7 +481,7 @@ async function findAvailablePort() {
 }
 
 async function runTests() {
-  console.log('🚀 Starting comprehensive view tests for EchoChat...\n');
+  console.log('🚀 Starting comprehensive view tests for EchoDynamo...\n');
   
   // Find available port first - this port will be reused for all tests
   console.log('🔍 Detecting dev server port...');

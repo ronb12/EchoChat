@@ -1,6 +1,6 @@
 {
-  "name": "EchoChat - Advanced Messaging",
-  "short_name": "EchoChat",
+  "name": "EchoDynamo - Advanced Messaging",
+  "short_name": "EchoDynamo",
   "description": "Secure, fast, and feature-rich messaging app",
   "start_url": "/",
   "display": "standalone",

@@ -73,7 +73,7 @@ async function testMoneyFeatures() {
   
   try {
     // Navigate to app
-    log('\n📱 Navigating to EchoChat...', 'cyan');
+    log('\n📱 Navigating to EchoDynamo...', 'cyan');
     await page.goto('http://localhost:3000', { waitUntil: 'networkidle2' });
     await page.waitForTimeout(2000);
     

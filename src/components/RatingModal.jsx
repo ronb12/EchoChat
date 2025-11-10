@@ -51,14 +51,14 @@ export default function RatingModal() {
       <div className="modal-backdrop" onClick={closeRatingModal}></div>
       <div className="modal-content" style={{ maxWidth: '500px' }}>
         <div className="modal-header">
-          <h2>Rate EchoChat</h2>
+          <h2>Rate EchoDynamo</h2>
           <button className="modal-close" onClick={closeRatingModal}>&times;</button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
               <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>
-                How would you rate your experience with EchoChat?
+                How would you rate your experience with EchoDynamo?
               </p>
               
               {/* Star Rating */}
@@ -110,7 +110,7 @@ export default function RatingModal() {
                 id="rating-comment"
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Share your thoughts about EchoChat..."
+                placeholder="Share your thoughts about EchoDynamo..."
                 rows={4}
                 maxLength={500}
                 style={{ 

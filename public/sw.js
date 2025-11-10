@@ -1,4 +1,4 @@
-// Enhanced Service Worker for EchoChat PWA - Advanced Offline Support
+// Enhanced Service Worker for EchoDynamo PWA - Advanced Offline Support
 const DEFAULT_CACHE_VERSION = '2.1.3';
 let resolvedVersion = DEFAULT_CACHE_VERSION;
 try {
@@ -316,7 +316,7 @@ async function syncMessages() {
 // Get offline messages from IndexedDB
 async function getOfflineMessages() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('EchoChatDB', 1);
+    const request = indexedDB.open('EchoDynamoDB', 1);
     
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
@@ -362,7 +362,7 @@ async function sendMessageToServer(message) {
 // Remove offline message from IndexedDB
 async function removeOfflineMessage(messageId) {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('EchoChatDB', 1);
+    const request = indexedDB.open('EchoDynamoDB', 1);
     
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
@@ -382,7 +382,7 @@ self.addEventListener('push', (event) => {
   console.log('[SW] Push notification received:', event);
   
   let notificationData = {
-    title: 'EchoChat',
+    title: 'EchoDynamo',
     body: 'You have a new message',
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-72x72.png',
@@ -420,7 +420,7 @@ self.addEventListener('push', (event) => {
     actions: [
       {
         action: 'open',
-        title: 'Open EchoChat',
+        title: 'Open EchoDynamo',
         icon: '/icons/icon-72x72.png'
       },
       {
@@ -526,5 +526,5 @@ self.addEventListener('unhandledrejection', (event) => {
   console.error('[SW] Unhandled rejection:', event.reason);
 });
 
-console.log('[SW] EchoChat Enhanced Service Worker loaded v' + CACHE_VERSION);
+console.log('[SW] EchoDynamo Enhanced Service Worker loaded v' + CACHE_VERSION);
 

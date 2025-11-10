@@ -59,7 +59,7 @@ export default function StatusModal() {
   };
 
   const commonStatuses = [
-    { emoji: '👋', text: 'Hey there! I am using EchoChat' },
+    { emoji: '👋', text: 'Hey there! I am using EchoDynamo' },
     { emoji: '😊', text: 'Available' },
     { emoji: '🤔', text: 'Thinking...' },
     { emoji: '💼', text: 'At work' },

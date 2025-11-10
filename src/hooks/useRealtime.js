@@ -190,7 +190,7 @@ export function useNotifications() {
 
       // Show browser notification if permission granted
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(notification.title || 'EchoChat', {
+        new Notification(notification.title || 'EchoDynamo', {
           body: notification.message,
           icon: '/icons/icon-192x192.png'
         });

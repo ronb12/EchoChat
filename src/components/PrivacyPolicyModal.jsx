@@ -24,10 +24,10 @@ export default function PrivacyPolicyModal() {
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--primary-color)' }}>1. Introduction</h3>
               <p style={{ marginBottom: '1rem' }}>
-                EchoChat ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our messaging application and services.
+                EchoDynamo ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our messaging application and services.
               </p>
               <p>
-                By using EchoChat, you agree to the collection and use of information in accordance with this policy.
+                By using EchoDynamo, you agree to the collection and use of information in accordance with this policy.
               </p>
             </section>
 
@@ -139,7 +139,7 @@ export default function PrivacyPolicyModal() {
             <section style={{ marginBottom: '2rem' }}>
               <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--primary-color)' }}>8. Children's Privacy</h3>
               <p>
-                EchoChat is not intended for users under the age of 13. We do not knowingly collect personal information from children under 13. If you believe we have collected information from a child under 13, please contact us immediately.
+                EchoDynamo is not intended for users under the age of 13. We do not knowingly collect personal information from children under 13. If you believe we have collected information from a child under 13, please contact us immediately.
               </p>
             </section>
 
@@ -161,7 +161,7 @@ export default function PrivacyPolicyModal() {
                 <li>Sending you a notification (for material changes)</li>
               </ul>
               <p>
-                Your continued use of EchoChat after changes become effective constitutes acceptance of the updated Privacy Policy.
+                Your continued use of EchoDynamo after changes become effective constitutes acceptance of the updated Privacy Policy.
               </p>
             </section>
 
@@ -173,7 +173,7 @@ export default function PrivacyPolicyModal() {
               <div style={{ background: 'var(--surface-color)', padding: '1rem', borderRadius: '8px', marginTop: '1rem' }}>
                 <p style={{ marginBottom: '0.5rem' }}><strong>Email:</strong> privacy@echochat.com</p>
                 <p style={{ marginBottom: '0.5rem' }}><strong>Support:</strong> support@echochat.com</p>
-                <p><strong>Address:</strong> EchoChat Privacy Team</p>
+                <p><strong>Address:</strong> EchoDynamo Privacy Team</p>
               </div>
             </section>
           </div>

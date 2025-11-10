@@ -1,4 +1,4 @@
-# EchoChat Automated View Tests - Results
+# EchoDynamo Automated View Tests - Results
 
 ## Test Execution Date
 Test run completed successfully across multiple viewport sizes.
@@ -129,7 +129,7 @@ Test run completed successfully across multiple viewport sizes.
 
 ## Conclusion
 
-The EchoChat app is **fully functional** across all tested viewport sizes. The responsive design implementation is working correctly, with all features visible and accessible on:
+The EchoDynamo app is **fully functional** across all tested viewport sizes. The responsive design implementation is working correctly, with all features visible and accessible on:
 
 - ✅ Small phones (iPhone SE - 375px)
 - ✅ Large phones (iPhone XS Max - 414px)

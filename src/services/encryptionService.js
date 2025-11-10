@@ -31,7 +31,7 @@ class EncryptionService {
 
     return new Promise((resolve, reject) => {
       try {
-        const request = indexedDB.open('EchoChatEncryptionDB', 1);
+        const request = indexedDB.open('EchoDynamoEncryptionDB', 1);
 
         request.onerror = () => {
           console.warn('IndexedDB open failed, using in-memory storage:', request.error);

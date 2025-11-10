@@ -26,7 +26,7 @@ export default function LandingPage() {
           <div className="hero-content">
             <div className="logo-section">
               <div className="logo-icon">💬</div>
-              <h1 className="app-title">EchoChat</h1>
+              <h1 className="app-title">EchoDynamo</h1>
               <p className="app-tagline">Secure, fast, and feature-rich messaging app</p>
             </div>
 
@@ -93,7 +93,7 @@ export default function LandingPage() {
             <div className="feature-card">
               <div className="feature-icon-large">📲</div>
               <h3>Installable PWA</h3>
-              <p>Use EchoChat offline, receive push notifications, and enjoy a native app experience.</p>
+              <p>Use EchoDynamo offline, receive push notifications, and enjoy a native app experience.</p>
             </div>
           </div>
         </section>
@@ -114,7 +114,7 @@ export default function LandingPage() {
         {/* Footer */}
         <footer className="landing-footer">
           <div className="footer-content">
-            <p>© 2025 EchoChat is a product of Bradley Virtual Solutions, LLC. Secure messaging for everyone.</p>
+            <p>© 2025 EchoDynamo is a product of Bradley Virtual Solutions, LLC. Secure messaging for everyone.</p>
             <div className="footer-links">
               <a href="#" onClick={(e) => { e.preventDefault(); openPrivacyModal(); }}>Privacy</a>
               <a href="#" onClick={(e) => { e.preventDefault(); openTermsModal(); }}>Terms</a>
