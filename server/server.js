@@ -1648,17 +1648,19 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 EchoDynamo Backend Server running on port ${PORT}`);
-  console.log(`📍 Health check: http://localhost:${PORT}/health`);
-  console.log(`💳 Stripe API: Ready`);
-  console.log(`📡 Webhooks: http://localhost:${PORT}/api/stripe/webhook`);
-  
-  if (!process.env.STRIPE_SECRET_KEY && !process.env.VITE_STRIPE_SECRET_KEY) {
-    console.warn('⚠️  Warning: STRIPE_SECRET_KEY not set!');
-  }
-});
+// Start server (only when running directly, not when imported as a serverless handler)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 EchoDynamo Backend Server running on port ${PORT}`);
+    console.log(`📍 Health check: http://localhost:${PORT}/health`);
+    console.log(`💳 Stripe API: Ready`);
+    console.log(`📡 Webhooks: http://localhost:${PORT}/api/stripe/webhook`);
+    
+    if (!process.env.STRIPE_SECRET_KEY && !process.env.VITE_STRIPE_SECRET_KEY) {
+      console.warn('⚠️  Warning: STRIPE_SECRET_KEY not set!');
+    }
+  });
+}
 
 module.exports = app;
 

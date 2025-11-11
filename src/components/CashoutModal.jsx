@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
+import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
 
 export default function CashoutModal({ accountId, onClose }) {
   const { showNotification } = useUI();
@@ -15,9 +16,7 @@ export default function CashoutModal({ accountId, onClose }) {
   const [payoutHistory, setPayoutHistory] = useState([]);
 
   // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
-  const baseUrl = import.meta.env.VITE_API_BASE_URL
-    || (import.meta.env.PROD ? 'https://echodynamo-app.vercel.app' : 'http://localhost:3001');
-  const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
+  const API_BASE_URL = resolveApiBaseUrl();
 
   useEffect(() => {
     if (accountId) {

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { twoFactorService } from '../services/twoFactorService';
 import { profileService } from '../services/profileService';
 import { clearDisplayNameCache } from '../hooks/useDisplayName';
+import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
 // import { getDisplayName, getRealName } from '../utils/userDisplayName';
 const _getDisplayName = (user, profile = null) => {
   if (!user) {return 'User';}
@@ -67,18 +68,10 @@ function SettingsModal() {
   });
 
   // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
-  // In production, use VITE_API_BASE_URL, fallback to localhost only in development
   const isProduction = import.meta.env.PROD;
-  const fallbackOrigin = import.meta.env.PROD
-    ? 'https://echodynamo-app.vercel.app'
-    : 'http://localhost:3001';
-  const baseUrl = import.meta.env.VITE_API_BASE_URL
-    || (isProduction ? fallbackOrigin : 'http://localhost:3001');
-  const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
-
-  // Warn if API URL not set in production
+  const API_BASE_URL = resolveApiBaseUrl();
   if (isProduction && !import.meta.env.VITE_API_BASE_URL) {
-    console.warn(`⚠️ VITE_API_BASE_URL not set in production. Falling back to ${fallbackOrigin}`);
+    console.warn(`⚠️ VITE_API_BASE_URL not set in production. Falling back to ${API_BASE_URL}`);
   }
 
   // Check if this is test business account for sample data fallback

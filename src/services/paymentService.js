@@ -1,6 +1,7 @@
 // Payment Service using Stripe Connect
 // IMPORTANT: Secret keys must never be exposed in frontend code
 // This service handles client-side operations; server-side API handles secret operations
+import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
 
 class PaymentService {
   constructor() {
@@ -8,8 +9,8 @@ class PaymentService {
     // In production, this should be: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
     this.stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null;
     this.stripePromise = null;
-    this.apiBaseUrl = import.meta.env.VITE_API_BASE_URL
-      || (import.meta.env.PROD ? 'https://echodynamo-app.vercel.app/api' : '/api');
+    const resolvedBase = resolveApiBaseUrl().replace(/\/$/, '');
+    this.apiBaseUrl = `${resolvedBase}/api`;
 
     // Initialize Stripe if key is available
     if (this.stripePublishableKey) {

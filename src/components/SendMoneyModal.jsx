@@ -5,6 +5,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import SendMoneyForm from './SendMoneyForm';
 import { paymentService } from '../services/paymentService';
+import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
 
 const COMMON_REASONS = [
   'Dinner/Meal',
@@ -231,9 +232,7 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
 
     try {
       // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
-      const baseUrl = import.meta.env.VITE_API_BASE_URL
-        || (import.meta.env.PROD ? 'https://echodynamo-app.vercel.app' : 'http://localhost:3001');
-      const API_BASE_URL = baseUrl.endsWith('/api') ? baseUrl.replace(/\/api$/, '') : baseUrl;
+      const API_BASE_URL = resolveApiBaseUrl();
 
       if (mode === 'send') {
         const response = await fetch(`${API_BASE_URL}/api/stripe/create-payment-intent`, {
