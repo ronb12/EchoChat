@@ -9,6 +9,7 @@
 // Load environment variables from root .env or server/.env
 const path = require('path');
 const fs = require('fs');
+const bufferModule = require('buffer');
 
 // Try to load from server/.env first, then root .env
 const serverEnvPath = path.join(__dirname, '.env');
@@ -22,7 +23,7 @@ if (fs.existsSync(serverEnvPath)) {
   require('dotenv').config(); // Try default location
 }
 
-global.Buffer = global.Buffer || require('buffer').Buffer;
+global.Buffer = bufferModule.Buffer;
 
 const express = require('express');
 const cors = require('cors');
