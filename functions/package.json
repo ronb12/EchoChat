@@ -1,0 +1,29 @@
+{
+  "name": "echodynamo-api",
+  "description": "EchoDynamo API - Backend API for EchoChat messaging platform with Stripe integration",
+  "version": "1.0.0",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "build": "echo 'No build step required'"
+  },
+  "engines": {
+    "node": "18"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^13.5.0",
+    "firebase-functions": "^5.1.1",
+    "cors": "^2.8.5",
+    "stripe": "^14.21.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.1.0"
+  },
+  "private": true
+}
+

@@ -99,3 +99,5 @@ jspm_packages/
 # - src/services/authService.js
 # - src/services/firebaseConfig.js
 .vercel
+.vite/
+functions/node_modules/
