@@ -579,9 +579,11 @@ export default function AppHeader() {
                 <div className="avatar-menu-header">
                   <div className="avatar-menu-avatar">
                     <img
-                      src={user.photoURL || `/icons/default-avatar.png`}
+                      src={user.photoURL || '/icons/default-avatar.png'}
                       alt={user.displayName || 'User'}
-                      onError={(e) => { e.target.src = '/icons/default-avatar.png'; }}
+                      onError={(event) => {
+                        event.target.src = '/icons/default-avatar.png';
+                      }}
                     />
                   </div>
                   <div className="avatar-menu-info">
@@ -605,7 +607,9 @@ export default function AppHeader() {
                     <div className="avatar-menu-email">{user.email}</div>
                   </div>
                 </div>
-                <div className="avatar-menu-divider"></div>
+
+                <div className="avatar-menu-divider" />
+
                 <button
                   className="avatar-menu-item"
                   onClick={() => handleMenuClick('profile')}
@@ -614,6 +618,7 @@ export default function AppHeader() {
                   <span className="menu-icon">📷</span>
                   <span>Change Profile Picture</span>
                 </button>
+
                 <button
                   className="avatar-menu-item"
                   onClick={() => handleMenuClick('status')}
@@ -621,6 +626,7 @@ export default function AppHeader() {
                   <span className="menu-icon">✏️</span>
                   <span>Status</span>
                 </button>
+
                 <button
                   className="avatar-menu-item"
                   onClick={() => handleMenuClick('callHistory')}
@@ -628,6 +634,7 @@ export default function AppHeader() {
                   <span className="menu-icon">📞</span>
                   <span>Call History</span>
                 </button>
+
                 <button
                   className="avatar-menu-item"
                   onClick={() => handleMenuClick('settings')}
@@ -635,7 +642,9 @@ export default function AppHeader() {
                   <span className="menu-icon">⚙️</span>
                   <span>Settings</span>
                 </button>
-                <div className="avatar-menu-divider"></div>
+
+                <div className="avatar-menu-divider" />
+
                 <button
                   className="avatar-menu-item"
                   onClick={() => handleMenuClick('logout')}
