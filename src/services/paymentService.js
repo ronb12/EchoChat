@@ -1,7 +1,7 @@
 // Payment Service using Stripe Connect
 // IMPORTANT: Secret keys must never be exposed in frontend code
 // This service handles client-side operations; server-side API handles secret operations
-import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
+import { resolveApiBaseUrlWithPrefix } from '../utils/apiBaseUrl';
 
 class PaymentService {
   constructor() {
@@ -9,8 +9,7 @@ class PaymentService {
     // In production, this should be: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
     this.stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || null;
     this.stripePromise = null;
-    const resolvedBase = resolveApiBaseUrl().replace(/\/$/, '');
-    this.apiBaseUrl = `${resolvedBase}/api`;
+    this.apiBaseUrl = resolveApiBaseUrlWithPrefix();
 
     // Initialize Stripe if key is available
     if (this.stripePublishableKey) {

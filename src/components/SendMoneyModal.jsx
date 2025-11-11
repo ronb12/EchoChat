@@ -5,7 +5,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import SendMoneyForm from './SendMoneyForm';
 import { paymentService } from '../services/paymentService';
-import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
+import { buildApiUrl } from '../utils/apiBaseUrl';
 
 const COMMON_REASONS = [
   'Dinner/Meal',
@@ -232,10 +232,8 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
 
     try {
       // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
-      const API_BASE_URL = resolveApiBaseUrl();
-
       if (mode === 'send') {
-        const response = await fetch(`${API_BASE_URL}/api/stripe/create-payment-intent`, {
+        const response = await fetch(buildApiUrl('/stripe/create-payment-intent'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -282,7 +280,7 @@ export default function SendMoneyModal({ recipientId, recipientName, onClose, in
           shouldCloseModal = true;
         }
       } else {
-        const response = await fetch(`${API_BASE_URL}/stripe/create-payment-request`, {
+        const response = await fetch(buildApiUrl('/stripe/create-payment-request'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

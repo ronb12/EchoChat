@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
-import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
+import { buildApiUrl } from '../utils/apiBaseUrl';
 
 export default function CashoutModal({ accountId, onClose }) {
   const { showNotification } = useUI();
@@ -15,9 +15,6 @@ export default function CashoutModal({ accountId, onClose }) {
   const [processing, setProcessing] = useState(false);
   const [payoutHistory, setPayoutHistory] = useState([]);
 
-  // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
-  const API_BASE_URL = resolveApiBaseUrl();
-
   useEffect(() => {
     if (accountId) {
       loadBalance();
@@ -29,7 +26,7 @@ export default function CashoutModal({ accountId, onClose }) {
 
   const loadBalance = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/balance/${accountId}`);
+      const response = await fetch(buildApiUrl(`/stripe/balance/${accountId}`));
       if (response.ok) {
         const data = await response.json();
         setBalance(data);
@@ -43,7 +40,7 @@ export default function CashoutModal({ accountId, onClose }) {
 
   const loadExternalAccounts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/external-accounts/${accountId}`);
+      const response = await fetch(buildApiUrl(`/stripe/external-accounts/${accountId}`));
       if (response.ok) {
         const data = await response.json();
         setExternalAccounts(data);
@@ -63,7 +60,7 @@ export default function CashoutModal({ accountId, onClose }) {
 
   const loadPayoutHistory = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/payouts/${accountId}?limit=5`);
+      const response = await fetch(buildApiUrl(`/stripe/payouts/${accountId}?limit=5`));
       if (response.ok) {
         const data = await response.json();
         setPayoutHistory(data.payouts || []);
@@ -75,7 +72,7 @@ export default function CashoutModal({ accountId, onClose }) {
 
   const handleAddAccount = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/create-account-link`, {
+      const response = await fetch(buildApiUrl('/stripe/create-account-link'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -127,7 +124,7 @@ export default function CashoutModal({ accountId, onClose }) {
 
     setProcessing(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/create-payout`, {
+      const response = await fetch(buildApiUrl('/stripe/create-payout'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

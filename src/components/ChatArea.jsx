@@ -18,7 +18,7 @@ import QuickReplyModal from './QuickReplyModal';
 import PollCreatorModal from './PollCreatorModal';
 import ScheduleMessageModal from './ScheduleMessageModal';
 import { EMOJI_LIST } from '../data/emojis';
-import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
+import { buildApiUrl } from '../utils/apiBaseUrl';
 
 function MicIcon({ size = 22 }) {
   return (
@@ -1674,8 +1674,7 @@ export default function ChatArea() {
                         e.stopPropagation();
                         // Check subscription status before allowing Quick Reply
                         try {
-                          const API_BASE_URL = resolveApiBaseUrl();
-                          const response = await fetch(`${API_BASE_URL}/api/stripe/subscription/${user?.uid}`);
+                          const response = await fetch(buildApiUrl(`/stripe/subscription/${user?.uid}`));
                           if (response.ok) {
                             const subscription = await response.json();
                             const hasActiveSubscription = subscription.status === 'active' || subscription.status === 'trialing';

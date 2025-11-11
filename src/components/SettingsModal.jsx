@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { twoFactorService } from '../services/twoFactorService';
 import { profileService } from '../services/profileService';
 import { clearDisplayNameCache } from '../hooks/useDisplayName';
-import { resolveApiBaseUrl } from '../utils/apiBaseUrl';
+import { buildApiUrl, resolveApiBaseUrlWithPrefix } from '../utils/apiBaseUrl';
 // import { getDisplayName, getRealName } from '../utils/userDisplayName';
 const _getDisplayName = (user, profile = null) => {
   if (!user) {return 'User';}
@@ -69,7 +69,7 @@ function SettingsModal() {
 
   // Ensure API_BASE_URL doesn't have trailing /api to avoid double /api/api/
   const isProduction = import.meta.env.PROD;
-  const API_BASE_URL = resolveApiBaseUrl();
+  const API_BASE_URL = resolveApiBaseUrlWithPrefix();
   if (isProduction && !import.meta.env.VITE_API_BASE_URL) {
     console.warn(`⚠️ VITE_API_BASE_URL not set in production. Falling back to ${API_BASE_URL}`);
   }
@@ -160,7 +160,7 @@ function SettingsModal() {
 
     try {
       // Get account status to retrieve accountId
-      const response = await fetch(`${API_BASE_URL}/api/stripe/account-status/${user.uid}`);
+      const response = await fetch(buildApiUrl(`/stripe/account-status/${user.uid}`));
       if (response.ok) {
         const data = await response.json();
         console.log('Stripe account status:', data);
@@ -234,7 +234,7 @@ function SettingsModal() {
     try {
       setLoadingBalance(true);
       console.log('Fetching balance for accountId:', accountId);
-      const response = await fetch(`${API_BASE_URL}/api/stripe/balance/${accountId}`);
+      const response = await fetch(buildApiUrl(`/stripe/balance/${accountId}`));
       console.log('Balance response status:', response.status);
       if (response.ok) {
         const data = await response.json();
@@ -339,7 +339,7 @@ function SettingsModal() {
 
     try {
       setLoadingTransactions(true);
-      const response = await fetch(`${API_BASE_URL}/api/stripe/transactions/${user.uid}?limit=10`);
+      const response = await fetch(buildApiUrl(`/stripe/transactions/${user.uid}?limit=10`));
       if (response.ok) {
         const data = await response.json();
         setTransactions(data.transactions || []);
@@ -452,7 +452,7 @@ function SettingsModal() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/payouts/${stripeAccountId}?limit=5`);
+      const response = await fetch(buildApiUrl(`/stripe/payouts/${stripeAccountId}?limit=5`));
       if (response.ok) {
         const data = await response.json();
         setPayouts(data.payouts || []);
@@ -530,7 +530,7 @@ function SettingsModal() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stripe/external-accounts/${stripeAccountId}`);
+      const response = await fetch(buildApiUrl(`/stripe/external-accounts/${stripeAccountId}`));
       if (response.ok) {
         const data = await response.json();
         setExternalAccounts(data);
@@ -611,7 +611,7 @@ function SettingsModal() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/stripe/subscription/${user.uid}`);
+      const response = await fetch(buildApiUrl(`/stripe/subscription/${user.uid}`));
       if (response.ok) {
         const data = await response.json();
         setSubscription(data);
@@ -649,7 +649,7 @@ function SettingsModal() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/stripe/create-checkout-session`, {
+      const response = await fetch(buildApiUrl('/stripe/create-checkout-session'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -695,7 +695,7 @@ function SettingsModal() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/stripe/cancel-subscription/${user.uid}`, {
+      const response = await fetch(buildApiUrl(`/stripe/cancel-subscription/${user.uid}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cancelImmediately })
@@ -1141,7 +1141,7 @@ function SettingsModal() {
 
                         showNotification('Opening Stripe account settings...', 'info');
 
-                        const response = await fetch(`${API_BASE_URL}/api/stripe/create-account-link`, {
+                        const response = await fetch(buildApiUrl('/stripe/create-account-link'), {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
@@ -1319,7 +1319,7 @@ function SettingsModal() {
                   className="btn btn-secondary"
                   onClick={async () => {
                     try {
-                      const response = await fetch(`${API_BASE_URL}/api/stripe/create-account`, {
+                      const response = await fetch(buildApiUrl('/stripe/create-account'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1488,7 +1488,7 @@ function SettingsModal() {
                                 return;
                               }
 
-                              const response = await fetch(`${API_BASE_URL}/api/stripe/create-portal-session`, {
+                              const response = await fetch(buildApiUrl('/stripe/create-portal-session'), {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -1533,7 +1533,7 @@ function SettingsModal() {
                                   return;
                                 }
 
-                                const response = await fetch(`${API_BASE_URL}/api/stripe/create-portal-session`, {
+                                const response = await fetch(buildApiUrl('/stripe/create-portal-session'), {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({
@@ -1656,7 +1656,7 @@ function SettingsModal() {
                         onClick={async () => {
                           try {
                             showNotification('Opening payment settings...', 'info');
-                            const response = await fetch(`${API_BASE_URL}/api/stripe/create-portal-session`, {
+                            const response = await fetch(buildApiUrl('/stripe/create-portal-session'), {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ userId: user.uid })
