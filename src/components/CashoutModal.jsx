@@ -88,8 +88,10 @@ export default function CashoutModal({ accountId, onClose }) {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         const message = errorData?.error || errorData?.message || '';
-        const needsOnboarding = typeof message === 'string' &&
-          message.includes('Account Link types for this account are ["account_onboarding"]');
+        const normalisedMessage = typeof message === 'string'
+          ? message.toLowerCase()
+          : '';
+        const needsOnboarding = normalisedMessage.includes('account_onboarding');
 
         if (needsOnboarding) {
           showNotification('Stripe needs you to finish onboarding before managing payout settings. Redirecting…', 'warning');

@@ -1157,10 +1157,12 @@ function SettingsModal() {
                         if (!response.ok) {
                           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
                           const message = errorData?.error || errorData?.message || '';
+                          const normalisedMessage = typeof message === 'string'
+                            ? message.toLowerCase()
+                            : '';
 
                           // Stripe returns this error if the account has not finished onboarding yet.
-                          const needsOnboarding = typeof message === 'string' &&
-                            message.includes('Account Link types for this account are ["account_onboarding"]');
+                          const needsOnboarding = normalisedMessage.includes('account_onboarding');
 
                           if (needsOnboarding) {
                             showNotification('Stripe needs you to finish onboarding. Redirecting you now…', 'warning');
