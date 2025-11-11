@@ -1141,22 +1141,42 @@ function SettingsModal() {
 
                         showNotification('Opening Stripe account settings...', 'info');
 
-                        const response = await fetch(buildApiUrl('/stripe/create-account-link'), {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            accountId: stripeAccountId,
-                            type: 'account_update'
-                          })
-                        });
+                        const requestAccountLink = async (linkType) => {
+                          return fetch(buildApiUrl('/stripe/create-account-link'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              accountId: stripeAccountId,
+                              type: linkType
+                            })
+                          });
+                        };
+
+                        let response = await requestAccountLink('account_update');
+
+                        if (!response.ok) {
+                          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                          const message = errorData?.error || errorData?.message || '';
+
+                          // Stripe returns this error if the account has not finished onboarding yet.
+                          const needsOnboarding = typeof message === 'string' &&
+                            message.includes('Account Link types for this account are ["account_onboarding"]');
+
+                          if (needsOnboarding) {
+                            showNotification('Stripe needs you to finish onboarding. Redirecting you now…', 'warning');
+                            response = await requestAccountLink('account_onboarding');
+                          } else {
+                            console.error('Failed to create account link:', errorData);
+                            showNotification(message || 'Failed to open account settings', 'error');
+                            return;
+                          }
+                        }
 
                         if (response.ok) {
                           const data = await response.json();
                           if (data.isTestAccount) {
-                            // Test account - show info message
                             showNotification(data.message || 'This is a test account. Real Stripe Connect account management is available for production accounts.', 'info');
                           } else if (data.url) {
-                            // Open in new tab/window
                             window.open(data.url, '_blank', 'noopener,noreferrer');
                             showNotification('Stripe account settings opened in new tab', 'success');
                           } else {
@@ -1164,7 +1184,7 @@ function SettingsModal() {
                           }
                         } else {
                           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                          console.error('Failed to create account link:', errorData);
+                          console.error('Failed to create account link after retry:', errorData);
                           showNotification(errorData.error || 'Failed to open account settings', 'error');
                         }
                       } catch (error) {

@@ -71,19 +71,43 @@ export default function CashoutModal({ accountId, onClose }) {
   };
 
   const handleAddAccount = async () => {
-    try {
-      const response = await fetch(buildApiUrl('/stripe/create-account-link'), {
+    const requestAccountLink = async (linkType) => {
+      return fetch(buildApiUrl('/stripe/create-account-link'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accountId: accountId,
-          type: 'account_update'
+          type: linkType
         })
       });
+    };
+
+    try {
+      let response = await requestAccountLink('account_update');
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        const message = errorData?.error || errorData?.message || '';
+        const needsOnboarding = typeof message === 'string' &&
+          message.includes('Account Link types for this account are ["account_onboarding"]');
+
+        if (needsOnboarding) {
+          showNotification('Stripe needs you to finish onboarding before managing payout settings. Redirecting…', 'warning');
+          response = await requestAccountLink('account_onboarding');
+        } else {
+          console.error('Failed to create account link:', errorData);
+          showNotification(message || 'Failed to open account setup', 'error');
+          return;
+        }
+      }
 
       if (response.ok) {
         const data = await response.json();
-        window.location.href = data.url; // Redirect to Stripe onboarding
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          showNotification('Failed to retrieve account setup link', 'error');
+        }
       } else {
         showNotification('Failed to open account setup', 'error');
       }
