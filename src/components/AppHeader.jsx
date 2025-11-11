@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useUI } from '../hooks/useUI';
 import { useAuth } from '../hooks/useAuth';
 import { useChat } from '../hooks/useChat';
@@ -160,6 +160,67 @@ export default function AppHeader() {
 
   const displayName = useAlias(user);
 
+  const stripeIndicatorStyle = useMemo(() => {
+    if (!stripeMode || stripeMode.mode === 'not_configured') {
+      return null;
+    }
+
+    const baseStyle = {
+      marginLeft: '12px',
+      padding: '4px 10px',
+      borderRadius: '12px',
+      fontSize: '11px',
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+      color: 'white',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      cursor: 'help'
+    };
+
+    if (stripeMode.mode === 'live') {
+      return {
+        ...baseStyle,
+        backgroundColor: 'rgba(76, 175, 80, 0.92)',
+        boxShadow: '0 0 8px rgba(76, 175, 80, 0.45)',
+        border: '1px solid rgba(76, 175, 80, 0.35)'
+      };
+    }
+
+    if (stripeMode.mode === 'test') {
+      return {
+        ...baseStyle,
+        backgroundColor: 'rgba(33, 150, 243, 0.9)',
+        boxShadow: '0 0 8px rgba(33, 150, 243, 0.4)',
+        border: '1px solid rgba(33, 150, 243, 0.35)'
+      };
+    }
+
+    return {
+      ...baseStyle,
+      backgroundColor: 'rgba(244, 67, 54, 0.9)',
+      boxShadow: '0 0 8px rgba(244, 67, 54, 0.5)',
+      border: '1px solid rgba(244, 67, 54, 0.35)',
+      animation: 'pulse 2s infinite'
+    };
+  }, [stripeMode]);
+
+  const stripeIndicatorIcon = useMemo(() => {
+    if (!stripeMode || stripeMode.mode === 'not_configured') {
+      return null;
+    }
+
+    if (stripeMode.mode === 'live') {
+      return '✅';
+    }
+    if (stripeMode.mode === 'test') {
+      return '🧪';
+    }
+    return '⚠️';
+  }, [stripeMode]);
+
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -313,40 +374,16 @@ export default function AppHeader() {
           <span>Online</span>
         </div>
         {/* Stripe Mode Indicator */}
-        {stripeMode && stripeMode.mode !== 'not_configured' && (
+        {stripeIndicatorStyle && stripeIndicatorIcon && (
           <div
             className="stripe-mode-indicator"
             title={stripeMode.message}
             style={{
-              marginLeft: '12px',
-              padding: '4px 10px',
-              borderRadius: '12px',
-              fontSize: '11px',
-              fontWeight: '600',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              backgroundColor: stripeMode.mode === 'live'
-                ? 'rgba(244, 67, 54, 0.9)'
-                : stripeMode.mode === 'test'
-                  ? 'rgba(76, 175, 80, 0.9)'
-                  : 'rgba(244, 67, 54, 0.9)',
-              color: 'white',
-              boxShadow: stripeMode.mode === 'live'
-                ? '0 0 8px rgba(244, 67, 54, 0.6)'
-                : stripeMode.mode === 'test'
-                  ? '0 0 8px rgba(76, 175, 80, 0.6)'
-                  : '0 0 8px rgba(244, 67, 54, 0.6)',
-              animation: stripeMode.mode === 'mismatch' || stripeMode.mode === 'unknown' ? 'pulse 2s infinite' : 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'help'
+              ...stripeIndicatorStyle
             }}
           >
             <span style={{ fontSize: '10px' }}>
-              {stripeMode.mode === 'live' ? '⚠️' :
-               stripeMode.mode === 'test' ? '✅' :
-               '⚠️'}
+              {stripeIndicatorIcon}
             </span>
             <span>
               {stripeMode.mode === 'live' ? 'LIVE' :

@@ -31,7 +31,7 @@ export function getStripeMode() {
 
   if (isPublishableLive || isSecretLive) {
     mode = 'live';
-    message = '⚠️ LIVE MODE - Real payments will be processed!';
+    message = 'Live mode - real payments are enabled.';
   } else if (isPublishableTest || isSecretTest) {
     mode = 'test';
     message = 'Test mode - Using Stripe test environment';
