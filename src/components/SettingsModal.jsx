@@ -1789,7 +1789,9 @@ function SettingsModal() {
                   {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
                     <div key={day} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', background: 'var(--surface-color)', borderRadius: '6px' }}>
                       <input
+                        id={`business-hours-${day}-toggle`}
                         type="checkbox"
+                        name={`business-hours-${day}-toggle`}
                         checked={!businessHours[day]?.closed}
                         onChange={() => handleToggleDayClosed(day)}
                         disabled={!hasActiveBusinessSubscription()}
@@ -1799,10 +1801,23 @@ function SettingsModal() {
                           cursor: hasActiveBusinessSubscription() ? 'pointer' : 'not-allowed'
                         }}
                       />
-                      <span style={{ minWidth: '80px', textTransform: 'capitalize', opacity: hasActiveBusinessSubscription() ? 1 : 0.6 }}>{day}</span>
+                      <label
+                        htmlFor={`business-hours-${day}-toggle`}
+                        style={{ minWidth: '80px', textTransform: 'capitalize', opacity: hasActiveBusinessSubscription() ? 1 : 0.6, marginBottom: 0 }}
+                      >
+                        {day}
+                      </label>
                       {!businessHours[day]?.closed ? (
                         <>
+                          <label
+                            htmlFor={`business-hours-${day}-open`}
+                            style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}
+                          >
+                            Opening time for {day}
+                          </label>
                           <input
+                            id={`business-hours-${day}-open`}
+                            name={`business-hours-${day}-open`}
                             type="time"
                             value={businessHours[day]?.open || '09:00'}
                             onChange={(e) => setBusinessHours({
@@ -1819,7 +1834,15 @@ function SettingsModal() {
                             }}
                           />
                           <span style={{ opacity: hasActiveBusinessSubscription() ? 1 : 0.6 }}>to</span>
+                          <label
+                            htmlFor={`business-hours-${day}-close`}
+                            style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}
+                          >
+                            Closing time for {day}
+                          </label>
                           <input
+                            id={`business-hours-${day}-close`}
+                            name={`business-hours-${day}-close`}
                             type="time"
                             value={businessHours[day]?.close || '17:00'}
                             onChange={(e) => setBusinessHours({
