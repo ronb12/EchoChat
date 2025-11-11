@@ -923,6 +923,7 @@ function SettingsModal() {
               </label>
               <input
                 id="alias-input"
+                name="alias"
                 type="text"
                 value={alias}
                 onChange={(e) => setAlias(e.target.value)}
@@ -930,6 +931,7 @@ function SettingsModal() {
                 maxLength={50}
                 required
                 disabled={loading}
+                autoComplete="nickname"
               />
               <small style={{ color: 'var(--text-color-secondary)', marginTop: '4px', display: 'block' }}>
                 Use an alias for privacy. Your real name ({getRealName(user) || user?.displayName || 'Not set'}) is kept in your account but won't be shown to others.
@@ -939,11 +941,13 @@ function SettingsModal() {
               <label htmlFor="real-name-input">Real Name (Account)</label>
               <input
                 id="real-name-input"
+                name="real-name"
                 type="text"
                 value={realName}
                 onChange={(e) => setRealName(e.target.value)}
                 placeholder="Your real name for account verification"
                 disabled={loading}
+                autoComplete="name"
               />
               <small style={{ color: 'var(--text-color-secondary)', marginTop: '4px', display: 'block' }}>
                 This is your account name and will be used for verification purposes only.
@@ -965,6 +969,7 @@ function SettingsModal() {
               <label htmlFor="theme-select">Theme</label>
               <select
                 id="theme-select"
+                name="theme-select"
                 value={theme}
                 onChange={toggleTheme}
               >
@@ -979,7 +984,12 @@ function SettingsModal() {
             <h3>Notifications</h3>
             <div className="setting-item">
               <label htmlFor="notifications-toggle">Enable Notifications</label>
-              <input type="checkbox" id="notifications-toggle" defaultChecked />
+              <input
+                type="checkbox"
+                id="notifications-toggle"
+                name="notifications-toggle"
+                defaultChecked
+              />
             </div>
           </div>
 
@@ -987,7 +997,12 @@ function SettingsModal() {
             <h3>Privacy</h3>
             <div className="setting-item">
               <label htmlFor="read-receipts-toggle">Read Receipts</label>
-              <input type="checkbox" id="read-receipts-toggle" defaultChecked />
+              <input
+                type="checkbox"
+                id="read-receipts-toggle"
+                name="read-receipts-toggle"
+                defaultChecked
+              />
             </div>
           </div>
 
@@ -1721,6 +1736,7 @@ function SettingsModal() {
                 <label htmlFor="business-name">Business Name {!hasActiveBusinessSubscription() && <span style={{ color: '#9e9e9e' }}>🔒</span>}</label>
                 <input
                   id="business-name"
+                  name="business-name"
                   type="text"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
@@ -1730,6 +1746,7 @@ function SettingsModal() {
                     opacity: hasActiveBusinessSubscription() ? 1 : 0.6,
                     cursor: hasActiveBusinessSubscription() ? 'text' : 'not-allowed'
                   }}
+                  autoComplete="organization"
                 />
               </div>
 
